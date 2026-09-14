@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { listServices } from "@/app/actions/services";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,11 +20,13 @@ export default async function ServicesPage({ params }: { params: Promise<{ slug:
       ) : (
         <div className="flex flex-col gap-2">
           {services.map((service) => (
-            <Card key={service.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{service.name}</CardTitle>
-              </CardHeader>
-            </Card>
+            <Link key={service.id} href={`/org/${slug}/services/${service.id}/schedule`}>
+              <Card className="transition-colors hover:bg-muted">
+                <CardHeader>
+                  <CardTitle className="text-base">{service.name}</CardTitle>
+                </CardHeader>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
