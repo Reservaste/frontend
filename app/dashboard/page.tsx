@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyOrganizations } from "@/app/actions/organizations";
 import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -34,18 +35,16 @@ export default async function DashboardPage() {
 
       <div className="flex flex-col gap-3">
         {organizations.map(({ organization, membership }) => (
-          <Card key={organization.id}>
-            <CardHeader>
-              <CardTitle>{organization.name}</CardTitle>
-              <CardDescription>
-                {organization.slug} · rol: {membership.role} · zona horaria: {organization.timezone}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              La Agenda y el resto del panel admin se implementan en fases
-              siguientes (ver docs/roadmap.md, Phase 8).
-            </CardContent>
-          </Card>
+          <Link key={organization.id} href={`/org/${organization.slug}`}>
+            <Card className="transition-colors hover:bg-muted">
+              <CardHeader>
+                <CardTitle>{organization.name}</CardTitle>
+                <CardDescription>
+                  {organization.slug} · rol: {membership.role} · zona horaria: {organization.timezone}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          </Link>
         ))}
       </div>
     </div>

@@ -57,6 +57,46 @@ export async function createOrganization(
   redirect(`/dashboard?org=${org.slug}`);
 }
 
+/**
+ * Resolves an Organization by slug and verifies the current user is an
+ * active OWNER/STAFF member of it, in one step -- every org-scoped admin
+ * page/action calls this instead of trusting a client-supplied
+ * organizationId, so membership is always re-checked server-side (RLS is
+ * the real enforcement, this is what turns a blocked query into a clean
+ * redirect instead of a confusing empty page).
+ */
+export async function requireOrganizationMembership(slug: string) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const { data: orgRow, error: orgError } = await supabase
+    .from("organizations")
+    .select("*, organization_members!inner(*)")
+    .eq("slug", slug)
+    .eq("organization_members.profile_id", user.id)
+    .eq("organization_members.is_active", true)
+    .maybeSingle();
+
+  if (orgError || !orgRow) {
+    redirect("/dashboard");
+  }
+
+  const { organization_members, ...organizationRow } = orgRow;
+  const membershipRow = Array.isArray(organization_members) ? organization_members[0] : organization_members;
+
+  return {
+    organization: mapOrganization(organizationRow),
+    membership: mapOrganizationMember(membershipRow),
+  };
+}
+
 /** Organizations where the current user is an active OWNER/STAFF member. */
 export async function getMyOrganizations() {
   const supabase = await createClient();
