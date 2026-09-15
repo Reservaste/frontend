@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
+import { safeReturnTo } from "@/lib/return-to";
 
 export interface AuthActionState {
   error: string | null;
@@ -35,7 +36,9 @@ export async function signUpWithPassword(
     return { error: error.message };
   }
 
-  redirect("/onboarding");
+  // Someone who signed up mid-booking goes back to finish it; someone who
+  // came to set up a business lands on onboarding (ADR-0015).
+  redirect(safeReturnTo(String(formData.get("returnTo") ?? ""), "/onboarding"));
 }
 
 export async function signInWithPassword(
@@ -58,17 +61,18 @@ export async function signInWithPassword(
     return { error: "Email o contraseña incorrectos" };
   }
 
-  redirect("/dashboard");
+  redirect(safeReturnTo(String(formData.get("returnTo") ?? "")));
 }
 
-export async function signInWithGoogle() {
+export async function signInWithGoogle(formData: FormData) {
   const supabase = await createClient();
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const next = safeReturnTo(String(formData.get("returnTo") ?? ""));
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: "google",
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(next)}`,
     },
   });
 

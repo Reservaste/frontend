@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyOrganizations } from "@/app/actions/organizations";
 import { signOut } from "@/app/actions/auth";
+import { isCustomerSomewhere } from "@/app/actions/customer";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -19,7 +20,9 @@ export default async function DashboardPage() {
   const organizations = await getMyOrganizations();
 
   if (organizations.length === 0) {
-    redirect("/onboarding");
+    // A customer isn't a member of anything -- sending them to "create
+    // your organization" would be the wrong door entirely.
+    redirect((await isCustomerSomewhere()) ? "/me" : "/onboarding");
   }
 
   return (

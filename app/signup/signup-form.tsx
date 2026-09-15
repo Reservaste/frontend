@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 
 const initialState: AuthActionState = { error: null };
 
-export function SignupForm() {
+export function SignupForm({ returnTo }: { returnTo: string }) {
   const [state, formAction, pending] = useActionState(signUpWithPassword, initialState);
 
   return (
     <div className="flex flex-col gap-6">
       <form action={formAction} className="flex flex-col gap-4">
+        <input type="hidden" name="returnTo" value={returnTo} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="fullName">Nombre completo</Label>
           <Input id="fullName" name="fullName" type="text" autoComplete="name" required />
@@ -47,6 +48,7 @@ export function SignupForm() {
       </div>
 
       <form action={signInWithGoogle}>
+        <input type="hidden" name="returnTo" value={returnTo} />
         <Button type="submit" variant="outline" className="w-full">
           Continuar con Google
         </Button>
@@ -54,7 +56,10 @@ export function SignupForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         ¿Ya tenés cuenta?{" "}
-        <Link href="/login" className="font-medium text-foreground underline underline-offset-4">
+        <Link
+          href={`/login?returnTo=${encodeURIComponent(returnTo)}`}
+          className="font-medium text-foreground underline underline-offset-4"
+        >
           Ingresá
         </Link>
       </p>

@@ -1,16 +1,20 @@
 import { redirect } from "next/navigation";
+import { safeReturnTo } from "@/lib/return-to";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
+  const { returnTo } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const destination = safeReturnTo(returnTo);
+
   if (user) {
-    redirect("/dashboard");
+    redirect(destination);
   }
 
   return (
@@ -21,7 +25,7 @@ export default async function LoginPage() {
           <CardDescription>Accedé a tu cuenta de Reservaste</CardDescription>
         </CardHeader>
         <CardContent>
-          <LoginForm />
+          <LoginForm returnTo={destination} />
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import type { PublicAvailabilitySlot } from "@reservaste/domain";
 import { getPublicAvailability, getPublicOrganization, listPublicServices } from "@/app/actions/public";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { buttonVariants } from "@/components/ui/button";
+import Link from "next/link";
 import { availabilityLabel } from "./availability-label";
 
 export default async function PublicOrganizationPage({
@@ -66,9 +68,11 @@ export default async function PublicOrganizationPage({
         </div>
       )}
 
-      <p className="text-center text-xs text-muted-foreground">
-        La reserva online todavía no está disponible (Phase 9).
-      </p>
+      {services.length > 0 ? (
+        <Link href={`/${organizationSlug}/reservar`} className={buttonVariants({ variant: "default" })}>
+          Reservar un horario
+        </Link>
+      ) : null}
     </div>
   );
 }
