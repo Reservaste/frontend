@@ -5,6 +5,8 @@ import { getPublicAvailability, getPublicOrganization, listPublicServices } from
 import { availabilityLabel } from "./availability-label";
 import { createClient } from "@/lib/supabase/server";
 import { Brand } from "@/components/brand";
+import { BrandTheme } from "@/components/brand-theme";
+import { OrganizationLogo } from "@/components/organization-logo";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { EmptyState } from "@/components/empty-state";
@@ -40,15 +42,8 @@ export default async function PublicOrganizationPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const initials = organization.name
-    .split(" ")
-    .slice(0, 2)
-    .map((word) => word[0])
-    .join("")
-    .toUpperCase();
-
   return (
-    <div className="flex flex-1 flex-col">
+    <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
       <header className="border-b bg-card">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
           <Brand href={user ? "/dashboard" : "/"} />
@@ -61,9 +56,7 @@ export default async function PublicOrganizationPage({
         </div>
 
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 border-t px-5 py-10 text-center">
-          <span className="flex size-14 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground">
-            {initials}
-          </span>
+          <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="lg" />
           <h1 className="text-2xl">{organization.name}</h1>
           <p className="text-sm text-muted-foreground">Elegí un servicio y reservá tu lugar</p>
           {services.length > 0 ? (
@@ -144,6 +137,6 @@ export default async function PublicOrganizationPage({
           Horarios en {organization.timezone.replace("_", " ")} · con Reservaste
         </p>
       </footer>
-    </div>
+    </BrandTheme>
   );
 }

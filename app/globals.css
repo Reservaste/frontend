@@ -175,6 +175,28 @@
   --shadow-raised: 0 4px 14px -2px oklch(0 0 0 / 0.45), 0 2px 6px -2px oklch(0 0 0 / 0.30);
 }
 
+/* Per-organization branding (ADR-0020).
+
+   A branded subtree sets exactly two values inline: --brand (validated as
+   #rrggbb by a CHECK constraint before it ever gets here) and
+   --brand-foreground (derived from it, never chosen -- see brandTheme()).
+   Everything else is derived here so the palette stays internally
+   consistent no matter which colour a business picks.
+
+   The semantic colours are deliberately absent: success, warning and
+   destructive keep their meaning across every tenant. A "Cancelar" button
+   that turned brand-yellow because the gym likes yellow is a hazard, not
+   a theme. */
+[data-brand] {
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --primary-hover: var(--brand-hover);
+  /* Mixed against the canvas rather than hardcoded, so this still holds
+     if the dark theme is ever switched on. */
+  --primary-subtle: color-mix(in oklab, var(--brand) 12%, var(--background));
+  --ring: var(--brand);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

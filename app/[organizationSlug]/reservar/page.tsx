@@ -6,6 +6,8 @@ import { availabilityLabel } from "../availability-label";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { ChevronLeft } from "@/components/icons";
+import { BrandTheme } from "@/components/brand-theme";
+import { OrganizationLogo } from "@/components/organization-logo";
 
 export const metadata = { title: "Reservar" };
 
@@ -66,7 +68,7 @@ export default async function ReservarPage({
     : [];
 
   return (
-    <div className="flex flex-1 flex-col">
+    <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
       <header className="sticky top-0 z-10 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-lg items-center gap-3 px-5 py-3">
           <Link
@@ -77,6 +79,7 @@ export default async function ReservarPage({
           >
             <ChevronLeft />
           </Link>
+          <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="sm" />
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold">{organization.name}</span>
             <span className="text-xs text-muted-foreground">Nueva reserva</span>
@@ -196,6 +199,6 @@ export default async function ReservarPage({
           Horarios en {organization.timezone.replace("_", " ")}
         </p>
       </footer>
-    </div>
+    </BrandTheme>
   );
 }

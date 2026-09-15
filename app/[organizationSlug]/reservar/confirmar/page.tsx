@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { checkCanBook, getSlotDetail } from "@/app/actions/customer";
+import { getPublicOrganization } from "@/app/actions/public";
 import { BOOKING_REASONS } from "@/lib/booking-reasons";
 import { availabilityLabel } from "../../availability-label";
 import { createClient } from "@/lib/supabase/server";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { BackLink } from "@/components/back-link";
+import { BrandTheme } from "@/components/brand-theme";
 import { ConfirmForm } from "./confirm-form";
 
 export const metadata = { title: "Confirmar reserva" };
@@ -54,6 +56,9 @@ export default async function ConfirmarPage({
   }
 
   const canBook = await checkCanBook(slot);
+  // public_slot_detail() carries the slot, not the business's branding --
+  // this page still has to look like the page the visitor came from.
+  const organization = await getPublicOrganization(organizationSlug);
 
   const dateFormatter = new Intl.DateTimeFormat("es-UY", {
     timeZone: detail.organizationTimezone,
@@ -72,7 +77,10 @@ export default async function ConfirmarPage({
   const end = new Date(detail.endAt);
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-5 py-8">
+    <BrandTheme
+      color={organization?.brandColor ?? null}
+      className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-5 py-8"
+    >
       <BackLink href={`/${organizationSlug}/reservar?service=${detail.serviceId}`}>
         Elegir otro horario
       </BackLink>
@@ -118,6 +126,6 @@ export default async function ConfirmarPage({
       <p className="text-center text-xs text-muted-foreground">
         Horario en {detail.organizationTimezone.replace("_", " ")}
       </p>
-    </div>
+    </BrandTheme>
   );
 }

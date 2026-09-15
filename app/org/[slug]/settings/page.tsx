@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { getPlanUsage } from "@/app/actions/platform";
 import { PlanUsageCard } from "@/components/plan-usage";
 import { SettingsForm } from "./settings-form";
+import { BrandingForm } from "./branding-form";
 
 export const metadata = { title: "Configuración" };
 
@@ -18,6 +19,12 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         description={`Tu página pública es reservaste.app/${organization.slug}`}
       />
       {usage ? <PlanUsageCard usage={usage} /> : null}
+
+      <BrandingForm
+        organizationSlug={slug}
+        organization={organization}
+        canEdit={membership.role === "OWNER"}
+      />
 
       <SettingsForm
         organizationSlug={slug}

@@ -3,6 +3,8 @@ import { getMyOrganizations, requireOrganizationMembership } from "@/app/actions
 import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand";
+import { BrandTheme } from "@/components/brand-theme";
+import { OrganizationLogo } from "@/components/organization-logo";
 import { OrgNav } from "@/components/org-nav";
 
 export default async function OrganizationLayout({ children, params }: LayoutProps<"/org/[slug]">) {
@@ -13,7 +15,7 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
   ]);
 
   return (
-    <div className="flex flex-1 flex-col">
+    <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
       <header className="border-b bg-card">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -28,6 +30,7 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
             >
               <BrandMark />
             </Link>
+            <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="sm" />
             <div className="flex min-w-0 flex-col">
               <Link href={`/org/${slug}`} className="truncate text-sm font-semibold hover:underline">
                 {organization.name}
@@ -65,6 +68,6 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
       </header>
 
       <main className="flex flex-1 flex-col">{children}</main>
-    </div>
+    </BrandTheme>
   );
 }
