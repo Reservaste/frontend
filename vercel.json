@@ -1,0 +1,5 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "git config --global url.\"https://$DOMAIN_REPO_TOKEN@github.com/\".insteadOf \"https://github.com/\" && npm ci"
+}
