@@ -15,6 +15,21 @@ export function OnboardingForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-2">
+        <Label htmlFor="inviteCode">Código de invitación</Label>
+        <Input
+          id="inviteCode"
+          name="inviteCode"
+          type="text"
+          placeholder="ABCD234XYZ"
+          required
+          autoCapitalize="characters"
+          className="font-mono tracking-widest uppercase"
+        />
+        <p className="text-xs text-muted-foreground">
+          Te lo damos al contratar el plan. Si no tenés uno, escribinos.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
         <Label htmlFor="name">Nombre del negocio</Label>
         <Input id="name" name="name" type="text" placeholder="Iron Gym" required />
       </div>

@@ -20,6 +20,11 @@ export async function createOrganization(
   _prevState: CreateOrganizationState,
   formData: FormData,
 ): Promise<CreateOrganizationState> {
+  const inviteCode = String(formData.get("inviteCode") ?? "").trim();
+  if (!inviteCode) {
+    return { error: "Necesitás un código de invitación para crear una organización" };
+  }
+
   const parsed = createOrganizationSchema.safeParse({
     slug: formData.get("slug"),
     name: formData.get("name"),
@@ -44,11 +49,27 @@ export async function createOrganization(
     p_slug: parsed.data.slug,
     p_name: parsed.data.name,
     p_timezone: parsed.data.timezone,
+    p_invite_code: inviteCode,
   });
 
   if (error) {
     if (error.code === "23505") {
       return { error: "Ese slug ya está en uso, elegí otro" };
+    }
+    // The invite failures are the ones a buyer can actually act on, so
+    // each gets its own wording instead of a generic failure.
+    const message = error.message ?? "";
+    if (message.includes("INVITE_NOT_FOUND")) {
+      return { error: "Ese código no existe. Revisá que esté bien escrito." };
+    }
+    if (message.includes("INVITE_ALREADY_USED")) {
+      return { error: "Ese código ya se usó para crear otra organización." };
+    }
+    if (message.includes("INVITE_EXPIRED")) {
+      return { error: "Ese código venció. Pedí uno nuevo." };
+    }
+    if (message.includes("INVITE_WRONG_EMAIL")) {
+      return { error: "Ese código está reservado para otra cuenta de email." };
     }
     return { error: "No se pudo crear la organización" };
   }
