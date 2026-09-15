@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: AuthActionState = { error: null };
+const initialState: AuthActionState = { error: null, notice: null };
 
 export function SignupForm({ returnTo }: { returnTo: string }) {
   const [state, formAction, pending] = useActionState(signUpWithPassword, initialState);
@@ -36,6 +36,9 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
           />
         </div>
         {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+        {state.notice ? (
+          <p className="rounded-md bg-muted p-3 text-sm">{state.notice}</p>
+        ) : null}
         <Button type="submit" disabled={pending} className="w-full">
           {pending ? "Creando cuenta..." : "Crear cuenta"}
         </Button>

@@ -7,6 +7,8 @@ import { safeReturnTo } from "@/lib/return-to";
 
 export interface AuthActionState {
   error: string | null;
+  /** Not a failure: e.g. the account was created but needs email confirmation. */
+  notice?: string | null;
 }
 
 export async function signUpWithPassword(
@@ -24,7 +26,7 @@ export async function signUpWithPassword(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
@@ -34,6 +36,18 @@ export async function signUpWithPassword(
 
   if (error) {
     return { error: error.message };
+  }
+
+  // With "Confirm email" enabled, signUp creates the user but no session.
+  // Redirecting as if they were signed in would bounce them straight back
+  // to /login with no explanation -- which is exactly how this looked
+  // like a wrong-password problem the first time it happened.
+  if (!data.session) {
+    return {
+      error: null,
+      notice:
+        "Creamos tu cuenta. Revisá tu email para confirmarla antes de ingresar (mirá también el spam).",
+    };
   }
 
   // Someone who signed up mid-booking goes back to finish it; someone who
@@ -58,6 +72,19 @@ export async function signInWithPassword(
   const { error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
+    // Supabase returns the same shape for several distinct situations;
+    // collapsing them all into "wrong password" sends people to reset a
+    // password that was never the problem.
+    const message = error.message.toLowerCase();
+    if (message.includes("not confirmed")) {
+      return {
+        error:
+          "Tu cuenta todavía no está confirmada. Buscá el email de confirmación (revisá el spam) o pedile al negocio que la active.",
+      };
+    }
+    if (message.includes("rate limit") || error.status === 429) {
+      return { error: "Demasiados intentos seguidos. Esperá un momento y probá de nuevo." };
+    }
     return { error: "Email o contraseña incorrectos" };
   }
 
