@@ -149,6 +149,23 @@ export async function registerPayment(
     return { error: "Completá el servicio habilitado y el período", success: null };
   }
 
+  // Registering a payment can unblock pending dates of a standing
+  // reservation (the database reconciles them on insert). Counting before
+  // and after is how the front desk finds out it happened -- otherwise
+  // the classes silently confirm on a page nobody is looking at.
+  const countPendingDates = async () => {
+    const { count } = await supabase
+      .from("bookings")
+      .select("id, slot_occurrences!inner(start_at)", { count: "exact", head: true })
+      .eq("customer_id", customerId)
+      .eq("status", "NOT_GENERATED")
+      .not("recurring_booking_id", "is", null)
+      .gte("slot_occurrences.start_at", new Date().toISOString());
+    return count ?? 0;
+  };
+
+  const pendingBefore = await countPendingDates();
+
   const { error } = await supabase.from("payments").insert({
     organization_id: organization.id,
     customer_id: customerId,
@@ -174,8 +191,19 @@ export async function registerPayment(
     return { error: "No se pudo registrar el pago", success: null };
   }
 
-  revalidatePath(`/org/${organizationSlug}/customers/${customerId}`);
-  return { error: null, success: "Pago registrado" };
+  const confirmed = pendingBefore - (await countPendingDates());
+
+  // "layout" so the service schedule pages, which show the standing
+  // reservations, pick up the newly confirmed dates too.
+  revalidatePath(`/org/${organizationSlug}`, "layout");
+
+  return {
+    error: null,
+    success:
+      confirmed > 0
+        ? `Pago registrado · se confirmaron ${confirmed} ${confirmed === 1 ? "fecha" : "fechas"} del horario fijo`
+        : "Pago registrado",
+  };
 }
 
 export async function voidPayment(
