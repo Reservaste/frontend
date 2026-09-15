@@ -2,6 +2,7 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getTeam, revokeMember } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status";
+import { roleLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
 import { InviteForm } from "./invite-form";
 
@@ -21,7 +22,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
         <InviteForm organizationSlug={slug} />
       ) : (
         <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
-          Solo un OWNER puede modificar el equipo.
+          Solo el dueño puede modificar el equipo.
         </p>
       )}
 
@@ -37,7 +38,7 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                 .toUpperCase()}
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-medium">{member.fullName}</span>
-            <StatusBadge tone={member.role === "OWNER" ? "primary" : "neutral"}>{member.role}</StatusBadge>
+            <StatusBadge tone={member.role === "OWNER" ? "primary" : "neutral"}>{roleLabel(member.role)}</StatusBadge>
             {!member.isActive ? <StatusBadge tone="danger">Sin acceso</StatusBadge> : null}
             {isOwner && member.isActive ? (
               <form action={revokeMember.bind(null, slug, member.memberId)}>

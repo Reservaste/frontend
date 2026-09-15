@@ -4,11 +4,10 @@ import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { BrandMark } from "@/components/brand";
 import { OrgNav } from "@/components/org-nav";
-import { StatusBadge } from "@/components/status";
 
 export default async function OrganizationLayout({ children, params }: LayoutProps<"/org/[slug]">) {
   const { slug } = await params;
-  const { organization, membership } = await requireOrganizationMembership(slug);
+  const { organization } = await requireOrganizationMembership(slug);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -22,9 +21,6 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
               </Link>
               <span className="text-xs text-muted-foreground">/{organization.slug}</span>
             </div>
-            <StatusBadge tone={membership.role === "OWNER" ? "primary" : "neutral"}>
-              {membership.role}
-            </StatusBadge>
           </div>
 
           <div className="flex items-center gap-1">

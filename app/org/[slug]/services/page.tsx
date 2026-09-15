@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { listServices } from "@/app/actions/services";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ServiceForm } from "./service-form";
+import { ServiceRow } from "./service-row";
 
 export const metadata = { title: "Servicios" };
 
@@ -26,24 +26,7 @@ export default async function ServicesPage({ params }: { params: Promise<{ slug:
       ) : (
         <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
           {services.map((service) => (
-            <li key={service.id}>
-              <Link
-                href={`/org/${slug}/services/${service.id}/schedule`}
-                className="flex items-center justify-between gap-3 px-4 py-3.5 transition-colors hover:bg-muted"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="font-medium">{service.name}</span>
-                  {service.description ? (
-                    <span className="truncate text-sm text-muted-foreground">{service.description}</span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">Configurar horarios</span>
-                  )}
-                </div>
-                <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0 text-muted-foreground">
-                  <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </Link>
-            </li>
+            <ServiceRow key={service.id} organizationSlug={slug} service={service} />
           ))}
         </ul>
       )}

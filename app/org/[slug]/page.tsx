@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { OccupancyBar } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
+import { cityForTimezone } from "@/lib/timezones";
 
 export const metadata = { title: "Inicio" };
 
@@ -40,7 +41,7 @@ export default async function OrganizationHomePage({ params }: { params: Promise
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-5 py-6">
       <PageHeader
         title={organization.name}
-        description={`Zona horaria ${organization.timezone}`}
+        description={cityForTimezone(organization.timezone)}
         actions={
           <Link href={`/org/${slug}/agenda`} className={buttonVariants({ size: "sm" })}>
             Ir a la agenda

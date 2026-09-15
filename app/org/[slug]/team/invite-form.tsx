@@ -36,8 +36,8 @@ export function InviteForm({ organizationSlug }: { organizationSlug: string }) {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="role">Rol</Label>
           <select id="role" name="role" className={selectClass}>
-            <option value="STAFF">STAFF</option>
-            <option value="OWNER">OWNER</option>
+            <option value="STAFF">Equipo</option>
+            <option value="OWNER">Dueño</option>
           </select>
         </div>
         <Button type="submit" disabled={pending}>
@@ -45,7 +45,7 @@ export function InviteForm({ organizationSlug }: { organizationSlug: string }) {
         </Button>
       </div>
       <p className="text-xs text-muted-foreground">
-        STAFF gestiona la agenda y los clientes. OWNER además maneja el equipo y la configuración.
+        Equipo gestiona la agenda y los clientes. Dueño además maneja el equipo y la configuración.
       </p>
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-sm text-success">{state.success}</p> : null}

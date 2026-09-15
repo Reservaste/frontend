@@ -24,7 +24,7 @@ export function OrgNav({ slug }: { slug: string }) {
   const base = `/org/${slug}`;
 
   return (
-    <nav className="mx-auto w-full max-w-5xl overflow-x-auto px-5">
+    <nav className="no-scrollbar mx-auto w-full max-w-5xl overflow-x-auto px-5">
       <ul className="flex gap-0.5 text-sm">
         {ITEMS.map((item) => {
           const href = `${base}${item.href}`;

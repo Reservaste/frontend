@@ -14,7 +14,7 @@ export async function updateOrganizationSettings(
   const { organization, membership } = await requireOrganizationMembership(organizationSlug);
 
   if (membership.role !== "OWNER") {
-    return { error: "Solo un OWNER puede cambiar la configuración", success: null };
+    return { error: "Solo el dueño puede cambiar la configuración", success: null };
   }
 
   const timezone = String(formData.get("timezone") ?? "");

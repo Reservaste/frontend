@@ -120,7 +120,7 @@ export default async function ReservarPage({
               <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 2 · Día
               </h2>
-              <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+              <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
                 {days.map((day) => {
                   const active = day === selectedDay;
                   const date = new Date(`${day}T12:00:00Z`);

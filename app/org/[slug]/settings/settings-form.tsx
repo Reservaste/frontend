@@ -7,6 +7,7 @@ import { updateOrganizationSettings } from "@/app/actions/settings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TimezonePicker } from "@/components/timezone-picker";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -25,7 +26,7 @@ export function SettingsForm({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-4 rounded-lg border p-4">
+    <form action={formAction} className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card">
       <fieldset disabled={!canEdit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="name">Nombre</Label>
@@ -33,10 +34,9 @@ export function SettingsForm({
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="timezone">Zona horaria</Label>
-          <Input id="timezone" name="timezone" defaultValue={organization.timezone} required />
+          <TimezonePicker defaultValue={organization.timezone} disabled={!canEdit} />
           <p className="text-xs text-muted-foreground">
-            Nombre IANA, ej. America/Montevideo. Define en qué horario se muestran y generan los turnos.
+            Define en qué horario se muestran y generan los turnos.
           </p>
         </div>
 
@@ -91,7 +91,7 @@ export function SettingsForm({
       </fieldset>
 
       {!canEdit ? (
-        <p className="text-sm text-muted-foreground">Solo un OWNER puede cambiar la configuración.</p>
+        <p className="text-sm text-muted-foreground">Solo el dueño puede cambiar la configuración.</p>
       ) : null}
     </form>
   );

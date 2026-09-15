@@ -28,7 +28,7 @@ export default async function OnboardingPage() {
         <div className="mb-6 flex flex-col gap-1">
           <h1 className="text-xl">Creá tu organización</h1>
           <p className="text-sm text-muted-foreground">
-            Vas a ser el OWNER de este negocio. Podés invitar a tu equipo después.
+            Vas a ser el dueño de este negocio. Podés invitar a tu equipo después.
           </p>
         </div>
         <OnboardingForm />

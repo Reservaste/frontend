@@ -3,6 +3,7 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { ResourceForm } from "./resource-form";
+import { ResourceRow } from "./resource-row";
 
 export const metadata = { title: "Recursos" };
 
@@ -28,12 +29,7 @@ export default async function ResourcesPage({ params }: { params: Promise<{ slug
       ) : (
         <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
           {resources.map((resource) => (
-            <li key={resource.id} className="flex flex-col px-4 py-3.5">
-              <span className="font-medium">{resource.name}</span>
-              {resource.description ? (
-                <span className="text-sm text-muted-foreground">{resource.description}</span>
-              ) : null}
-            </li>
+            <ResourceRow key={resource.id} organizationSlug={slug} resource={resource} />
           ))}
         </ul>
       )}

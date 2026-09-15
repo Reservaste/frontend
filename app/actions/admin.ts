@@ -182,7 +182,7 @@ function describeError(message: string | undefined): string {
     return "No existe una cuenta con ese email. La persona tiene que registrarse primero.";
   }
   if (message.includes("NOT_AUTHORIZED")) return "No tenés permiso para hacer esto";
-  if (message.includes("LAST_OWNER")) return "No podés quitar al último OWNER de la organización";
+  if (message.includes("LAST_OWNER")) return "No podés quitar al último dueño de la organización";
   if (message.includes("CAPACITY_BELOW_ACTIVE_BOOKINGS")) {
     return "La capacidad no puede quedar por debajo de las reservas ya confirmadas";
   }
@@ -240,7 +240,7 @@ export async function inviteMember(
   }
 
   revalidatePath(`/org/${organizationSlug}/team`);
-  return { error: null, success: `${email} se sumó al equipo como ${role}` };
+  return { error: null, success: `${email} se sumó como ${role === "OWNER" ? "dueño" : "equipo"}` };
 }
 
 // Plain <form action> targets: React requires these to resolve to void.

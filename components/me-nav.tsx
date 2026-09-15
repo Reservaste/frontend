@@ -14,7 +14,7 @@ export function MeNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="mx-auto w-full max-w-lg overflow-x-auto px-5">
+    <nav className="no-scrollbar mx-auto w-full max-w-lg overflow-x-auto px-5">
       <ul className="flex gap-0.5 text-sm">
         {ITEMS.map((item) => {
           const active = item.href === "/me" ? pathname === "/me" : pathname.startsWith(item.href);

@@ -195,4 +195,14 @@
   .tnum {
     font-variant-numeric: tabular-nums;
   }
+  /* Horizontal strips (nav tabs, the day picker) still scroll, but the
+     scrollbar track itself took vertical space and read as a stray line
+     under the header. */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -5,6 +5,7 @@ import { createOrganization, type CreateOrganizationState } from "@/app/actions/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { TimezonePicker } from "@/components/timezone-picker";
 
 const initialState: CreateOrganizationState = { error: null };
 
@@ -24,10 +25,7 @@ export function OnboardingForm() {
           <Input id="slug" name="slug" type="text" placeholder="iron-gym" required className="flex-1" />
         </div>
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="timezone">Zona horaria</Label>
-        <Input id="timezone" name="timezone" type="text" defaultValue="America/Montevideo" required />
-      </div>
+      <TimezonePicker />
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
       <Button type="submit" disabled={pending} className="w-full">
         {pending ? "Creando..." : "Crear organización"}
