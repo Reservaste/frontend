@@ -2,49 +2,48 @@ import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
-
-const NAV = [
-  { href: "", label: "Inicio" },
-  { href: "/agenda", label: "Agenda" },
-  { href: "/customers", label: "Clientes" },
-  { href: "/services", label: "Servicios" },
-  { href: "/resources", label: "Recursos" },
-  { href: "/team", label: "Equipo" },
-  { href: "/settings", label: "Configuración" },
-];
+import { BrandMark } from "@/components/brand";
+import { OrgNav } from "@/components/org-nav";
+import { StatusBadge } from "@/components/status";
 
 export default async function OrganizationLayout({ children, params }: LayoutProps<"/org/[slug]">) {
   const { slug } = await params;
-  const { organization } = await requireOrganizationMembership(slug);
+  const { organization, membership } = await requireOrganizationMembership(slug);
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b">
-        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <Link href={`/org/${slug}`} className="text-sm font-semibold">
-            {organization.name}
-          </Link>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="xs">
-              Cerrar sesión
-            </Button>
-          </form>
+      <header className="border-b bg-card">
+        <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <BrandMark />
+            <div className="flex min-w-0 flex-col">
+              <Link href={`/org/${slug}`} className="truncate text-sm font-semibold hover:underline">
+                {organization.name}
+              </Link>
+              <span className="text-xs text-muted-foreground">/{organization.slug}</span>
+            </div>
+            <StatusBadge tone={membership.role === "OWNER" ? "primary" : "neutral"}>
+              {membership.role}
+            </StatusBadge>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Link
+              href={`/${organization.slug}`}
+              className="rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Ver página pública
+            </Link>
+            <form action={signOut}>
+              <Button type="submit" variant="ghost" size="sm">
+                Salir
+              </Button>
+            </form>
+          </div>
         </div>
-        <nav className="mx-auto w-full max-w-5xl overflow-x-auto px-4 pb-2">
-          <ul className="flex gap-1 text-sm">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={`/org/${slug}${item.href}`}
-                  className="inline-block whitespace-nowrap rounded-md px-3 py-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <OrgNav slug={slug} />
       </header>
+
       <main className="flex flex-1 flex-col">{children}</main>
     </div>
   );

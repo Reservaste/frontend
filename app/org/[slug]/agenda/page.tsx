@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getAgenda, getCustomers, getOccurrenceAttendees } from "@/app/actions/admin";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
+import { OccupancyBar, StatusBadge } from "@/components/status";
+import { buttonVariants } from "@/components/ui/button";
 import { OccurrenceActions } from "./occurrence-actions";
+
+export const metadata = { title: "Agenda" };
 
 type View = "day" | "week";
 
@@ -9,12 +15,11 @@ type View = "day" | "week";
  * Start of the given local day *in the organization's timezone*, returned
  * as a real instant. Everything the agenda queries is timestamptz, so the
  * range has to be built from the org's wall clock, not the server's --
- * otherwise a Montevideo gym running on a US-hosted server would see the
- * wrong day's classes around midnight (ADR-0014).
+ * otherwise a Montevideo gym on a US-hosted server would see the wrong
+ * day's classes around midnight (ADR-0014).
  */
 function startOfLocalDay(date: Date, timeZone: string): Date {
-  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone }).format(date); // YYYY-MM-DD
-  // Probe the zone's offset at that date, then subtract it from midnight.
+  const localDate = new Intl.DateTimeFormat("en-CA", { timeZone }).format(date);
   const probe = new Date(`${localDate}T00:00:00Z`);
   const asLocal = new Date(probe.toLocaleString("en-US", { timeZone }));
   const asUtc = new Date(probe.toLocaleString("en-US", { timeZone: "UTC" }));
@@ -45,7 +50,6 @@ export default async function AgendaPage({
   const to = addDays(from, view === "week" ? 7 : 1);
 
   const [occurrences, customers] = await Promise.all([getAgenda(slug, from, to), getCustomers(slug)]);
-
   const attendeesByOccurrence = await Promise.all(
     occurrences.map((occ) => getOccurrenceAttendees(slug, occ.id)),
   );
@@ -53,8 +57,8 @@ export default async function AgendaPage({
   const dayFormatter = new Intl.DateTimeFormat("es-UY", {
     timeZone: organization.timezone,
     weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
+    day: "numeric",
+    month: "long",
   });
   const timeFormatter = new Intl.DateTimeFormat("es-UY", {
     timeZone: organization.timezone,
@@ -62,16 +66,13 @@ export default async function AgendaPage({
     minute: "2-digit",
     hourCycle: "h23",
   });
+  const isoFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone });
 
-  const anchorIso = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone }).format(anchor);
-  const prevIso = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone }).format(
-    addDays(anchor, view === "week" ? -7 : -1),
-  );
-  const nextIso = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone }).format(
-    addDays(anchor, view === "week" ? 7 : 1),
-  );
+  const anchorIso = isoFormatter.format(anchor);
+  const prevIso = isoFormatter.format(addDays(anchor, view === "week" ? -7 : -1));
+  const nextIso = isoFormatter.format(addDays(anchor, view === "week" ? 7 : 1));
+  const todayIso = isoFormatter.format(new Date());
 
-  // Group by local day so the week view reads as days, not one long list.
   const groups = new Map<string, typeof occurrences>();
   for (const occ of occurrences) {
     const key = dayFormatter.format(new Date(occ.startAt));
@@ -80,94 +81,139 @@ export default async function AgendaPage({
     groups.set(key, list);
   }
 
-  return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 sm:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold">Agenda</h1>
-        <div className="flex items-center gap-1 text-sm">
-          <Link
-            href={`/org/${slug}/agenda?view=day&date=${anchorIso}`}
-            className={`rounded-md px-2 py-1 ${view === "day" ? "bg-muted font-medium" : "text-muted-foreground"}`}
-          >
-            Día
-          </Link>
-          <Link
-            href={`/org/${slug}/agenda?view=week&date=${anchorIso}`}
-            className={`rounded-md px-2 py-1 ${view === "week" ? "bg-muted font-medium" : "text-muted-foreground"}`}
-          >
-            Semana
-          </Link>
-        </div>
-      </div>
+  const totalConfirmed = occurrences.reduce((sum, o) => sum + o.confirmedCount, 0);
+  const totalCapacity = occurrences.reduce((sum, o) => sum + o.capacity, 0);
 
-      <div className="flex items-center justify-between text-sm">
-        <Link href={`/org/${slug}/agenda?view=${view}&date=${prevIso}`} className="text-muted-foreground hover:text-foreground">
-          ← Anterior
+  const navLink =
+    "inline-flex size-8 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
+
+  return (
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-5 px-5 py-6">
+      <PageHeader
+        title="Agenda"
+        description={
+          occurrences.length > 0
+            ? `${occurrences.length} turnos · ${totalConfirmed} de ${totalCapacity} lugares tomados`
+            : undefined
+        }
+        actions={
+          <div className="flex items-center gap-1 rounded-lg border bg-card p-0.5">
+            {(["day", "week"] as const).map((option) => (
+              <Link
+                key={option}
+                href={`/org/${slug}/agenda?view=${option}&date=${anchorIso}`}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  view === option ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {option === "day" ? "Día" : "Semana"}
+              </Link>
+            ))}
+          </div>
+        }
+      />
+
+      <div className="flex items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2 shadow-card">
+        <Link href={`/org/${slug}/agenda?view=${view}&date=${prevIso}`} className={navLink} aria-label="Anterior">
+          <svg viewBox="0 0 24 24" fill="none" className="size-4">
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </Link>
-        <span className="text-muted-foreground">{organization.timezone}</span>
-        <Link href={`/org/${slug}/agenda?view=${view}&date=${nextIso}`} className="text-muted-foreground hover:text-foreground">
-          Siguiente →
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium capitalize">{dayFormatter.format(from)}</span>
+          {anchorIso !== todayIso ? (
+            <Link
+              href={`/org/${slug}/agenda?view=${view}&date=${todayIso}`}
+              className="rounded-md px-2 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary-subtle"
+            >
+              Hoy
+            </Link>
+          ) : null}
+        </div>
+
+        <Link href={`/org/${slug}/agenda?view=${view}&date=${nextIso}`} className={navLink} aria-label="Siguiente">
+          <svg viewBox="0 0 24 24" fill="none" className="size-4">
+            <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </Link>
       </div>
 
       {occurrences.length === 0 ? (
-        <div className="rounded-lg border border-dashed p-8 text-center">
-          <p className="text-sm text-muted-foreground">
-            No hay horarios en este período.
-          </p>
-          <Link href={`/org/${slug}/services`} className="mt-2 inline-block text-sm underline underline-offset-4">
-            Configurar horarios
-          </Link>
-        </div>
+        <EmptyState
+          title="No hay turnos en este período"
+          description="Los turnos se generan solos a partir de los horarios que cargues en cada servicio."
+          action={
+            <Link href={`/org/${slug}/services`} className={buttonVariants({ size: "sm" })}>
+              Configurar horarios
+            </Link>
+          }
+        />
       ) : (
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-6">
           {[...groups.entries()].map(([day, dayOccurrences]) => (
             <section key={day} className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium capitalize text-muted-foreground">{day}</h2>
+              {view === "week" ? (
+                <h2 className="text-xs font-semibold uppercase tracking-wider capitalize text-muted-foreground">
+                  {day}
+                </h2>
+              ) : null}
+
               {dayOccurrences.map((occ) => {
                 const index = occurrences.indexOf(occ);
                 const attendees = attendeesByOccurrence[index] ?? [];
                 const available = occ.capacity - occ.confirmedCount;
                 const isCancelled = occ.status === "CANCELLED";
+                const isBlocked = occ.status === "BLOCKED";
 
                 return (
                   <article
                     key={occ.id}
-                    className={`flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3 ${
+                    className={`overflow-hidden rounded-xl border bg-card shadow-card transition-opacity ${
                       isCancelled ? "opacity-60" : ""
                     }`}
                   >
-                    <div className="flex flex-col">
-                      <span className="text-base font-semibold tabular-nums">
-                        {timeFormatter.format(new Date(occ.startAt))}
-                      </span>
-                      <span className="text-sm">{occ.serviceName}</span>
-                      <span className="text-xs text-muted-foreground">{occ.resourceName}</span>
+                    <div className="flex flex-wrap items-start gap-4 px-4 py-3.5">
+                      <div className="flex min-w-14 flex-col">
+                        <span className="tnum text-lg font-semibold leading-tight">
+                          {timeFormatter.format(new Date(occ.startAt))}
+                        </span>
+                        <span className="tnum text-xs text-muted-foreground">
+                          {timeFormatter.format(new Date(occ.endAt))}
+                        </span>
+                      </div>
+
+                      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium">{occ.serviceName}</span>
+                          {isCancelled ? <StatusBadge tone="danger">Cancelado</StatusBadge> : null}
+                          {isBlocked ? <StatusBadge tone="warning">Bloqueado</StatusBadge> : null}
+                        </div>
+                        <span className="text-xs text-muted-foreground">{occ.resourceName}</span>
+                        <OccupancyBar confirmed={occ.confirmedCount} capacity={occ.capacity} className="max-w-48" />
+                      </div>
+
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="tnum text-lg font-semibold leading-none">
+                          {occ.confirmedCount}
+                          <span className="text-sm font-normal text-muted-foreground">/{occ.capacity}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {isCancelled
+                            ? "—"
+                            : `${available} ${available === 1 ? "libre" : "libres"}`}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex flex-col items-end">
-                      <span className="text-base font-semibold tabular-nums">
-                        {occ.confirmedCount} / {occ.capacity}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {isCancelled
-                          ? "Cancelado"
-                          : occ.status === "BLOCKED"
-                            ? "Bloqueado"
-                            : `${available} ${available === 1 ? "disponible" : "disponibles"}`}
-                      </span>
-                    </div>
-
-                    <div className="w-full">
-                      <OccurrenceActions
-                        organizationSlug={slug}
-                        occurrenceId={occ.id}
-                        capacity={occ.capacity}
-                        attendees={attendees}
-                        customers={customers}
-                        isCancelled={isCancelled}
-                      />
-                    </div>
+                    <OccurrenceActions
+                      organizationSlug={slug}
+                      occurrenceId={occ.id}
+                      capacity={occ.capacity}
+                      attendees={attendees}
+                      customers={customers}
+                      isCancelled={isCancelled}
+                    />
                   </article>
                 );
               })}

@@ -3,11 +3,14 @@ import { notFound } from "next/navigation";
 import type { PublicAvailabilitySlot } from "@reservaste/domain";
 import { getPublicAvailability, getPublicOrganization, listPublicServices } from "@/app/actions/public";
 import { availabilityLabel } from "../availability-label";
-import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/empty-state";
+import { StatusBadge, availabilityTone } from "@/components/status";
 
-// Mobile-first: this is the screen someone opens on their phone standing
-// in the gym. Everything above the fold is the choice they're making --
-// service, day, time -- and nothing else.
+export const metadata = { title: "Reservar" };
+
+// Mobile-first: this is opened on a phone, standing in the gym. The three
+// choices stack in the order they're made -- service, day, time -- and
+// the time grid is the only thing that scrolls.
 
 export default async function ReservarPage({
   params,
@@ -27,9 +30,11 @@ export default async function ReservarPage({
   const services = await listPublicServices(organization.id);
   if (services.length === 0) {
     return (
-      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 p-4">
-        <h1 className="text-xl font-semibold">{organization.name}</h1>
-        <p className="text-sm text-muted-foreground">Este negocio todavía no publicó servicios.</p>
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-8">
+        <EmptyState
+          title="Sin servicios publicados"
+          description={`${organization.name} todavía no publicó servicios para reservar.`}
+        />
       </div>
     );
   }
@@ -37,13 +42,10 @@ export default async function ReservarPage({
   const selectedService = services.find((s) => s.id === serviceParam) ?? services[0]!;
   const slots = await getPublicAvailability(organizationSlug, selectedService.id);
 
-  const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone });
-  const dayLabelFormatter = new Intl.DateTimeFormat("es-UY", {
-    timeZone: organization.timezone,
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-  });
+  const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: organization.timezone });
+  const dayWeekday = new Intl.DateTimeFormat("es-UY", { timeZone: organization.timezone, weekday: "short" });
+  const dayNumber = new Intl.DateTimeFormat("es-UY", { timeZone: organization.timezone, day: "2-digit" });
+  const dayMonth = new Intl.DateTimeFormat("es-UY", { timeZone: organization.timezone, month: "short" });
   const timeFormatter = new Intl.DateTimeFormat("es-UY", {
     timeZone: organization.timezone,
     hour: "2-digit",
@@ -51,105 +53,149 @@ export default async function ReservarPage({
     hourCycle: "h23",
   });
 
-  // Days that actually have slots, in the organization's timezone -- no
-  // point offering an empty Tuesday.
   const days: string[] = [];
   for (const slot of slots) {
-    const key = dayKeyFormatter.format(new Date(slot.startAt));
+    const key = dayKey.format(new Date(slot.startAt));
     if (!days.includes(key)) days.push(key);
   }
 
   const selectedDay = dateParam && days.includes(dateParam) ? dateParam : days[0];
   const daySlots: PublicAvailabilitySlot[] = selectedDay
-    ? slots.filter((s: PublicAvailabilitySlot) => dayKeyFormatter.format(new Date(s.startAt)) === selectedDay)
+    ? slots.filter((s: PublicAvailabilitySlot) => dayKey.format(new Date(s.startAt)) === selectedDay)
     : [];
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 p-4">
-      <div>
-        <Link href={`/${organizationSlug}`} className="text-sm text-muted-foreground hover:text-foreground">
-          ← {organization.name}
-        </Link>
-        <h1 className="mt-1 text-xl font-semibold">Reservar</h1>
-      </div>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Servicio</h2>
-        <div className="flex flex-wrap gap-2">
-          {services.map((s) => (
-            <Link
-              key={s.id}
-              href={`/${organizationSlug}/reservar?service=${s.id}`}
-              className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                s.id === selectedService.id ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
-              }`}
-            >
-              {s.name}
-            </Link>
-          ))}
+    <div className="flex flex-1 flex-col">
+      <header className="sticky top-0 z-10 border-b bg-card/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-lg items-center gap-3 px-5 py-3">
+          <Link
+            href={`/${organizationSlug}`}
+            className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            aria-label="Volver"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="size-4">
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </Link>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold">{organization.name}</span>
+            <span className="text-xs text-muted-foreground">Nueva reserva</span>
+          </div>
         </div>
-      </section>
+      </header>
 
-      {days.length === 0 ? (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          No hay horarios publicados para {selectedService.name}.
-        </p>
-      ) : (
-        <>
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Día</h2>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-              {days.map((day) => (
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-5 py-6">
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            1 · Servicio
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {services.map((s) => {
+              const active = s.id === selectedService.id;
+              return (
                 <Link
-                  key={day}
-                  href={`/${organizationSlug}/reservar?service=${selectedService.id}&date=${day}`}
-                  className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-sm capitalize transition-colors ${
-                    day === selectedDay ? "border-foreground bg-foreground text-background" : "hover:bg-muted"
+                  key={s.id}
+                  href={`/${organizationSlug}/reservar?service=${s.id}`}
+                  className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "bg-card hover:border-input hover:bg-muted"
                   }`}
                 >
-                  {dayLabelFormatter.format(new Date(`${day}T12:00:00Z`))}
+                  {s.name}
                 </Link>
-              ))}
-            </div>
-          </section>
+              );
+            })}
+          </div>
+        </section>
 
-          <section className="flex flex-col gap-2">
-            <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Horario</h2>
-            <ul className="flex flex-col gap-2">
-              {daySlots.map((slot: PublicAvailabilitySlot) => {
-                const isFull = slot.status === "FULL" || slot.remaining === 0;
-                return (
-                  <li
-                    key={slot.slotOccurrenceId}
-                    className="flex items-center justify-between gap-3 rounded-lg border p-3"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-base font-semibold tabular-nums">
-                        {timeFormatter.format(new Date(slot.startAt))}
+        {days.length === 0 ? (
+          <EmptyState
+            title="Sin horarios próximos"
+            description={`${selectedService.name} no tiene horarios publicados por ahora.`}
+          />
+        ) : (
+          <>
+            <section className="flex flex-col gap-2.5">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                2 · Día
+              </h2>
+              <div className="-mx-5 flex gap-2 overflow-x-auto px-5 pb-1">
+                {days.map((day) => {
+                  const active = day === selectedDay;
+                  const date = new Date(`${day}T12:00:00Z`);
+                  return (
+                    <Link
+                      key={day}
+                      href={`/${organizationSlug}/reservar?service=${selectedService.id}&date=${day}`}
+                      className={`flex min-w-16 shrink-0 flex-col items-center gap-0.5 rounded-xl border px-3 py-2.5 transition-colors ${
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "bg-card hover:border-input hover:bg-muted"
+                      }`}
+                    >
+                      <span className="text-[11px] font-medium uppercase opacity-80">
+                        {dayWeekday.format(date).replace(".", "")}
                       </span>
-                      <span className="text-xs text-muted-foreground">{availabilityLabel(slot)}</span>
-                    </div>
-                    {isFull ? (
-                      <span className="text-sm text-muted-foreground">Completo</span>
-                    ) : (
+                      <span className="tnum text-lg font-semibold leading-none">{dayNumber.format(date)}</span>
+                      <span className="text-[11px] uppercase opacity-70">
+                        {dayMonth.format(date).replace(".", "")}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="flex flex-col gap-2.5">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                3 · Horario
+              </h2>
+              <ul className="grid grid-cols-2 gap-2">
+                {daySlots.map((slot) => {
+                  const isFull = slot.status === "FULL" || slot.remaining === 0;
+
+                  if (isFull) {
+                    return (
+                      <li
+                        key={slot.slotOccurrenceId}
+                        className="flex flex-col items-center gap-1 rounded-xl border border-dashed px-3 py-3 opacity-60"
+                      >
+                        <span className="tnum text-base font-semibold line-through">
+                          {timeFormatter.format(new Date(slot.startAt))}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">Completo</span>
+                      </li>
+                    );
+                  }
+
+                  return (
+                    <li key={slot.slotOccurrenceId}>
                       <Link
                         href={`/${organizationSlug}/reservar/confirmar?slot=${slot.slotOccurrenceId}`}
-                        className={buttonVariants({ variant: "default", size: "sm" })}
+                        className="flex flex-col items-center gap-1 rounded-xl border bg-card px-3 py-3 transition-all hover:-translate-y-0.5 hover:border-primary hover:shadow-raised"
                       >
-                        Reservar
+                        <span className="tnum text-base font-semibold">
+                          {timeFormatter.format(new Date(slot.startAt))}
+                        </span>
+                        <StatusBadge tone={availabilityTone(slot.status, slot.remaining)}>
+                          {availabilityLabel(slot)}
+                        </StatusBadge>
                       </Link>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        </>
-      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          </>
+        )}
+      </main>
 
-      <p className="text-center text-xs text-muted-foreground">
-        Horarios en {organization.timezone.replace("_", " ")}
-      </p>
+      <footer className="mx-auto w-full max-w-lg px-5 pb-8 text-center">
+        <p className="text-xs text-muted-foreground">
+          Horarios en {organization.timezone.replace("_", " ")}
+        </p>
+      </footer>
     </div>
   );
 }

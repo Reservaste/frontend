@@ -1,29 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Inter over the scaffold's Geist pairing: it's the typeface this whole
+// category (Calendly, Linear, Cal.com) reads like, and the mono face was
+// never used -- tabular numbers come from font-feature-settings instead.
+const inter = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Reservaste",
-  description: "Agenda, reservas y cupos dinámicos para cualquier negocio.",
+  title: {
+    default: "Reservaste",
+    template: "%s · Reservaste",
+  },
+  description: "Agenda, reservas y cupos para cualquier negocio con horarios.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">{children}</body>
+    <html lang="es" className={`${inter.variable} h-full`}>
+      <body className="flex min-h-full flex-col bg-background text-foreground">{children}</body>
     </html>
   );
 }

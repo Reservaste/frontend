@@ -4,6 +4,7 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
 import { getCustomerEntitlements, getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
+import { StatusBadge } from "@/components/status";
 import {
   EntitlementList,
   GrantEntitlementForm,
@@ -31,18 +32,39 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
+  const initials = customer.fullName
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 sm:p-6">
-      <div className="flex flex-col gap-1">
-        <Link href={`/org/${slug}/customers`} className="text-sm text-muted-foreground hover:text-foreground">
-          ← Clientes
-        </Link>
-        <h1 className="text-xl font-semibold">{customer.fullName}</h1>
-        <p className="text-sm text-muted-foreground">{customer.isActive ? "Activo" : "Inactivo"}</p>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-6">
+      <Link
+        href={`/org/${slug}/customers`}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <svg viewBox="0 0 24 24" fill="none" className="size-4">
+          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Clientes
+      </Link>
+
+      <div className="flex items-center gap-3">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-base font-semibold text-primary">
+          {initials}
+        </span>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl">{customer.fullName}</h1>
+          <StatusBadge tone={customer.isActive ? "success" : "neutral"} className="self-start">
+            {customer.isActive ? "Activo" : "Inactivo"}
+          </StatusBadge>
+        </div>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Servicios habilitados</h2>
+        <h2 className="text-sm font-semibold">Servicios habilitados</h2>
         <EntitlementList
           organizationSlug={slug}
           customerId={customerId}
@@ -53,7 +75,7 @@ export default async function CustomerDetailPage({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-muted-foreground">Pagos</h2>
+        <h2 className="text-sm font-semibold">Pagos</h2>
         <PaymentList organizationSlug={slug} customerId={customerId} payments={payments} />
         <RegisterPaymentForm
           organizationSlug={slug}

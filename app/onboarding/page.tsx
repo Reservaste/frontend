@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyOrganizations } from "@/app/actions/organizations";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Brand } from "@/components/brand";
 import { OnboardingForm } from "./onboarding-form";
+
+export const metadata = { title: "Crear organización" };
 
 export default async function OnboardingPage() {
   const supabase = await createClient();
@@ -20,18 +22,17 @@ export default async function OnboardingPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Creá tu organización</CardTitle>
-          <CardDescription>
-            Vas a ser el OWNER de este negocio. Podés invitar STAFF después.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <OnboardingForm />
-        </CardContent>
-      </Card>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-5 py-10">
+      <Brand />
+      <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-raised sm:p-7">
+        <div className="mb-6 flex flex-col gap-1">
+          <h1 className="text-xl">Creá tu organización</h1>
+          <p className="text-sm text-muted-foreground">
+            Vas a ser el OWNER de este negocio. Podés invitar a tu equipo después.
+          </p>
+        </div>
+        <OnboardingForm />
+      </div>
     </div>
   );
 }

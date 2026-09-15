@@ -7,6 +7,10 @@ import { grantEntitlement, registerPayment, revokeEntitlement, voidPayment } fro
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StatusBadge } from "@/components/status";
+
+const selectClass =
+  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -30,7 +34,7 @@ export function GrantEntitlementForm({
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-lg border p-4">
+    <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="serviceId">Servicio</Label>
@@ -38,7 +42,7 @@ export function GrantEntitlementForm({
             id="serviceId"
             name="serviceId"
             required
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className={selectClass}
           >
             {services.map((s) => (
               <option key={s.id} value={s.id}>
@@ -55,7 +59,7 @@ export function GrantEntitlementForm({
             name="entitlementType"
             value={type}
             onChange={(e) => setType(e.target.value as "TIME" | "CREDITS")}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className={selectClass}
           >
             <option value="TIME">Por período</option>
             <option value="CREDITS">Por créditos</option>
@@ -119,21 +123,32 @@ export function EntitlementList({
   const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
 
   if (entitlements.length === 0) {
-    return <p className="text-sm text-muted-foreground">Sin servicios habilitados.</p>;
+    return (
+      <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+        Sin servicios habilitados.
+      </p>
+    );
   }
 
   return (
-    <ul className="flex flex-col divide-y rounded-lg border">
+    <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
       {entitlements.map((e) => (
         <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="flex flex-col">
-            <span className="text-sm">{serviceName(e.serviceId)}</span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium">{serviceName(e.serviceId)}</span>
+              {!e.isActive ? (
+                <StatusBadge tone="neutral">Revocado</StatusBadge>
+              ) : e.requiresActivePayment ? (
+                <StatusBadge tone="primary">Requiere pago</StatusBadge>
+              ) : (
+                <StatusBadge tone="success">Cortesía</StatusBadge>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground">
               {e.entitlementType === "TIME"
-                ? `${e.validFrom}${e.validUntil ? ` → ${e.validUntil}` : " → sin vencimiento"}`
+                ? `${e.validFrom}${e.validUntil ? ` → ${e.validUntil}` : " · sin vencimiento"}`
                 : `${e.creditsRemaining} de ${e.creditsTotal} créditos`}
-              {e.requiresActivePayment ? " · requiere pago" : " · cortesía"}
-              {e.isActive ? "" : " · revocado"}
             </span>
           </div>
           {e.isActive ? (
@@ -170,7 +185,7 @@ export function RegisterPaymentForm({
 
   if (payable.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
         No hay servicios habilitados que requieran pago.
       </p>
     );
@@ -181,7 +196,7 @@ export function RegisterPaymentForm({
   const lastOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-lg border p-4">
+    <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="serviceEntitlementId">Servicio habilitado</Label>
@@ -189,7 +204,7 @@ export function RegisterPaymentForm({
             id="serviceEntitlementId"
             name="serviceEntitlementId"
             required
-            className="h-9 rounded-md border bg-background px-3 text-sm"
+            className={selectClass}
           >
             {payable.map((e) => (
               <option key={e.id} value={e.id}>
@@ -224,7 +239,7 @@ export function RegisterPaymentForm({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="status">Estado</Label>
-          <select id="status" name="status" className="h-9 rounded-md border bg-background px-3 text-sm">
+          <select id="status" name="status" className={selectClass}>
             <option value="PAID">Pagado</option>
             <option value="PENDING">Pendiente</option>
             <option value="OVERDUE">Vencido</option>
@@ -252,28 +267,34 @@ export function PaymentList({
   payments: Payment[];
 }) {
   if (payments.length === 0) {
-    return <p className="text-sm text-muted-foreground">Sin pagos registrados.</p>;
+    return (
+      <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+        Sin pagos registrados.
+      </p>
+    );
   }
 
-  const statusLabel: Record<Payment["status"], string> = {
-    PAID: "Pagado",
-    PENDING: "Pendiente",
-    OVERDUE: "Vencido",
-    VOID: "Anulado",
+  const statusMeta: Record<Payment["status"], { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
+    PAID: { label: "Pagado", tone: "success" },
+    PENDING: { label: "Pendiente", tone: "warning" },
+    OVERDUE: { label: "Vencido", tone: "danger" },
+    VOID: { label: "Anulado", tone: "neutral" },
   };
 
   return (
-    <ul className="flex flex-col divide-y rounded-lg border">
+    <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
       {payments.map((p) => (
         <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="flex flex-col">
-            <span className="text-sm tabular-nums">
+          <div className="flex flex-col gap-0.5">
+            <span className="tnum text-sm font-medium">
               {p.periodStart} → {p.periodEnd}
             </span>
-            <span className="text-xs text-muted-foreground">
-              {statusLabel[p.status]}
-              {p.amount !== null ? ` · $${p.amount}` : ""}
-            </span>
+            <div className="flex items-center gap-2">
+              <StatusBadge tone={statusMeta[p.status].tone}>{statusMeta[p.status].label}</StatusBadge>
+              {p.amount !== null ? (
+                <span className="tnum text-xs text-muted-foreground">${p.amount}</span>
+              ) : null}
+            </div>
           </div>
           {p.status !== "VOID" ? (
             <form action={voidPayment.bind(null, organizationSlug, customerId, p.id)}>

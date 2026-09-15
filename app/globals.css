@@ -35,6 +35,18 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -49,72 +61,118 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  /* Canvas is a hair off-white so white cards read as raised surfaces --
+     pure-white-on-pure-white is what made every screen look flat. */
+  --background: oklch(0.985 0.002 250);
+  --foreground: oklch(0.21 0.02 258);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.02 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --popover-foreground: oklch(0.21 0.02 258);
+
+  /* One confident blue carries the whole product: primary actions,
+     selected states, focus rings. */
+  --primary: oklch(0.54 0.21 258);
+  --primary-foreground: oklch(0.99 0 0);
+  --primary-hover: oklch(0.48 0.21 258);
+  --primary-subtle: oklch(0.96 0.03 258);
+
+  --secondary: oklch(0.97 0.004 250);
+  --secondary-foreground: oklch(0.27 0.02 258);
+  --muted: oklch(0.968 0.004 250);
+  --muted-foreground: oklch(0.52 0.02 256);
+  --accent: oklch(0.96 0.008 254);
+  --accent-foreground: oklch(0.27 0.02 258);
+
+  /* Availability semantics -- the product is mostly about "can I take
+     this slot", so those three states get real colors. */
+  --success: oklch(0.58 0.14 157);
+  --success-foreground: oklch(0.99 0 0);
+  --success-subtle: oklch(0.95 0.04 157);
+  --warning: oklch(0.70 0.15 70);
+  --warning-foreground: oklch(0.24 0.04 70);
+  --warning-subtle: oklch(0.96 0.05 80);
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(0.99 0 0);
+  --destructive-subtle: oklch(0.96 0.03 25);
+
+  --border: oklch(0.92 0.005 250);
+  --input: oklch(0.90 0.006 250);
+  --ring: oklch(0.54 0.21 258);
+
+  --chart-1: oklch(0.54 0.21 258);
+  --chart-2: oklch(0.58 0.14 157);
+  --chart-3: oklch(0.70 0.15 70);
+  --chart-4: oklch(0.58 0.21 25);
+  --chart-5: oklch(0.52 0.02 256);
+
+  --radius: 0.75rem;
+
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.21 0.02 258);
+  --sidebar-primary: oklch(0.54 0.21 258);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.96 0.008 254);
+  --sidebar-accent-foreground: oklch(0.27 0.02 258);
+  --sidebar-border: oklch(0.92 0.005 250);
+  --sidebar-ring: oklch(0.54 0.21 258);
+
+  /* Elevation: two soft steps, never a hard drop shadow. */
+  --shadow-card: 0 1px 2px 0 oklch(0.21 0.02 258 / 0.04), 0 1px 3px 0 oklch(0.21 0.02 258 / 0.06);
+  --shadow-raised: 0 4px 12px -2px oklch(0.21 0.02 258 / 0.08), 0 2px 6px -2px oklch(0.21 0.02 258 / 0.05);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.17 0.015 260);
+  --foreground: oklch(0.96 0.003 250);
+  --card: oklch(0.21 0.018 260);
+  --card-foreground: oklch(0.96 0.003 250);
+  --popover: oklch(0.21 0.018 260);
+  --popover-foreground: oklch(0.96 0.003 250);
+
+  --primary: oklch(0.66 0.18 258);
+  --primary-foreground: oklch(0.16 0.02 260);
+  --primary-hover: oklch(0.72 0.17 258);
+  --primary-subtle: oklch(0.28 0.06 258);
+
+  --secondary: oklch(0.26 0.015 260);
+  --secondary-foreground: oklch(0.96 0.003 250);
+  --muted: oklch(0.26 0.015 260);
+  --muted-foreground: oklch(0.70 0.015 255);
+  --accent: oklch(0.28 0.02 260);
+  --accent-foreground: oklch(0.96 0.003 250);
+
+  --success: oklch(0.68 0.14 157);
+  --success-foreground: oklch(0.16 0.02 260);
+  --success-subtle: oklch(0.28 0.06 157);
+  --warning: oklch(0.78 0.14 75);
+  --warning-foreground: oklch(0.18 0.03 70);
+  --warning-subtle: oklch(0.30 0.06 75);
+  --destructive: oklch(0.65 0.19 25);
+  --destructive-foreground: oklch(0.16 0.02 260);
+  --destructive-subtle: oklch(0.29 0.07 25);
+
+  --border: oklch(1 0 0 / 11%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.66 0.18 258);
+
+  --chart-1: oklch(0.66 0.18 258);
+  --chart-2: oklch(0.68 0.14 157);
+  --chart-3: oklch(0.78 0.14 75);
+  --chart-4: oklch(0.65 0.19 25);
+  --chart-5: oklch(0.70 0.015 255);
+
+  --sidebar: oklch(0.21 0.018 260);
+  --sidebar-foreground: oklch(0.96 0.003 250);
+  --sidebar-primary: oklch(0.66 0.18 258);
+  --sidebar-primary-foreground: oklch(0.16 0.02 260);
+  --sidebar-accent: oklch(0.28 0.02 260);
+  --sidebar-accent-foreground: oklch(0.96 0.003 250);
+  --sidebar-border: oklch(1 0 0 / 11%);
+  --sidebar-ring: oklch(0.66 0.18 258);
+
+  --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.30), 0 1px 3px 0 oklch(0 0 0 / 0.25);
+  --shadow-raised: 0 4px 14px -2px oklch(0 0 0 / 0.45), 0 2px 6px -2px oklch(0 0 0 / 0.30);
 }
 
 @layer base {
@@ -122,9 +180,19 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
   html {
     @apply font-sans;
+  }
+  /* Headings carry the product's voice: tight tracking, real weight.
+     Left at browser defaults they read like a document, not an app. */
+  h1, h2, h3, h4 {
+    @apply font-semibold tracking-tight text-foreground;
+  }
+  /* Times, counts and capacities line up in columns everywhere. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }

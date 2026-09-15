@@ -1,16 +1,19 @@
 import { requireOrganizationMembership } from "@/app/actions/organizations";
+import { PageHeader } from "@/components/page-header";
 import { SettingsForm } from "./settings-form";
+
+export const metadata = { title: "Configuración" };
 
 export default async function SettingsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { organization, membership } = await requireOrganizationMembership(slug);
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 p-4 sm:p-6">
-      <h1 className="text-xl font-semibold">Configuración</h1>
-      <p className="text-sm text-muted-foreground">
-        Página pública: <span className="font-mono">/{organization.slug}</span>
-      </p>
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-5 py-6">
+      <PageHeader
+        title="Configuración"
+        description={`Tu página pública es reservaste.app/${organization.slug}`}
+      />
       <SettingsForm
         organizationSlug={slug}
         organization={organization}

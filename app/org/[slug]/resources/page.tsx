@@ -1,7 +1,10 @@
 import { listResources } from "@/app/actions/resources";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/empty-state";
 import { ResourceForm } from "./resource-form";
+
+export const metadata = { title: "Recursos" };
 
 export default async function ResourcesPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
@@ -9,23 +12,30 @@ export default async function ResourcesPage({ params }: { params: Promise<{ slug
   const resources = await listResources(slug);
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
-      <h1 className="text-xl font-semibold">Recursos</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
+      <PageHeader
+        title="Recursos"
+        description="Lo que se ocupa al dar el servicio: salas, profesionales, canchas, equipos"
+      />
 
       <ResourceForm organizationSlug={slug} />
 
       {resources.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Todavía no hay recursos.</p>
+        <EmptyState
+          title="Todavía no hay recursos"
+          description="Cada horario ocupa un recurso, así que necesitás al menos uno para armar la agenda."
+        />
       ) : (
-        <div className="flex flex-col gap-2">
+        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
           {resources.map((resource) => (
-            <Card key={resource.id}>
-              <CardHeader>
-                <CardTitle className="text-base">{resource.name}</CardTitle>
-              </CardHeader>
-            </Card>
+            <li key={resource.id} className="flex flex-col px-4 py-3.5">
+              <span className="font-medium">{resource.name}</span>
+              {resource.description ? (
+                <span className="text-sm text-muted-foreground">{resource.description}</span>
+              ) : null}
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

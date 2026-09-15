@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { safeReturnTo } from "@/lib/return-to";
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Brand } from "@/components/brand";
 import { SignupForm } from "./signup-form";
+
+export const metadata = { title: "Crear cuenta" };
 
 export default async function SignupPage({ searchParams }: { searchParams: Promise<{ returnTo?: string }> }) {
   const { returnTo } = await searchParams;
@@ -18,16 +20,15 @@ export default async function SignupPage({ searchParams }: { searchParams: Promi
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center p-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Creá tu cuenta</CardTitle>
-          <CardDescription>Empezá a gestionar reservas con Reservaste</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SignupForm returnTo={destination} />
-        </CardContent>
-      </Card>
+    <div className="flex flex-1 flex-col items-center justify-center gap-6 px-5 py-10">
+      <Brand />
+      <div className="w-full max-w-sm rounded-2xl border bg-card p-6 shadow-raised sm:p-7">
+        <div className="mb-6 flex flex-col gap-1">
+          <h1 className="text-xl">Creá tu cuenta</h1>
+          <p className="text-sm text-muted-foreground">Es gratis y toma un minuto</p>
+        </div>
+        <SignupForm returnTo={destination} />
+      </div>
     </div>
   );
 }
