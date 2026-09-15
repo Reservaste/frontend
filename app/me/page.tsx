@@ -14,7 +14,12 @@ export default async function MyBookingsPage({
   const { pasadas, reservado } = await searchParams;
   const includePast = pasadas === "1";
   const bookings = await getMyBookings(includePast);
-  const visible = includePast ? bookings : bookings.filter((b) => b.status !== "NOT_GENERATED");
+  // A date from a standing reservation that didn't confirm stays visible:
+  // for someone who pays monthly for a fixed slot, the class quietly
+  // disappearing from this list is worse than seeing why it didn't happen.
+  const visible = includePast
+    ? bookings
+    : bookings.filter((b) => b.status !== "NOT_GENERATED" || b.isRecurring);
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
@@ -89,7 +94,13 @@ export default async function MyBookingsPage({
                     {booking.cancellationReason === "CUSTOMER_REQUEST" ? "Cancelaste" : "Cancelado"}
                   </StatusBadge>
                 ) : booking.status === "NOT_GENERATED" ? (
-                  <StatusBadge tone="warning">Sin lugar</StatusBadge>
+                  <StatusBadge tone={booking.notGeneratedReason === "NO_ENTITLEMENT" ? "danger" : "warning"}>
+                    {booking.notGeneratedReason === "NO_ENTITLEMENT"
+                      ? "Falta el pago"
+                      : booking.notGeneratedReason === "DUPLICATE"
+                        ? "Ya estás anotado"
+                        : "Sin lugar"}
+                  </StatusBadge>
                 ) : isUpcoming ? (
                   <form action={cancelMyBooking.bind(null, booking.bookingId)}>
                     <Button type="submit" variant="outline" size="xs">

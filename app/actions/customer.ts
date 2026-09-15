@@ -34,6 +34,8 @@ export interface MyBooking {
   occurrenceStatus: "ACTIVE" | "BLOCKED" | "CANCELLED";
   cancellationReason: string | null;
   isRecurring: boolean;
+  /** Why a recurring date didn't confirm. Null for every other status. */
+  notGeneratedReason: "SLOT_FULL" | "NO_ENTITLEMENT" | "DUPLICATE" | null;
 }
 
 export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
@@ -55,6 +57,7 @@ export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
       occurrence_status: MyBooking["occurrenceStatus"];
       cancellation_reason: string | null;
       is_recurring: boolean;
+      not_generated_reason: MyBooking["notGeneratedReason"];
     }) => ({
       bookingId: row.booking_id,
       status: row.status,
@@ -67,6 +70,7 @@ export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
       occurrenceStatus: row.occurrence_status,
       cancellationReason: row.cancellation_reason,
       isRecurring: row.is_recurring,
+      notGeneratedReason: row.not_generated_reason,
     }),
   );
 }

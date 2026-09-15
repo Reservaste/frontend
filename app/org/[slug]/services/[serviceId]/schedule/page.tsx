@@ -3,10 +3,13 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listResources } from "@/app/actions/resources";
 import { listServices } from "@/app/actions/services";
 import { listScheduleRules, listUpcomingOccurrences } from "@/app/actions/schedule";
+import { getCustomers } from "@/app/actions/admin";
+import { listStandingReservations } from "@/app/actions/standing";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { ScheduleRuleForm } from "./schedule-rule-form";
+import { StandingReservations } from "./standing-reservations";
 
 export const metadata = { title: "Horarios" };
 
@@ -19,12 +22,21 @@ export default async function ServiceSchedulePage({
 }) {
   const { slug, serviceId } = await params;
   const { organization } = await requireOrganizationMembership(slug);
-  const [resources, services, rules, occurrences] = await Promise.all([
+  const [resources, services, rules, occurrences, customers] = await Promise.all([
     listResources(slug),
     listServices(slug),
     listScheduleRules(slug, serviceId),
     listUpcomingOccurrences(slug, serviceId),
+    getCustomers(slug),
   ]);
+
+  // One query per rule rather than one for the whole service: the listing
+  // is per-rule anyway, and a service rarely has more than a handful.
+  const standingByRule = Object.fromEntries(
+    await Promise.all(
+      rules.map(async (rule) => [rule.id, await listStandingReservations(slug, rule.id)] as const),
+    ),
+  );
 
   const service = services.find((s) => s.id === serviceId);
   const resourceName = (resourceId: string) => resources.find((r) => r.id === resourceId)?.name ?? "—";
@@ -66,21 +78,36 @@ export default async function ServiceSchedulePage({
             description="Agregá un horario semanal y los turnos aparecen solos en la agenda."
           />
         ) : (
-          <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
-            {rules.map((rule) => (
-              <li key={rule.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {WEEKDAY_NAMES[rule.weekday]}{" "}
-                    <span className="tnum">{rule.localStartTime.slice(0, 5)}</span>
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {resourceName(rule.resourceId)} · {rule.durationMinutes} min
-                  </span>
-                </div>
-                <StatusBadge tone="primary">{rule.capacity} lugares</StatusBadge>
-              </li>
-            ))}
+          <ul className="flex flex-col gap-2.5">
+            {rules.map((rule) => {
+              const ruleLabel = `${WEEKDAY_NAMES[rule.weekday]} ${rule.localStartTime.slice(0, 5)}`;
+
+              return (
+                <li key={rule.id} className="overflow-hidden rounded-xl border bg-card shadow-card">
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+                    <div className="flex flex-col">
+                      <span className="font-medium">
+                        {WEEKDAY_NAMES[rule.weekday]}{" "}
+                        <span className="tnum">{rule.localStartTime.slice(0, 5)}</span>
+                      </span>
+                      <span className="text-sm text-muted-foreground">
+                        {resourceName(rule.resourceId)} · {rule.durationMinutes} min
+                      </span>
+                    </div>
+                    <StatusBadge tone="primary">{rule.capacity} lugares</StatusBadge>
+                  </div>
+                  <StandingReservations
+                    organizationSlug={slug}
+                    serviceId={serviceId}
+                    scheduleRuleId={rule.id}
+                    ruleLabel={ruleLabel}
+                    customers={customers}
+                    reservations={standingByRule[rule.id] ?? []}
+                    timezone={organization.timezone}
+                  />
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
