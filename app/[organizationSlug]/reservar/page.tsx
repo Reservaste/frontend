@@ -5,6 +5,7 @@ import { getPublicAvailability, getPublicOrganization, listPublicServices } from
 import { availabilityLabel } from "../availability-label";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge, availabilityTone } from "@/components/status";
+import { ChevronLeft } from "@/components/icons";
 
 export const metadata = { title: "Reservar" };
 
@@ -71,11 +72,10 @@ export default async function ReservarPage({
           <Link
             href={`/${organizationSlug}`}
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            aria-label="Volver"
+            aria-label={`Volver a ${organization.name}`}
+            title={`Volver a ${organization.name}`}
           >
-            <svg viewBox="0 0 24 24" fill="none" className="size-4">
-              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <ChevronLeft />
           </Link>
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold">{organization.name}</span>

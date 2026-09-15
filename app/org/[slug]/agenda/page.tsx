@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { OccupancyBar, StatusBadge } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "@/components/icons";
 import { OccurrenceActions } from "./occurrence-actions";
 
 export const metadata = { title: "Agenda" };
@@ -115,9 +116,7 @@ export default async function AgendaPage({
 
       <div className="flex items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2 shadow-card">
         <Link href={`/org/${slug}/agenda?view=${view}&date=${prevIso}`} className={navLink} aria-label="Anterior">
-          <svg viewBox="0 0 24 24" fill="none" className="size-4">
-            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronLeft />
         </Link>
 
         <div className="flex items-center gap-2">
@@ -133,9 +132,7 @@ export default async function AgendaPage({
         </div>
 
         <Link href={`/org/${slug}/agenda?view=${view}&date=${nextIso}`} className={navLink} aria-label="Siguiente">
-          <svg viewBox="0 0 24 24" fill="none" className="size-4">
-            <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronRight />
         </Link>
       </div>
 

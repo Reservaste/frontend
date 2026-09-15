@@ -8,6 +8,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Brand } from "@/components/brand";
 import { roleLabel } from "@/lib/labels";
 import { cityForTimezone } from "@/lib/timezones";
+import { ChevronRight } from "@/components/icons";
 
 export const metadata = { title: "Inicio" };
 
@@ -108,9 +109,7 @@ export default async function DashboardPage() {
                   {roleLabel(membership.role)} · {cityForTimezone(organization.timezone)}
                 </span>
               </div>
-              <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0 text-muted-foreground">
-                <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <ChevronRight className="shrink-0 text-muted-foreground" />
             </Link>
           ))}
         </div>

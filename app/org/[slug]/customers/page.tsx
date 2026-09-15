@@ -4,6 +4,7 @@ import { getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { ChevronRight } from "@/components/icons";
 import { EnrollForm } from "./enroll-form";
 
 export const metadata = { title: "Clientes" };
@@ -48,9 +49,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{customer.fullName}</span>
                 {!customer.isActive ? <StatusBadge tone="neutral">Inactivo</StatusBadge> : null}
-                <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0 text-muted-foreground">
-                  <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <ChevronRight className="shrink-0 text-muted-foreground" />
               </Link>
             </li>
           ))}

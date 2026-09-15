@@ -84,7 +84,15 @@ export default async function MyBookingsPage({
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="truncate text-sm font-medium">{booking.serviceName}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {booking.organizationName}
+                    {/* Booking again at the same place was a dead end: the
+                        business name was plain text and its page is only
+                        reachable by its link. */}
+                    <Link
+                      href={`/${booking.organizationSlug}`}
+                      className="underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                    >
+                      {booking.organizationName}
+                    </Link>
                     {booking.isRecurring ? " · fija" : ""}
                   </span>
                 </div>

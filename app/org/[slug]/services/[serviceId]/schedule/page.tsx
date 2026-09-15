@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listResources } from "@/app/actions/resources";
 import { listServices } from "@/app/actions/services";
@@ -6,6 +5,7 @@ import { listScheduleRules, listUpcomingOccurrences } from "@/app/actions/schedu
 import { getCustomers } from "@/app/actions/admin";
 import { listStandingReservations } from "@/app/actions/standing";
 import { PageHeader } from "@/components/page-header";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { ScheduleRuleForm } from "./schedule-rule-form";
@@ -53,15 +53,13 @@ export default async function ServiceSchedulePage({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
-      <Link
-        href={`/org/${slug}/services`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <svg viewBox="0 0 24 24" fill="none" className="size-4">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Servicios
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Servicios", href: `/org/${slug}/services` },
+          { label: service?.name ?? "Servicio", href: `/org/${slug}/services` },
+          { label: "Horarios" },
+        ]}
+      />
 
       <PageHeader
         title={service?.name ?? "Horarios"}

@@ -5,6 +5,7 @@ import { BOOKING_REASONS } from "@/lib/booking-reasons";
 import { availabilityLabel } from "../../availability-label";
 import { createClient } from "@/lib/supabase/server";
 import { StatusBadge, availabilityTone } from "@/components/status";
+import { BackLink } from "@/components/back-link";
 import { ConfirmForm } from "./confirm-form";
 
 export const metadata = { title: "Confirmar reserva" };
@@ -72,15 +73,9 @@ export default async function ConfirmarPage({
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-5 py-8">
-      <Link
-        href={`/${organizationSlug}/reservar?service=${detail.serviceId}`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <svg viewBox="0 0 24 24" fill="none" className="size-4">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Cambiar horario
-      </Link>
+      <BackLink href={`/${organizationSlug}/reservar?service=${detail.serviceId}`}>
+        Elegir otro horario
+      </BackLink>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-raised">
         <div className="flex flex-col items-center gap-1 border-b bg-primary-subtle px-6 py-6 text-center">

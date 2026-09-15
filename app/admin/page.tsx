@@ -60,7 +60,7 @@ export default async function PlatformAdminPage() {
       <header className="border-b bg-card">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2 px-5 py-3">
           <div className="flex items-center gap-2.5">
-            <Brand href="/admin" label="Reservaste" />
+            <Brand href="/dashboard" label="Reservaste" />
             <StatusBadge tone="primary">Plataforma</StatusBadge>
           </div>
           <form action={signOut}>

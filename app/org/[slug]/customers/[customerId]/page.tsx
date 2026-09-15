@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
 import { getCustomerEntitlements, getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
 import { StatusBadge } from "@/components/status";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import {
   EntitlementList,
   GrantEntitlementForm,
@@ -41,15 +41,12 @@ export default async function CustomerDetailPage({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-5 py-6">
-      <Link
-        href={`/org/${slug}/customers`}
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <svg viewBox="0 0 24 24" fill="none" className="size-4">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Clientes
-      </Link>
+      <Breadcrumbs
+        items={[
+          { label: "Clientes", href: `/org/${slug}/customers` },
+          { label: customer.fullName },
+        ]}
+      />
 
       <div className="flex items-center gap-3">
         <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-base font-semibold text-primary">

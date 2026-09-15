@@ -7,6 +7,7 @@ import { archiveService, updateService, type CreateServiceState } from "@/app/ac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChevronRight } from "@/components/icons";
 
 const initialState: CreateServiceState = { error: null };
 
@@ -96,9 +97,7 @@ export function ServiceRow({ organizationSlug, service }: { organizationSlug: st
         className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label="Ver horarios"
       >
-        <svg viewBox="0 0 24 24" fill="none" className="size-4">
-          <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <ChevronRight />
       </Link>
     </li>
   );

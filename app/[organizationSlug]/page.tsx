@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import type { PublicAvailabilitySlot } from "@reservaste/domain";
 import { getPublicAvailability, getPublicOrganization, listPublicServices } from "@/app/actions/public";
 import { availabilityLabel } from "./availability-label";
+import { createClient } from "@/lib/supabase/server";
+import { Brand } from "@/components/brand";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { EmptyState } from "@/components/empty-state";
@@ -30,6 +32,14 @@ export default async function PublicOrganizationPage({
     services.map((service) => getPublicAvailability(organizationSlug, service.id)),
   );
 
+  // Public page, but most people reaching it a second time already have
+  // an account -- and until now it was the one screen with no way out
+  // towards their own bookings.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const initials = organization.name
     .split(" ")
     .slice(0, 2)
@@ -40,7 +50,17 @@ export default async function PublicOrganizationPage({
   return (
     <div className="flex flex-1 flex-col">
       <header className="border-b bg-card">
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 px-5 py-10 text-center">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
+          <Brand href={user ? "/dashboard" : "/"} />
+          <Link
+            href={user ? "/me" : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`}
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            {user ? "Mis reservas" : "Ingresar"}
+          </Link>
+        </div>
+
+        <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 border-t px-5 py-10 text-center">
           <span className="flex size-14 items-center justify-center rounded-2xl bg-primary text-lg font-semibold text-primary-foreground">
             {initials}
           </span>

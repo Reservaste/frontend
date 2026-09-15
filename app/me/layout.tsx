@@ -19,7 +19,10 @@ export default async function CustomerLayout({ children }: LayoutProps<"/me">) {
     <div className="flex flex-1 flex-col">
       <header className="border-b bg-card">
         <div className="mx-auto flex w-full max-w-lg items-center justify-between gap-2 px-5 py-3">
-          <Brand href="/me" />
+          {/* /dashboard, not /me: it is the one page that leads both to
+              the portal and to the organizations you run, and the portal
+              is already one tap away in the bar below. */}
+          <Brand href="/dashboard" />
           <form action={signOut}>
             <Button type="submit" variant="ghost" size="sm">
               Salir
