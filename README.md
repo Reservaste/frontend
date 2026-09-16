@@ -35,69 +35,10 @@ Requiere que `Reservaste/backend` esté corriendo localmente
 
 ## Deploy
 
-**Vercel** para esta app, **Supabase** para la base (ADR-0002, ADR-0017).
-No hay un tercer servicio: `pg_cron` corre dentro de Supabase, así que no
-hace falta ningún worker ni cron en el host.
+Se autohospeda en un droplet de DigitalOcean, no en Vercel: con un solo
+cliente a USD 20/mes, Vercel Pro + Supabase Pro (USD 45) da pérdida, y el
+plan Hobby de Vercel es explícitamente no comercial.
 
-### Región
-
-Dejar la región por defecto (`iad1`, Virginia). Cada página se renderiza
-en el servidor con varias consultas a Postgres, así que lo que importa es
-la cercanía **a la base**, no al visitante — y el proyecto Supabase está
-en `us-east-2`. Poner la app en São Paulo acercaría al usuario uruguayo
-unos milisegundos y alejaría cada consulta de la base.
-
-### Variables de entorno
-
-| Variable | Valor |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://<ref>.supabase.co` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | la publishable key del proyecto |
-| `NEXT_PUBLIC_SITE_URL` | la URL final, con `https` y **sin** barra final |
-| `DOMAIN_REPO_TOKEN` | token de GitHub, ver abajo |
-
-### El paquete de dominio es una dependencia privada
-
-`@reservaste/domain` se instala desde `github:Reservaste/backend#main`.
-Vercel tiene acceso al repo del frontend, **no al del backend**, así que
-sin credenciales el `npm ci` del build falla clonándolo. Es el error más
-probable del primer deploy.
-
-`vercel.json` ya trae el `installCommand` que lo resuelve; lo único que
-falta es el token:
-
-1. GitHub → Settings → Developer settings → **Fine-grained token**.
-2. Repository access: solo `Reservaste/backend`. Permisos: **Contents:
-   Read-only**. Nada más.
-3. Cargarlo en Vercel como `DOMAIN_REPO_TOKEN`.
-
-Los tokens fine-grained vencen. Cuando el build empiece a fallar en el
-`npm ci` sin haber tocado nada, es esto.
-
-> El lockfile fija el commit exacto del paquete. Después de cambiar algo
-> en `backend/src`, hay que correr
-> `npm install @reservaste/domain@github:Reservaste/backend#main` y
-> commitear el lockfile, si no el deploy sigue construyendo contra el
-> commit viejo.
-
-### Después del primer deploy
-
-Dos cosas que no se configuran en Vercel y rompen el login si faltan:
-
-- **Supabase** → Authentication → URL Configuration: poner la URL de
-  producción como *Site URL* y agregarla a *Redirect URLs*.
-- **Google Cloud** → Credentials → el OAuth client: agregar el origen
-  autorizado y el redirect URI (`https://<ref>.supabase.co/auth/v1/callback`
-  ya debería estar; falta el origen de la app).
-
-### Sobre los planes gratuitos
-
-Sirven para probar, no para tener clientes que pagan:
-
-- El plan **Hobby** de Vercel es explícitamente **no comercial**.
-- Supabase free **pausa el proyecto a los 7 días sin actividad** y **no
-  hace backups diarios**. Esto último es lo serio: acá viven las reservas
-  y los pagos de los clientes de otro negocio.
-
-Con el primer cliente que paga corresponde Vercel Pro + Supabase Pro
-(~USD 45/mes), que a USD 20 por cliente se cubre con tres.
+Ver **[deploy/README.md](deploy/README.md)** para el detalle: cómo se
+construye y se envía la imagen, por qué no se construye en el droplet,
+los backups y qué falta.

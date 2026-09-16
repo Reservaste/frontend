@@ -1,0 +1,8 @@
+# Per-Dockerfile ignore (BuildKit): the prebuilt image needs .next, which
+# the default .dockerignore excludes for the build-from-source path.
+node_modules
+.git
+.env*
+.next/cache
+.next/dev
+npm-debug.log
