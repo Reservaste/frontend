@@ -14,7 +14,7 @@ El plan Hobby de Vercel no es opción: es explícitamente no comercial.
 | | |
 |---|---|
 | Droplet | `reservaste-prod`, `s-1vcpu-1gb`, nyc1, Ubuntu 24.04 |
-| Dominio | `reservaste.alquilaste.com` (provisorio, ver abajo) |
+| Dominio | `161-35-63-60.sslip.io` (demo, ver abajo) |
 | App | contenedor `reservaste-app`, detrás de Caddy |
 | TLS | Caddy + Let's Encrypt, renovación automática |
 | Base | el mismo proyecto Supabase de siempre (ADR-0017) |
@@ -39,7 +39,7 @@ se construye en el droplet:
 cd frontend
 NEXT_PUBLIC_SUPABASE_URL=... \
 NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
-NEXT_PUBLIC_SITE_URL=https://reservaste.alquilaste.com \
+NEXT_PUBLIC_SITE_URL=https://161-35-63-60.sslip.io \
 npx next build
 
 docker build -f Dockerfile.prebuilt -t reservaste-app:latest .
@@ -94,10 +94,15 @@ filas, y se vuelven a subir. El schema sí va.
 - **Los dumps viven solo en el droplet.** Protegen contra "borraron filas"
   o "se perdió el proyecto Supabase", no contra "se perdió el droplet".
   Los snapshots automáticos de DO (USD 1,20/mes) cubren ese caso.
-- **El dominio es prestado.** `reservaste.alquilaste.com` es un subdominio
-  de otro proyecto. Cuando haya dominio propio: registro A nuevo,
-  rebuild con el `NEXT_PUBLIC_SITE_URL` nuevo, y actualizar los redirect
-  de Supabase Auth y el origen en Google Cloud.
+- **El dominio depende de la IP.** `sslip.io` es DNS comodín: resuelve
+  `161-35-63-60.sslip.io` a `161.35.63.60` sin registrar nada y sin
+  cuenta, y Let's Encrypt le emite certificado normal. Sirve para una
+  demo; si el droplet se recrea con otra IP, la URL cambia.
+
+  Con dominio propio: apuntar un registro A al droplet, rebuild con el
+  `NEXT_PUBLIC_SITE_URL` nuevo (se hornea en el bundle), cambiar
+  `APP_DOMAIN` en `.env` y actualizar los redirect de Supabase Auth y el
+  origen en Google Cloud.
 - **Sin CI.** Tests, typecheck y lint se corren a mano.
 
 ## Cuándo dejar de hacer esto
