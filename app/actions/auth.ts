@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { signInSchema, signUpSchema } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
+import { siteUrl } from "@/lib/site-url";
 import { safeReturnTo } from "@/lib/return-to";
 
 export interface AuthActionState {
@@ -93,7 +94,7 @@ export async function signInWithPassword(
 
 export async function signInWithGoogle(formData: FormData) {
   const supabase = await createClient();
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const origin = siteUrl();
   const next = safeReturnTo(String(formData.get("returnTo") ?? ""));
 
   const { data, error } = await supabase.auth.signInWithOAuth({
