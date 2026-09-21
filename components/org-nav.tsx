@@ -11,6 +11,7 @@ export function OrgNav({ slug }: { slug: string }) {
         { href: `${base}/agenda`, label: "Agenda" },
         { href: `${base}/customers`, label: "Clientes" },
         { href: `${base}/services`, label: "Servicios" },
+        { href: `${base}/payments`, label: "Pagos" },
         { href: `${base}/resources`, label: "Recursos" },
         { href: `${base}/team`, label: "Equipo" },
         { href: `${base}/settings`, label: "Configuración" },

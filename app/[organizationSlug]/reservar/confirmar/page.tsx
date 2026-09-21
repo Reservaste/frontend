@@ -101,7 +101,7 @@ export default async function ConfirmarPage({
               <span className="text-lg font-normal text-muted-foreground"> – {timeFormatter.format(end)}</span>
             </p>
             <StatusBadge tone={availabilityTone(detail.status, detail.remaining)} className="mt-1">
-              {availabilityLabel(detail)}
+              {availabilityLabel({ ...detail, serviceName: detail.serviceName, serviceColor: null })}
             </StatusBadge>
           </div>
 

@@ -35,11 +35,20 @@ export async function listPublicServices(organizationId: string) {
   return data.map(mapPublicService);
 }
 
-export async function getPublicAvailability(organizationSlug: string, serviceId: string) {
+export async function getPublicAvailability(
+  organizationSlug: string,
+  serviceId?: string | null,
+  from?: Date,
+  to?: Date,
+) {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("get_public_availability", {
     p_organization_slug: organizationSlug,
-    p_service_id: serviceId,
+    // Null means every service: the public calendar shows them together
+    // and filters client-side (ADR-0023).
+    p_service_id: serviceId ?? null,
+    ...(from ? { p_from: from.toISOString() } : {}),
+    ...(to ? { p_to: to.toISOString() } : {}),
   });
 
   if (error || !data) {
