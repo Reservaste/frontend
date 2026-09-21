@@ -81,7 +81,7 @@ export default async function ConfirmarPage({
       color={organization?.brandColor ?? null}
       className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-5 py-8"
     >
-      <BackLink href={`/${organizationSlug}/reservar?service=${detail.serviceId}`}>
+      <BackLink href={`/${organizationSlug}`}>
         Elegir otro horario
       </BackLink>
 
@@ -113,7 +113,7 @@ export default async function ConfirmarPage({
                 {BOOKING_REASONS[canBook] ?? "No podés reservar este horario"}
               </p>
               <Link
-                href={`/${organizationSlug}/reservar?service=${detail.serviceId}`}
+                href={`/${organizationSlug}`}
                 className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
                 Ver otros horarios

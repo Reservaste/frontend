@@ -45,7 +45,17 @@ export function PublicCalendar({
   slots: PublicSlot[];
   timeZone: string;
 }) {
-  const [anchor, setAnchor] = useState(() => todayKey(timeZone));
+  // Opens on the first day that actually has something, not on today.
+  // A business that is closed on Mondays would otherwise greet every
+  // Monday visitor with "no hay horarios este día".
+  const [anchor, setAnchor] = useState(() => {
+    const today = todayKey(timeZone);
+    const upcoming = slots
+      .map((slot) => localDayKey(new Date(slot.startAt), timeZone))
+      .filter((day) => day >= today)
+      .sort();
+    return upcoming[0] ?? today;
+  });
   const [serviceFilter, setServiceFilter] = useState<string | null>(null);
 
   const services = useMemo(() => {

@@ -7,8 +7,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Brand } from "@/components/brand";
 import { BrandTheme } from "@/components/brand-theme";
 import { OrganizationLogo } from "@/components/organization-logo";
+import { PublicCalendar, type PublicSlot } from "@/components/calendar/public-calendar";
 import { buttonVariants } from "@/components/ui/button";
-import { StatusBadge, availabilityTone } from "@/components/status";
 import { EmptyState } from "@/components/empty-state";
 
 export async function generateMetadata({ params }: { params: Promise<{ organizationSlug: string }> }) {
@@ -17,6 +17,14 @@ export async function generateMetadata({ params }: { params: Promise<{ organizat
   return { title: organization?.name ?? "Negocio" };
 }
 
+/**
+ * The business's public page IS its agenda (ADR-0023).
+ *
+ * It used to be a list of service cards with a handful of slots each and
+ * a "Reservar un horario" button that led to the actual calendar. That
+ * put the thing everyone came for one tap away from where they landed,
+ * and made the same information exist twice in two shapes.
+ */
 export default async function PublicOrganizationPage({
   params,
 }: {
@@ -30,13 +38,29 @@ export default async function PublicOrganizationPage({
   }
 
   const services = await listPublicServices(organization.id);
-  const availabilityByService = await Promise.all(
-    services.map((service) => getPublicAvailability(organizationSlug, service.id)),
+
+  // Four weeks: enough to browse forward without a round trip per arrow,
+  // and well inside the 90-day rolling window (ADR-0009).
+  const now = new Date();
+  const raw = await getPublicAvailability(
+    organizationSlug,
+    undefined,
+    now,
+    new Date(now.getTime() + 28 * 86_400_000),
   );
 
-  // Public page, but most people reaching it a second time already have
-  // an account -- and until now it was the one screen with no way out
-  // towards their own bookings.
+  const slots: PublicSlot[] = raw.map((slot: PublicAvailabilitySlot) => ({
+    slotOccurrenceId: slot.slotOccurrenceId,
+    serviceId: slot.serviceId,
+    serviceName: slot.serviceName,
+    serviceColor: slot.serviceColor,
+    startAt: slot.startAt,
+    endAt: slot.endAt,
+    // Already respects the disclosure mode of ADR-0008.
+    availability: availabilityLabel(slot),
+    full: slot.status === "FULL" || slot.remaining === 0,
+  }));
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -55,80 +79,30 @@ export default async function PublicOrganizationPage({
           </Link>
         </div>
 
-        <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-3 border-t px-5 py-10 text-center">
-          <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="lg" />
-          <h1 className="text-2xl">{organization.name}</h1>
-          <p className="text-sm text-muted-foreground">Elegí un servicio y reservá tu lugar</p>
-          {services.length > 0 ? (
-            <Link
-              href={`/${organizationSlug}/reservar`}
-              className={buttonVariants({ size: "lg", className: "mt-1" })}
-            >
-              Reservar un horario
-            </Link>
-          ) : null}
+        {/* Compact on purpose: the identity has to be recognisable, but
+            the calendar is what the page is for and it should be visible
+            without scrolling on a phone. */}
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 border-t px-5 py-4">
+          <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="md" />
+          <div className="flex min-w-0 flex-col">
+            <h1 className="truncate text-lg">{organization.name}</h1>
+            <p className="text-xs text-muted-foreground">Elegí un horario y reservá tu lugar</p>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-5 py-8">
+      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-5 py-5">
         {services.length === 0 ? (
           <EmptyState
             title="Todavía no hay servicios publicados"
             description="Este negocio aún no cargó lo que ofrece. Volvé a intentar más tarde."
           />
         ) : (
-          services.map((service, i) => {
-            const slots: PublicAvailabilitySlot[] = availabilityByService[i]!.slice(0, 4);
-
-            return (
-              <section
-                key={service.id}
-                className="overflow-hidden rounded-xl border bg-card shadow-card"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4">
-                  <div className="flex flex-col gap-0.5">
-                    <h2 className="text-base">{service.name}</h2>
-                    {service.description ? (
-                      <p className="text-sm text-muted-foreground">{service.description}</p>
-                    ) : null}
-                  </div>
-                  <Link
-                    href={`/${organizationSlug}/reservar?service=${service.id}`}
-                    className={buttonVariants({ variant: "outline", size: "sm" })}
-                  >
-                    Ver horarios
-                  </Link>
-                </div>
-
-                {slots.length > 0 ? (
-                  <ul className="divide-y border-t">
-                    {slots.map((slot) => (
-                      <li key={slot.slotOccurrenceId} className="flex items-center justify-between gap-3 px-5 py-3">
-                        <span className="tnum text-sm">
-                          {new Date(slot.startAt).toLocaleString("es-UY", {
-                            timeZone: organization.timezone,
-                            weekday: "short",
-                            day: "2-digit",
-                            month: "2-digit",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hourCycle: "h23",
-                          })}
-                        </span>
-                        <StatusBadge tone={availabilityTone(slot.status, slot.remaining)}>
-                          {availabilityLabel(slot)}
-                        </StatusBadge>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="border-t px-5 py-3 text-sm text-muted-foreground">
-                    Sin horarios próximos.
-                  </p>
-                )}
-              </section>
-            );
-          })
+          <PublicCalendar
+            organizationSlug={organizationSlug}
+            slots={slots}
+            timeZone={organization.timezone}
+          />
         )}
       </main>
 
