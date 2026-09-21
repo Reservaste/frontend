@@ -35,7 +35,7 @@ export interface MyBooking {
   cancellationReason: string | null;
   isRecurring: boolean;
   /** Why a recurring date didn't confirm. Null for every other status. */
-  notGeneratedReason: "SLOT_FULL" | "NO_ENTITLEMENT" | "DUPLICATE" | null;
+  notGeneratedReason: "SLOT_FULL" | "PAYMENT_REQUIRED" | "DUPLICATE" | null;
 }
 
 export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
@@ -75,51 +75,54 @@ export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
   );
 }
 
-export interface MyEntitlement {
-  entitlementId: string;
-  organizationName: string;
+export interface MyService {
+  serviceId: string;
   serviceName: string;
-  entitlementType: "TIME" | "CREDITS";
-  validFrom: string | null;
-  validUntil: string | null;
-  creditsRemaining: number | null;
-  creditsTotal: number | null;
-  requiresActivePayment: boolean;
-  isActive: boolean;
-  paidToday: boolean;
+  organizationSlug: string;
+  organizationName: string;
+  billingType: "FREE" | "ONE_TIME" | "MONTHLY";
+  billingCycle: "CALENDAR_MONTH" | "ROLLING_MONTH" | null;
+  price: number | null;
+  paymentRequired: boolean;
+  coveredUntil: string | null;
+  isCoveredToday: boolean;
 }
 
-export async function getMyEntitlements(): Promise<MyEntitlement[]> {
+/**
+ * The services the customer can book, and whether their month is covered
+ * (ADR-0022). Replaces the entitlement list: nobody enables a service for
+ * a person any more, so there is nothing per-person to show except
+ * whether payment is up to date.
+ */
+export async function getMyServices(): Promise<MyService[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("my_entitlements");
+  const { data, error } = await supabase.rpc("my_services");
 
   if (error || !data) return [];
 
   return data.map(
     (row: {
-      entitlement_id: string;
-      organization_name: string;
+      service_id: string;
       service_name: string;
-      entitlement_type: MyEntitlement["entitlementType"];
-      valid_from: string | null;
-      valid_until: string | null;
-      credits_remaining: number | null;
-      credits_total: number | null;
-      requires_active_payment: boolean;
-      is_active: boolean;
-      paid_today: boolean;
+      organization_slug: string;
+      organization_name: string;
+      billing_type: MyService["billingType"];
+      billing_cycle: MyService["billingCycle"];
+      price: string | number | null;
+      payment_required: boolean;
+      covered_until: string | null;
+      is_covered_today: boolean;
     }) => ({
-      entitlementId: row.entitlement_id,
-      organizationName: row.organization_name,
+      serviceId: row.service_id,
       serviceName: row.service_name,
-      entitlementType: row.entitlement_type,
-      validFrom: row.valid_from,
-      validUntil: row.valid_until,
-      creditsRemaining: row.credits_remaining,
-      creditsTotal: row.credits_total,
-      requiresActivePayment: row.requires_active_payment,
-      isActive: row.is_active,
-      paidToday: row.paid_today,
+      organizationSlug: row.organization_slug,
+      organizationName: row.organization_name,
+      billingType: row.billing_type,
+      billingCycle: row.billing_cycle,
+      price: row.price === null ? null : Number(row.price),
+      paymentRequired: row.payment_required,
+      coveredUntil: row.covered_until,
+      isCoveredToday: row.is_covered_today,
     }),
   );
 }
@@ -209,7 +212,6 @@ export type CanBookResult =
   | "ORGANIZATION_INACTIVE"
   | "SERVICE_INACTIVE"
   | "OCCURRENCE_NOT_AVAILABLE"
-  | "NO_ENTITLEMENT"
   | "PAYMENT_REQUIRED"
   | "SLOT_FULL"
   | "ALREADY_BOOKED";

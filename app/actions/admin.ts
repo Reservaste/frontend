@@ -284,7 +284,6 @@ export async function bookCustomerIntoSlot(
     const reasons: Record<string, string> = {
       SLOT_FULL: "El horario está completo",
       ALREADY_BOOKED: "Ese cliente ya está anotado",
-      NO_ENTITLEMENT: "Ese cliente no tiene el servicio habilitado",
       PAYMENT_REQUIRED: "El pago del cliente no cubre esta fecha",
       NOT_A_CUSTOMER: "Esa persona no es cliente de esta organización",
       OCCURRENCE_NOT_AVAILABLE: "Ese horario ya no está disponible",

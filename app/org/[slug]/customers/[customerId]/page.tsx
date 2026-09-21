@@ -1,16 +1,11 @@
 import { notFound } from "next/navigation";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
-import { getCustomerEntitlements, getCustomerPayments } from "@/app/actions/billing";
+import { getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
 import { StatusBadge } from "@/components/status";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import {
-  EntitlementList,
-  GrantEntitlementForm,
-  PaymentList,
-  RegisterPaymentForm,
-} from "./customer-forms";
+import { PaymentList, RegisterPaymentForm } from "./customer-forms";
 
 export default async function CustomerDetailPage({
   params,
@@ -20,10 +15,9 @@ export default async function CustomerDetailPage({
   const { slug, customerId } = await params;
   await requireOrganizationMembership(slug);
 
-  const [customers, services, entitlements, payments] = await Promise.all([
+  const [customers, services, payments] = await Promise.all([
     getCustomers(slug),
     listServices(slug),
-    getCustomerEntitlements(slug, customerId),
     getCustomerPayments(slug, customerId),
   ]);
 
@@ -61,25 +55,14 @@ export default async function CustomerDetailPage({
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold">Servicios habilitados</h2>
-        <EntitlementList
-          organizationSlug={slug}
-          customerId={customerId}
-          entitlements={entitlements}
-          services={services}
-        />
-        <GrantEntitlementForm organizationSlug={slug} customerId={customerId} services={services} />
-      </section>
-
-      <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">Pagos</h2>
-        <PaymentList organizationSlug={slug} customerId={customerId} payments={payments} />
-        <RegisterPaymentForm
+        <PaymentList
           organizationSlug={slug}
           customerId={customerId}
-          entitlements={entitlements}
+          payments={payments}
           services={services}
         />
+        <RegisterPaymentForm organizationSlug={slug} customerId={customerId} services={services} />
       </section>
     </div>
   );

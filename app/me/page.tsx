@@ -102,8 +102,8 @@ export default async function MyBookingsPage({
                     {booking.cancellationReason === "CUSTOMER_REQUEST" ? "Cancelaste" : "Cancelado"}
                   </StatusBadge>
                 ) : booking.status === "NOT_GENERATED" ? (
-                  <StatusBadge tone={booking.notGeneratedReason === "NO_ENTITLEMENT" ? "danger" : "warning"}>
-                    {booking.notGeneratedReason === "NO_ENTITLEMENT"
+                  <StatusBadge tone={booking.notGeneratedReason === "PAYMENT_REQUIRED" ? "danger" : "warning"}>
+                    {booking.notGeneratedReason === "PAYMENT_REQUIRED"
                       ? "Falta el pago"
                       : booking.notGeneratedReason === "DUPLICATE"
                         ? "Ya estás anotado"

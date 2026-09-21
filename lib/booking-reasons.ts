@@ -10,7 +10,6 @@ export const BOOKING_REASONS: Record<string, string> = {
   ORGANIZATION_INACTIVE: "Este negocio no está aceptando reservas",
   SERVICE_INACTIVE: "Este servicio ya no está disponible",
   OCCURRENCE_NOT_AVAILABLE: "Ese horario ya no está disponible",
-  NO_ENTITLEMENT: "No tenés este servicio habilitado. Consultá con el negocio.",
   PAYMENT_REQUIRED: "Tu pago no cubre esa fecha. Regularizá con el negocio para reservar.",
   SLOT_FULL: "Se completaron los lugares mientras elegías",
   ALREADY_BOOKED: "Ya tenés una reserva para este horario",

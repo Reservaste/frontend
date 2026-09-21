@@ -24,7 +24,6 @@ const initialAction: StandingActionState = { error: null, success: null };
 // is standing at the desk rather than for the customer.
 const DESK_REASONS: Record<string, string> = {
   OK: "Se reserva",
-  NO_ENTITLEMENT: "No tiene el servicio habilitado",
   PAYMENT_REQUIRED: "El pago no cubre esa fecha",
   SLOT_FULL: "Completo",
   ALREADY_BOOKED: "Ya está anotado",

@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import type { Payment, Service, ServiceEntitlement } from "@reservaste/domain";
+import { useActionState } from "react";
+import type { Payment, Service } from "@reservaste/domain";
 import type { ActionState } from "@/app/actions/admin";
-import { grantEntitlement, registerPayment, revokeEntitlement, voidPayment } from "@/app/actions/billing";
+import { registerPayment, voidPayment } from "@/app/actions/billing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,165 +14,13 @@ const selectClass =
 
 const initialState: ActionState = { error: null, success: null };
 
-export function GrantEntitlementForm({
-  organizationSlug,
-  customerId,
-  services,
-}: {
-  organizationSlug: string;
-  customerId: string;
-  services: Service[];
-}) {
-  const [type, setType] = useState<"TIME" | "CREDITS">("TIME");
-  const [state, formAction, pending] = useActionState(
-    grantEntitlement.bind(null, organizationSlug, customerId),
-    initialState,
-  );
-
-  if (services.length === 0) {
-    return <p className="text-sm text-muted-foreground">Creá un servicio primero para poder habilitarlo.</p>;
-  }
-
-  return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="serviceId">Servicio</Label>
-          <select
-            id="serviceId"
-            name="serviceId"
-            required
-            className={selectClass}
-          >
-            {services.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="entitlementType">Tipo</Label>
-          <select
-            id="entitlementType"
-            name="entitlementType"
-            value={type}
-            onChange={(e) => setType(e.target.value as "TIME" | "CREDITS")}
-            className={selectClass}
-          >
-            <option value="TIME">Por período</option>
-            <option value="CREDITS">Por créditos</option>
-          </select>
-        </div>
-
-        {type === "TIME" ? (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="validFrom">Desde</Label>
-              <Input
-                id="validFrom"
-                name="validFrom"
-                type="date"
-                defaultValue={new Date().toISOString().slice(0, 10)}
-                required
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="validUntil">Hasta (opcional)</Label>
-              <Input id="validUntil" name="validUntil" type="date" />
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="creditsTotal">Créditos</Label>
-            <Input id="creditsTotal" name="creditsTotal" type="number" min={1} defaultValue={10} required />
-          </div>
-        )}
-      </div>
-
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" name="requiresActivePayment" defaultChecked={type === "TIME"} />
-        Requiere pago vigente
-        <span className="text-xs text-muted-foreground">
-          (destildado = cortesía o beca)
-        </span>
-      </label>
-
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      {state.success ? <p className="text-sm text-muted-foreground">{state.success}</p> : null}
-
-      <Button type="submit" size="sm" disabled={pending}>
-        {pending ? "Habilitando…" : "Habilitar servicio"}
-      </Button>
-    </form>
-  );
-}
-
-export function EntitlementList({
-  organizationSlug,
-  customerId,
-  entitlements,
-  services,
-}: {
-  organizationSlug: string;
-  customerId: string;
-  entitlements: ServiceEntitlement[];
-  services: Service[];
-}) {
-  const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
-
-  if (entitlements.length === 0) {
-    return (
-      <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-        Sin servicios habilitados.
-      </p>
-    );
-  }
-
-  return (
-    <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
-      {entitlements.map((e) => (
-        <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{serviceName(e.serviceId)}</span>
-              {!e.isActive ? (
-                <StatusBadge tone="neutral">Revocado</StatusBadge>
-              ) : e.requiresActivePayment ? (
-                <StatusBadge tone="primary">Requiere pago</StatusBadge>
-              ) : (
-                <StatusBadge tone="success">Cortesía</StatusBadge>
-              )}
-            </div>
-            <span className="text-xs text-muted-foreground">
-              {e.entitlementType === "TIME"
-                ? `${e.validFrom}${e.validUntil ? ` → ${e.validUntil}` : " · sin vencimiento"}`
-                : `${e.creditsRemaining} de ${e.creditsTotal} créditos`}
-            </span>
-          </div>
-          {e.isActive ? (
-            <form action={revokeEntitlement.bind(null, organizationSlug, customerId, e.id)}>
-              <Button type="submit" variant="ghost" size="xs">
-                Revocar
-              </Button>
-            </form>
-          ) : null}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export function RegisterPaymentForm({
   organizationSlug,
   customerId,
-  entitlements,
   services,
 }: {
   organizationSlug: string;
   customerId: string;
-  entitlements: ServiceEntitlement[];
   services: Service[];
 }) {
   const [state, formAction, pending] = useActionState(
@@ -180,13 +28,15 @@ export function RegisterPaymentForm({
     initialState,
   );
 
-  const payable = entitlements.filter((e) => e.isActive && e.requiresActivePayment);
-  const serviceName = (id: string) => services.find((s) => s.id === id)?.name ?? id;
+  // Any active service can take a payment: whether one is *required* to
+  // book is a property of the service (ADR-0022), not a per-customer
+  // permission somebody had to grant first.
+  const payable = services.filter((s) => s.isActive);
 
   if (payable.length === 0) {
     return (
       <p className="rounded-xl border border-dashed px-4 py-3 text-sm text-muted-foreground">
-        No hay servicios habilitados que requieran pago.
+        Cargá un servicio antes de registrar pagos.
       </p>
     );
   }
@@ -199,16 +49,11 @@ export function RegisterPaymentForm({
     <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="serviceEntitlementId">Servicio habilitado</Label>
-          <select
-            id="serviceEntitlementId"
-            name="serviceEntitlementId"
-            required
-            className={selectClass}
-          >
-            {payable.map((e) => (
-              <option key={e.id} value={e.id}>
-                {serviceName(e.serviceId)}
+          <Label htmlFor="serviceId">Servicio</Label>
+          <select id="serviceId" name="serviceId" required className={selectClass}>
+            {payable.map((service) => (
+              <option key={service.id} value={service.id}>
+                {service.name}
               </option>
             ))}
           </select>
@@ -261,10 +106,12 @@ export function PaymentList({
   organizationSlug,
   customerId,
   payments,
+  services,
 }: {
   organizationSlug: string;
   customerId: string;
   payments: Payment[];
+  services: Service[];
 }) {
   if (payments.length === 0) {
     return (
@@ -286,7 +133,12 @@ export function PaymentList({
       {payments.map((p) => (
         <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="flex flex-col gap-0.5">
-            <span className="tnum text-sm font-medium">
+            {/* Which service the payment is for: without it the list is
+                just amounts and dates, which answers nothing. */}
+            <span className="text-sm font-medium">
+              {services.find((s) => s.id === p.serviceId)?.name ?? "Servicio"}
+            </span>
+            <span className="tnum text-xs text-muted-foreground">
               {p.periodStart} → {p.periodEnd}
             </span>
             <div className="flex items-center gap-2">
