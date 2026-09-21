@@ -3,26 +3,28 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import type { Resource } from "@reservaste/domain";
-import { createScheduleRule, type CreateScheduleRuleState } from "@/app/actions/schedule";
+import { createScheduleRuleGroup, type CreateScheduleRuleState } from "@/app/actions/schedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "cn";
+import { WEEKDAY_LETTER, WEEKDAY_LONG } from "@/lib/calendar";
 
 const initialState: CreateScheduleRuleState = { error: null };
 
-const WEEKDAYS = [
-  { value: 1, label: "Lun" },
-  { value: 2, label: "Mar" },
-  { value: 3, label: "Mié" },
-  { value: 4, label: "Jue" },
-  { value: 5, label: "Vie" },
-  { value: 6, label: "Sáb" },
-  { value: 0, label: "Dom" },
-];
+// Monday first, Sunday last -- the week as a person reads it, not as
+// getDay() numbers it.
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 const selectClass =
   "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
+/**
+ * One configuration, several days (ADR-0022). Picking Mon/Wed/Fri creates
+ * three ScheduleRules sharing a group; the model stays one rule per
+ * weekday so exceptions and occurrence generation are untouched, and the
+ * person filling this in never has to know that.
+ */
 export function ScheduleRuleForm({
   organizationSlug,
   serviceId,
@@ -33,9 +35,9 @@ export function ScheduleRuleForm({
   resources: Resource[];
 }) {
   const [open, setOpen] = useState(false);
-  const [weekday, setWeekday] = useState(1);
+  const [weekdays, setWeekdays] = useState<number[]>([1]);
   const [state, formAction, pending] = useActionState(
-    createScheduleRule.bind(null, organizationSlug, serviceId),
+    createScheduleRuleGroup.bind(null, organizationSlug, serviceId),
     initialState,
   );
 
@@ -63,29 +65,46 @@ export function ScheduleRuleForm({
     );
   }
 
+  const toggle = (day: number) =>
+    setWeekdays((current) =>
+      current.includes(day) ? current.filter((d) => d !== day) : [...current, day],
+    );
+
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-xl border bg-card p-4 shadow-card">
       <div className="flex flex-col gap-1.5">
-        <Label>Día de la semana</Label>
-        {/* A row of day toggles instead of a dropdown: picking a weekday is
-            the most frequent choice here and deserves one tap. */}
+        <Label>Días</Label>
         <div className="flex flex-wrap gap-1.5">
-          {WEEKDAYS.map((day) => (
-            <button
-              key={day.value}
-              type="button"
-              onClick={() => setWeekday(day.value)}
-              className={`min-w-11 rounded-lg border px-2.5 py-1.5 text-sm font-medium transition-colors ${
-                weekday === day.value
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "hover:bg-muted"
-              }`}
-            >
-              {day.label}
-            </button>
-          ))}
+          {WEEK_ORDER.map((day) => {
+            const on = weekdays.includes(day);
+            return (
+              <button
+                key={day}
+                type="button"
+                onClick={() => toggle(day)}
+                aria-pressed={on}
+                aria-label={WEEKDAY_LONG[day]}
+                title={WEEKDAY_LONG[day]}
+                className={cn(
+                  "size-11 rounded-lg border text-sm font-semibold transition-colors",
+                  on
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "hover:bg-muted",
+                )}
+              >
+                {WEEKDAY_LETTER[day]}
+              </button>
+            );
+          })}
         </div>
-        <input type="hidden" name="weekday" value={weekday} />
+        {weekdays.map((day) => (
+          <input key={day} type="hidden" name="weekdays" value={day} />
+        ))}
+        <p className="text-xs text-muted-foreground">
+          {weekdays.length === 0
+            ? "Elegí al menos un día."
+            : `Se crean ${weekdays.length} horario${weekdays.length === 1 ? "" : "s"}, uno por día.`}
+        </p>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -116,7 +135,7 @@ export function ScheduleRuleForm({
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending || weekdays.length === 0}>
           {pending ? "Creando…" : "Crear horario"}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>

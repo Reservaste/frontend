@@ -1,19 +1,22 @@
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listResources } from "@/app/actions/resources";
 import { listServices } from "@/app/actions/services";
-import { listScheduleRules, listUpcomingOccurrences } from "@/app/actions/schedule";
+import { discontinueScheduleRuleGroup, listScheduleRuleGroups } from "@/app/actions/schedule";
 import { getCustomers } from "@/app/actions/admin";
 import { listStandingReservations } from "@/app/actions/standing";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { Button } from "@/components/ui/button";
+import { WEEKDAY_SHORT } from "@/lib/calendar";
+import { ServiceTabs } from "../service-tabs";
 import { ScheduleRuleForm } from "./schedule-rule-form";
 import { StandingReservations } from "./standing-reservations";
 
 export const metadata = { title: "Horarios" };
 
-const WEEKDAY_NAMES = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 export default async function ServiceSchedulePage({
   params,
@@ -22,117 +25,111 @@ export default async function ServiceSchedulePage({
 }) {
   const { slug, serviceId } = await params;
   const { organization } = await requireOrganizationMembership(slug);
-  const [resources, services, rules, occurrences, customers] = await Promise.all([
+  const [resources, services, groups, customers] = await Promise.all([
     listResources(slug),
     listServices(slug),
-    listScheduleRules(slug, serviceId),
-    listUpcomingOccurrences(slug, serviceId),
+    listScheduleRuleGroups(slug, serviceId),
     getCustomers(slug),
   ]);
 
-  // One query per rule rather than one for the whole service: the listing
-  // is per-rule anyway, and a service rarely has more than a handful.
+  // Standing reservations subscribe to a single ScheduleRule, so a
+  // Mon/Wed/Fri group has three of them -- which is correct: a standing
+  // Monday is not a standing Wednesday.
   const standingByRule = Object.fromEntries(
     await Promise.all(
-      rules.map(async (rule) => [rule.id, await listStandingReservations(slug, rule.id)] as const),
+      groups
+        .flatMap((group) => group.ruleIds)
+        .map(async (ruleId) => [ruleId, await listStandingReservations(slug, ruleId)] as const),
     ),
   );
 
   const service = services.find((s) => s.id === serviceId);
-  const resourceName = (resourceId: string) => resources.find((r) => r.id === resourceId)?.name ?? "—";
-
-  const dateFormatter = new Intl.DateTimeFormat("es-UY", {
-    timeZone: organization.timezone,
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-5 px-5 py-6">
       <Breadcrumbs
         items={[
           { label: "Servicios", href: `/org/${slug}/services` },
-          { label: service?.name ?? "Servicio", href: `/org/${slug}/services` },
-          { label: "Horarios" },
+          { label: service?.name ?? "Servicio" },
         ]}
       />
 
       <PageHeader
         title={service?.name ?? "Horarios"}
-        description="Cada regla genera turnos automáticamente para los próximos 90 días"
+        description="Cada horario genera turnos automáticamente para los próximos 90 días"
       />
+
+      <ServiceTabs organizationSlug={slug} serviceId={serviceId} />
 
       <ScheduleRuleForm organizationSlug={slug} serviceId={serviceId} resources={resources} />
 
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-sm font-semibold">Horarios semanales</h2>
-        {rules.length === 0 ? (
-          <EmptyState
-            title="Sin horarios cargados"
-            description="Agregá un horario semanal y los turnos aparecen solos en la agenda."
-          />
-        ) : (
-          <ul className="flex flex-col gap-2.5">
-            {rules.map((rule) => {
-              const ruleLabel = `${WEEKDAY_NAMES[rule.weekday]} ${rule.localStartTime.slice(0, 5)}`;
+      {groups.length === 0 ? (
+        <EmptyState
+          title="Sin horarios cargados"
+          description="Agregá un horario y los turnos aparecen solos en la agenda."
+        />
+      ) : (
+        <ul className="flex flex-col gap-3">
+          {groups.map((group) => {
+            const label = `${WEEK_ORDER.filter((d) => group.weekdays.includes(d))
+              .map((d) => WEEKDAY_SHORT[d])
+              .join(" · ")} ${group.localStartTime.slice(0, 5)}`;
 
-              return (
-                <li key={rule.id} className="overflow-hidden rounded-xl border bg-card shadow-card">
-                  <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {WEEKDAY_NAMES[rule.weekday]}{" "}
-                        <span className="tnum">{rule.localStartTime.slice(0, 5)}</span>
-                      </span>
-                      <span className="text-sm text-muted-foreground">
-                        {resourceName(rule.resourceId)} · {rule.durationMinutes} min
+            return (
+              <li key={group.groupId} className="overflow-hidden rounded-xl border bg-card shadow-card">
+                <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {WEEK_ORDER.map((day) => (
+                        <span
+                          key={day}
+                          className={`flex size-7 items-center justify-center rounded-md text-xs font-semibold ${
+                            group.weekdays.includes(day)
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-muted text-muted-foreground/50"
+                          }`}
+                        >
+                          {WEEKDAY_SHORT[day]!.slice(0, 1)}
+                        </span>
+                      ))}
+                      <span className="tnum ml-1.5 font-medium">
+                        {group.localStartTime.slice(0, 5)}
                       </span>
                     </div>
-                    <StatusBadge tone="primary">{rule.capacity} lugares</StatusBadge>
+                    <span className="text-sm text-muted-foreground">
+                      {group.resourceName} · {group.durationMinutes} min
+                    </span>
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <StatusBadge tone="primary">{group.capacity} lugares</StatusBadge>
+                    <form action={discontinueScheduleRuleGroup.bind(null, slug, serviceId, group.groupId)}>
+                      <Button type="submit" variant="ghost" size="sm">
+                        Quitar
+                      </Button>
+                    </form>
+                  </div>
+                </div>
+
+                {group.ruleIds.map((ruleId, index) => (
                   <StandingReservations
+                    key={ruleId}
                     organizationSlug={slug}
                     serviceId={serviceId}
-                    scheduleRuleId={rule.id}
-                    ruleLabel={ruleLabel}
+                    scheduleRuleId={ruleId}
+                    ruleLabel={`${WEEKDAY_SHORT[group.weekdays[index]!]} ${group.localStartTime.slice(0, 5)}`}
                     customers={customers}
-                    reservations={standingByRule[rule.id] ?? []}
+                    reservations={standingByRule[ruleId] ?? []}
                     timezone={organization.timezone}
                   />
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+                ))}
 
-      <section className="flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Próximos turnos generados</h2>
-          <span className="text-xs text-muted-foreground">{organization.timezone}</span>
-        </div>
-        {occurrences.length === 0 ? (
-          <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-            Se generan automáticamente al crear un horario.
-          </p>
-        ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {occurrences.map((occ) => (
-              <li
-                key={occ.id}
-                className="flex items-center justify-between gap-2 rounded-xl border bg-card px-3.5 py-2.5 shadow-card"
-              >
-                <span className="tnum text-sm capitalize">{dateFormatter.format(new Date(occ.startAt))}</span>
-                <span className="tnum text-xs text-muted-foreground">{occ.capacity} lugares</span>
+                <span className="sr-only">{label}</span>
               </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

@@ -73,6 +73,9 @@ export interface OccurrenceAttendee {
   customerId: string;
   customerName: string;
   status: "CONFIRMED" | "CANCELLED" | "NOT_GENERATED";
+  /** Independent of status: reserved and absent is a normal case (ADR-0022). */
+  attendanceStatus: "PENDING" | "PRESENT" | "ABSENT";
+  attendanceMarkedAt: string | null;
   createdAt: string;
 }
 
@@ -97,12 +100,16 @@ export async function getOccurrenceAttendees(
       customer_id: string;
       customer_name: string;
       status: OccurrenceAttendee["status"];
+      attendance_status: OccurrenceAttendee["attendanceStatus"];
+      attendance_marked_at: string | null;
       created_at: string;
     }) => ({
       bookingId: row.booking_id,
       customerId: row.customer_id,
       customerName: row.customer_name,
       status: row.status,
+      attendanceStatus: row.attendance_status,
+      attendanceMarkedAt: row.attendance_marked_at,
       createdAt: row.created_at,
     }),
   );
@@ -346,4 +353,115 @@ export async function updateOccurrenceCapacity(
 
   revalidatePath(`/org/${organizationSlug}/agenda`);
   return { error: null, success: "Capacidad actualizada" };
+}
+
+
+export interface OccurrenceDetail extends AgendaOccurrence {
+  present: number;
+  absent: number;
+  pending: number;
+}
+
+/**
+ * One occurrence with its roll-call totals. Reads the same
+ * agenda_occurrences RPC the calendar uses, so the capacity and confirmed
+ * count on this screen can never disagree with the block you clicked
+ * (the invariant of docs/domain.md: availability is derived, never
+ * counted twice).
+ */
+export async function getOccurrence(
+  organizationSlug: string,
+  slotOccurrenceId: string,
+): Promise<OccurrenceDetail | null> {
+  const { organization } = await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data: rows } = await supabase
+    .from("slot_occurrences")
+    .select("start_at")
+    .eq("id", slotOccurrenceId)
+    .maybeSingle();
+  if (!rows) return null;
+
+  const at = new Date(rows.start_at);
+  const occurrences = await getAgenda(
+    organizationSlug,
+    new Date(at.getTime() - 60_000),
+    new Date(at.getTime() + 60_000),
+  );
+  const occurrence = occurrences.find((o) => o.id === slotOccurrenceId);
+  if (!occurrence) return null;
+
+  const { data: summary } = await supabase.rpc("occurrence_attendance_summary", {
+    p_slot_occurrence_id: slotOccurrenceId,
+  });
+  const totals = summary?.[0] ?? { present: 0, absent: 0, pending: 0 };
+
+  void organization;
+  return {
+    ...occurrence,
+    present: totals.present,
+    absent: totals.absent,
+    pending: totals.pending,
+  };
+}
+
+/** Roll call. <form action> target, so it resolves to void. */
+export async function markAttendance(
+  organizationSlug: string,
+  slotOccurrenceId: string,
+  bookingId: string,
+  status: "PENDING" | "PRESENT" | "ABSENT",
+): Promise<void> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  await supabase.rpc("mark_attendance", { p_booking_id: bookingId, p_status: status });
+  revalidatePath(`/org/${organizationSlug}/agenda/${slotOccurrenceId}`, "layout");
+}
+
+
+export interface AttendanceHistoryEntry {
+  slotOccurrenceId: string;
+  startAt: string;
+  endAt: string;
+  reserved: number;
+  present: number;
+  absent: number;
+  pending: number;
+}
+
+/** Past occurrences of a service with their roll-call totals (ADR-0023). */
+export async function getServiceAttendanceHistory(
+  organizationSlug: string,
+  serviceId: string,
+): Promise<AttendanceHistoryEntry[]> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("service_attendance_history", {
+    p_service_id: serviceId,
+    p_limit: 30,
+  });
+  if (error || !data) return [];
+
+  return data.map(
+    (row: {
+      slot_occurrence_id: string;
+      start_at: string;
+      end_at: string;
+      reserved: number;
+      present: number;
+      absent: number;
+      pending: number;
+    }) => ({
+      slotOccurrenceId: row.slot_occurrence_id,
+      startAt: row.start_at,
+      endAt: row.end_at,
+      reserved: row.reserved,
+      present: row.present,
+      absent: row.absent,
+      pending: row.pending,
+    }),
+  );
 }

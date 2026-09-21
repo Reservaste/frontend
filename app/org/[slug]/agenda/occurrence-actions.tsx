@@ -24,6 +24,7 @@ export function OccurrenceActions({
   attendees,
   customers,
   isCancelled,
+  alwaysOpen = false,
 }: {
   organizationSlug: string;
   occurrenceId: string;
@@ -31,8 +32,10 @@ export function OccurrenceActions({
   attendees: OccurrenceAttendee[];
   customers: OrganizationCustomer[];
   isCancelled: boolean;
+  /** On the occurrence's own page there is nothing to collapse into. */
+  alwaysOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(alwaysOpen);
   const [bookState, bookAction, booking] = useActionState(
     bookCustomerIntoSlot.bind(null, organizationSlug, occurrenceId),
     initialState,
@@ -44,7 +47,7 @@ export function OccurrenceActions({
 
   const confirmed = attendees.filter((a) => a.status === "CONFIRMED");
 
-  if (!open) {
+  if (!open && !alwaysOpen) {
     return (
       <button
         onClick={() => setOpen(true)}
