@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
+import { monthRange } from "@/lib/billing-period";
 
 // The payments screens answer one question -- who paid and who did not --
 // so everything here is shaped around a period, not around a customer.
@@ -18,21 +19,6 @@ export interface PaymentSummaryRow {
   paid: number;
   pending: number;
   rollupStatus: RollupStatus;
-}
-
-/** The period a month means, as dates. Defaults to the current month. */
-export function monthRange(month?: string): { from: string; to: string; month: string } {
-  const base = month && /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : null;
-  const anchor = base ? new Date(`${base}T12:00:00Z`) : new Date();
-  const year = anchor.getUTCFullYear();
-  const m = anchor.getUTCMonth();
-  const first = new Date(Date.UTC(year, m, 1));
-  const last = new Date(Date.UTC(year, m + 1, 0));
-  return {
-    from: first.toISOString().slice(0, 10),
-    to: last.toISOString().slice(0, 10),
-    month: first.toISOString().slice(0, 7),
-  };
 }
 
 export async function getPaymentSummary(

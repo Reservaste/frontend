@@ -1,5 +1,6 @@
 import { requireOrganizationMembership } from "@/app/actions/organizations";
-import { getPaymentSummary, monthRange } from "@/app/actions/payments";
+import { getPaymentSummary } from "@/app/actions/payments";
+import { monthRange } from "@/lib/billing-period";
 import { PageHeader } from "@/components/page-header";
 import { MonthPicker } from "./month-picker";
 import { PaymentsList } from "./payments-list";
