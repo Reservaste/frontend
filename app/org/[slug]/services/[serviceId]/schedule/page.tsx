@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { WEEKDAY_SHORT } from "@/lib/calendar";
 import { ServiceTabs } from "../service-tabs";
+import { ServiceBillingForm } from "../billing-form";
 import { ScheduleRuleForm } from "./schedule-rule-form";
 import { StandingReservations } from "./standing-reservations";
 
@@ -24,7 +25,7 @@ export default async function ServiceSchedulePage({
   params: Promise<{ slug: string; serviceId: string }>;
 }) {
   const { slug, serviceId } = await params;
-  const { organization } = await requireOrganizationMembership(slug);
+  const { organization, membership } = await requireOrganizationMembership(slug);
   const [resources, services, groups, customers] = await Promise.all([
     listResources(slug),
     listServices(slug),
@@ -60,6 +61,16 @@ export default async function ServiceSchedulePage({
       />
 
       <ServiceTabs organizationSlug={slug} serviceId={serviceId} />
+
+      {service ? (
+        <ServiceBillingForm
+          organizationSlug={slug}
+          service={service}
+          canEdit={membership.role === "OWNER"}
+        />
+      ) : null}
+
+      <h2 className="text-sm font-semibold">Horarios</h2>
 
       <ScheduleRuleForm organizationSlug={slug} serviceId={serviceId} resources={resources} />
 
