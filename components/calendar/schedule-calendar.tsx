@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,29 @@ const TONE_BG: Record<CalendarEvent["tone"], string> = {
 
 const HOUR_HEIGHT = 56;
 
+/**
+ * Whether the viewport is phone-sized.
+ *
+ * useSyncExternalStore rather than an effect: the media query is external
+ * state that can change under us (rotating a phone), and reading it this
+ * way keeps the rendered view and the declared view the same thing. The
+ * server snapshot says "wide" because a server has no viewport; the
+ * client corrects it on hydration.
+ */
+function useIsNarrow(): boolean {
+  const subscribe = useCallback((onChange: () => void) => {
+    const query = window.matchMedia("(max-width: 640px)");
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+
+  return useSyncExternalStore(
+    subscribe,
+    () => window.matchMedia("(max-width: 640px)").matches,
+    () => false,
+  );
+}
+
 export function ScheduleCalendar({
   events,
   timeZone,
@@ -61,6 +84,8 @@ export function ScheduleCalendar({
   initialView = "week",
   emptyLabel = "No hay turnos en este período.",
   toolbarExtra,
+  responsiveDefault,
+  openOnFirstEvent = false,
 }: {
   events: CalendarEvent[];
   timeZone: string;
@@ -68,9 +93,29 @@ export function ScheduleCalendar({
   initialView?: CalendarView;
   emptyLabel?: string;
   toolbarExtra?: React.ReactNode;
+  /** View to fall back to on a narrow screen, where a week of columns is cramped. */
+  responsiveDefault?: CalendarView;
+  /** Anchor on the first day that has something instead of on today. */
+  openOnFirstEvent?: boolean;
 }) {
-  const [view, setView] = useState<CalendarView>(initialView);
-  const [anchor, setAnchor] = useState(() => todayKey(timeZone));
+  // Null until someone picks one: an unpicked view follows the viewport,
+  // a picked one stays picked.
+  const [pickedView, setPickedView] = useState<CalendarView | null>(null);
+  const isNarrow = useIsNarrow();
+  const view: CalendarView =
+    pickedView ?? (responsiveDefault && isNarrow ? responsiveDefault : initialView);
+
+  const [anchor, setAnchor] = useState(() => {
+    const today = todayKey(timeZone);
+    if (!openOnFirstEvent) return today;
+    // A business closed on Mondays would otherwise greet every Monday
+    // visitor with an empty grid.
+    const upcoming = events
+      .map((event) => localDayKey(new Date(event.startAt), timeZone))
+      .filter((day) => day >= today)
+      .sort();
+    return upcoming[0] ?? today;
+  });
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
 
@@ -138,7 +183,7 @@ export function ScheduleCalendar({
               <button
                 key={v.value}
                 type="button"
-                onClick={() => setView(v.value)}
+                onClick={() => setPickedView(v.value)}
                 aria-pressed={view === v.value}
                 className={cn(
                   "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
@@ -158,7 +203,7 @@ export function ScheduleCalendar({
 
       {/* ---------------- Grid ---------------- */}
       {view === "month" ? (
-        <MonthGrid range={range.days} anchor={anchor} byDay={byDay} timeZone={timeZone} onPickDay={(day) => { setAnchor(day); setView("day"); }} />
+        <MonthGrid range={range.days} anchor={anchor} byDay={byDay} timeZone={timeZone} onPickDay={(day) => { setAnchor(day); setPickedView("day"); }} />
       ) : (
         <TimeGrid
           days={range.days}
