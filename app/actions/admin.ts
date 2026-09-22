@@ -320,10 +320,13 @@ export async function cancelBookingAsStaff(organizationSlug: string, bookingId: 
   await requireOrganizationMembership(organizationSlug);
   const supabase = await createClient();
 
-  await supabase.rpc("cancel_booking", {
-    p_booking_id: bookingId,
-    p_reason: "CUSTOMER_REQUEST",
-  });
+  // Phase 19 (ADR-0025 resolución 1): cancel_booking ya no acepta el motivo
+  // del caller. El mostrador cancelando por el cliente sigue siendo
+  // CUSTOMER_REQUEST -- cancelled_by (el staff) ya distingue quién ejecutó.
+  //
+  // TODO(Fase L): sin manejo de error visible para el staff -- mismo caso
+  // que cancelMyBooking en app/actions/customer.ts.
+  await supabase.rpc("cancel_booking", { p_booking_id: bookingId });
 
   revalidatePath(`/org/${organizationSlug}/agenda`);
 }

@@ -271,6 +271,15 @@ export async function confirmBooking(
 
 export async function cancelMyBooking(bookingId: string): Promise<void> {
   const supabase = await createClient();
-  await supabase.rpc("cancel_booking", { p_booking_id: bookingId, p_reason: "CUSTOMER_REQUEST" });
+  // Phase 19 (ADR-0025 resolución 1): cancel_booking ya no acepta el motivo
+  // del caller -- se deriva del actor en la base, siempre CUSTOMER_REQUEST
+  // para este camino. Aceptarlo desde acá era un crédito de recupero gratis.
+  //
+  // TODO(Fase L): esta llamada no revisa el error de la RPC -- una falla
+  // (booking ajeno, ya cancelada) hoy es silenciosa para el usuario. Ya
+  // existen Alert/Toast (L0) para resolverlo bien con useActionState; no se
+  // resuelve acá para no cambiar el manejo de errores en un parche de
+  // seguridad sin un error.tsx que lo sostenga.
+  await supabase.rpc("cancel_booking", { p_booking_id: bookingId });
   revalidatePath("/me");
 }
