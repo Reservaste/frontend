@@ -68,7 +68,13 @@ export function StandingReservations({
   return (
     <div className="flex flex-col gap-3 border-t bg-muted/30 px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="eyebrow text-muted-foreground">Horario fijo ({active.length})</span>
+        {/* ruleLabel already carries day + time ("Mar 14:00"); without it
+            here, N identical "Horario fijo" blocks stack for a group that
+            spans N weekdays and nothing tells them apart until you open
+            one (it was only reaching the preview text further down). */}
+        <span className="eyebrow text-muted-foreground">
+          {ruleLabel} · fijo ({active.length})
+        </span>
         {!open && available.length > 0 ? (
           <Button variant="outline" size="touch" onClick={() => setOpen(true)}>
             + Asignar cliente
