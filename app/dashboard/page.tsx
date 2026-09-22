@@ -83,7 +83,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b bg-card">
+      <header className="brand-wash border-b border-border/70 bg-card shadow-card">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
           <Brand href="/dashboard" />
           <form action={signOut}>

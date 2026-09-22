@@ -41,7 +41,7 @@ export function EmptyState({
     return (
       <div
         className={cn(
-          "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-6 text-center",
+          "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 bg-surface-sunken/50 px-4 py-6 text-center",
           className,
         )}
       >
@@ -57,17 +57,21 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-card/50 px-6 py-12 text-center",
+        // A sunken panel, not a faded card: an empty list is a recessed
+        // space waiting to be filled, not a card that happens to be
+        // see-through -- the dashed edge and the sunken tone say that
+        // together instead of the dashed edge doing it alone.
+        "flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/80 bg-surface-sunken/60 px-6 py-12 text-center",
         className,
       )}
     >
       {icon ? (
-        <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <span className="flex size-12 items-center justify-center rounded-full bg-gradient-to-br from-card to-muted text-muted-foreground shadow-card ring-1 ring-border/60">
           {icon}
         </span>
       ) : null}
       <div className="flex flex-col gap-1">
-        <p className="font-medium">{title}</p>
+        <p className="font-semibold">{title}</p>
         {description ? (
           <p className="mx-auto max-w-sm text-sm text-muted-foreground">{description}</p>
         ) : null}

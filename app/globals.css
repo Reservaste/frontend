@@ -31,6 +31,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-muted: var(--muted);
+  --color-surface-sunken: var(--surface-sunken);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
@@ -62,71 +63,93 @@
 }
 
 :root {
-  /* Canvas is a hair off-white so white cards read as raised surfaces --
-     pure-white-on-pure-white is what made every screen look flat. */
-  --background: oklch(0.985 0.002 250);
-  --foreground: oklch(0.21 0.02 258);
+  /* Canvas carries a deliberate cool tint (not pure white, not flat grey)
+     so it reads as a surface of its own instead of the absence of one.
+     --card stays true white a full step above it, and --surface-sunken
+     sits a step below -- three planes instead of the old two, which is
+     what a "recessed" area (a calendar's hour grid, a filter well) needs
+     to look recessed instead of just bordered. */
+  --background: oklch(0.973 0.006 253);
+  --foreground: oklch(0.19 0.025 258);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.02 258);
+  --card-foreground: oklch(0.19 0.025 258);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.02 258);
+  --popover-foreground: oklch(0.19 0.025 258);
+  --surface-sunken: oklch(0.951 0.008 253);
 
-  /* One confident blue carries the whole product: primary actions,
-     selected states, focus rings. */
-  --primary: oklch(0.54 0.21 258);
+  /* The system's own accent -- used on unbranded surfaces (auth, the
+     platform console, the marketing page) and as the fallback inside
+     every organization's [data-brand] scope. Deepened and given real
+     interaction states rather than an opacity fade: --primary-hover is a
+     genuinely darker, slightly more saturated step, not the same color
+     faded 20%, which is what made every hover feel like the same button
+     dimming instead of responding. */
+  --primary: oklch(0.5 0.19 260);
   --primary-foreground: oklch(0.99 0 0);
-  --primary-hover: oklch(0.48 0.21 258);
-  --primary-subtle: oklch(0.96 0.03 258);
+  --primary-hover: oklch(0.43 0.185 260);
+  --primary-subtle: oklch(0.94 0.045 260);
 
-  --secondary: oklch(0.97 0.004 250);
+  --secondary: oklch(0.965 0.007 253);
   --secondary-foreground: oklch(0.27 0.02 258);
-  --muted: oklch(0.968 0.004 250);
-  --muted-foreground: oklch(0.52 0.02 256);
-  --accent: oklch(0.96 0.008 254);
+  --muted: oklch(0.947 0.008 253);
+  --muted-foreground: oklch(0.475 0.022 256);
+  --accent: oklch(0.943 0.014 258);
   --accent-foreground: oklch(0.27 0.02 258);
 
   /* Availability semantics -- the product is mostly about "can I take
-     this slot", so those three states get real colors. */
-  --success: oklch(0.58 0.14 157);
+     this slot", so those three states get real, saturated colors instead
+     of the muted pastel a generic template reaches for by default. */
+  --success: oklch(0.56 0.15 152);
   --success-foreground: oklch(0.99 0 0);
-  --success-subtle: oklch(0.95 0.04 157);
-  --warning: oklch(0.70 0.15 70);
-  --warning-foreground: oklch(0.24 0.04 70);
-  --warning-subtle: oklch(0.96 0.05 80);
-  --destructive: oklch(0.58 0.21 25);
+  --success-subtle: oklch(0.945 0.05 152);
+  --warning: oklch(0.72 0.16 68);
+  --warning-foreground: oklch(0.24 0.05 68);
+  --warning-subtle: oklch(0.95 0.06 78);
+  --destructive: oklch(0.56 0.215 24);
   --destructive-foreground: oklch(0.99 0 0);
-  --destructive-subtle: oklch(0.96 0.03 25);
+  --destructive-subtle: oklch(0.95 0.04 24);
 
-  --border: oklch(0.92 0.005 250);
-  --input: oklch(0.90 0.006 250);
-  --ring: oklch(0.54 0.21 258);
+  --border: oklch(0.888 0.008 253);
+  --input: oklch(0.87 0.009 253);
+  --ring: oklch(0.5 0.19 260);
 
-  --chart-1: oklch(0.54 0.21 258);
-  --chart-2: oklch(0.58 0.14 157);
-  --chart-3: oklch(0.70 0.15 70);
-  --chart-4: oklch(0.58 0.21 25);
-  --chart-5: oklch(0.52 0.02 256);
+  --chart-1: oklch(0.5 0.19 260);
+  --chart-2: oklch(0.56 0.15 152);
+  --chart-3: oklch(0.72 0.16 68);
+  --chart-4: oklch(0.56 0.215 24);
+  --chart-5: oklch(0.475 0.022 256);
 
-  --radius: 0.75rem;
+  --radius: 0.85rem;
 
   --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.21 0.02 258);
-  --sidebar-primary: oklch(0.54 0.21 258);
+  --sidebar-foreground: oklch(0.19 0.025 258);
+  --sidebar-primary: oklch(0.5 0.19 260);
   --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.008 254);
+  --sidebar-accent: oklch(0.943 0.014 258);
   --sidebar-accent-foreground: oklch(0.27 0.02 258);
-  --sidebar-border: oklch(0.92 0.005 250);
-  --sidebar-ring: oklch(0.54 0.21 258);
+  --sidebar-border: oklch(0.888 0.008 253);
+  --sidebar-ring: oklch(0.5 0.19 260);
 
-  /* Elevation: three soft steps, never a hard drop shadow.
+  /* Elevation: three soft steps, and each one is a stack of near + far
+     shadow (a tight, darker layer close to the surface plus a broad, soft
+     one further out) instead of a single generic blur. That's the actual
+     difference between "a card with a shadow" and "a card that reads as
+     sitting above the page" -- one shadow layer reads as a dark edge, two
+     layers at different spreads read as depth. Nothing in the product
+     needs a fourth step: if a surface seems to, the layering is probably
+     wrong rather than the shadow.
      card     -- resting surface on the canvas (cards, list containers)
      raised   -- lifted but still in the page (hover, sticky headers)
-     overlay  -- floating over the page (dialog, sheet, toast, popover)
-     Nothing in the product needs a fourth step: if a surface seems to,
-     the layering is probably wrong rather than the shadow. */
-  --shadow-card: 0 1px 2px 0 oklch(0.21 0.02 258 / 0.04), 0 1px 3px 0 oklch(0.21 0.02 258 / 0.06);
-  --shadow-raised: 0 4px 12px -2px oklch(0.21 0.02 258 / 0.08), 0 2px 6px -2px oklch(0.21 0.02 258 / 0.05);
-  --shadow-overlay: 0 16px 48px -12px oklch(0.21 0.02 258 / 0.22), 0 4px 16px -4px oklch(0.21 0.02 258 / 0.12);
+     overlay  -- floating over the page (dialog, sheet, toast, popover) */
+  --shadow-card:
+    0 1px 1px 0 oklch(0.19 0.025 258 / 0.035),
+    0 3px 8px -3px oklch(0.19 0.025 258 / 0.08);
+  --shadow-raised:
+    0 2px 4px -1px oklch(0.19 0.025 258 / 0.06),
+    0 12px 24px -8px oklch(0.19 0.025 258 / 0.14);
+  --shadow-overlay:
+    0 4px 10px -2px oklch(0.19 0.025 258 / 0.14),
+    0 28px 64px -16px oklch(0.19 0.025 258 / 0.28);
 }
 
 .dark {
@@ -136,6 +159,7 @@
   --card-foreground: oklch(0.96 0.003 250);
   --popover: oklch(0.21 0.018 260);
   --popover-foreground: oklch(0.96 0.003 250);
+  --surface-sunken: oklch(0.14 0.015 260);
 
   --primary: oklch(0.66 0.18 258);
   --primary-foreground: oklch(0.16 0.02 260);
@@ -205,6 +229,22 @@
   --ring: var(--brand);
 }
 
+/* A soft wash of whatever --primary currently resolves to (the product's
+   own blue on an unbranded screen, an organization's --brand inside
+   [data-brand]) at the top of a hero/header surface. This is the "place
+   to shine" ADR-0020 asks for: instead of the accent competing with a
+   system blue used decoratively everywhere else, it gets exactly one
+   deliberate, large, very-low-opacity appearance per screen. Pure CSS,
+   no image asset, and it degrades to nothing (not to a broken gradient)
+   if --primary is ever unset. */
+.brand-wash {
+  background-image: radial-gradient(
+    120% 130% at 50% -20%,
+    color-mix(in oklab, var(--primary) 9%, transparent),
+    transparent 60%
+  );
+}
+
 /* ---------------------------------------------------------------------------
    The scale, written down once.
 
@@ -232,7 +272,7 @@
    Headings get weight and tight tracking from the base layer; don't add
    font-bold on top of them.
 
-   RADIUS (derived from --radius: 0.75rem)
+   RADIUS (derived from --radius: 0.85rem)
      rounded-lg        controls: buttons, inputs, selects, badges-as-chips
      rounded-xl        surfaces: cards, list containers, dialogs, sheets
      rounded-full      pills and status badges
@@ -264,9 +304,17 @@
   html {
     @apply font-sans;
   }
-  /* Headings carry the product's voice: tight tracking, real weight.
-     Left at browser defaults they read like a document, not an app. */
-  h1, h2, h3, h4 {
+  /* Headings carry the product's voice: tight tracking, real weight --
+     and a real jump between levels. h1 is one per screen (PageHeader, an
+     auth card's title): it gets the full font-bold so it's unmistakably
+     the answer to "what page is this". h2-h4 (section and card titles)
+     stay at font-semibold, a visibly lighter step, so a screen with both
+     reads as a hierarchy instead of the same weight repeated at different
+     sizes -- which was the actual complaint, not the typeface. */
+  h1 {
+    @apply font-bold tracking-tight text-foreground;
+  }
+  h2, h3, h4 {
     @apply font-semibold tracking-tight text-foreground;
   }
   /* Times, counts and capacities line up in columns everywhere. */
@@ -309,5 +357,30 @@
   }
   .no-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+  /* The loading state getting its own sweep instead of a flat pulse is a
+     small thing that reads as "designed" out of proportion to its cost:
+     `Skeleton` swaps `animate-pulse` for this, same element, same markup. */
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+  .animate-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .animate-shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--foreground) 6%, transparent),
+      transparent
+    );
+    animation: shimmer 1.8s ease-in-out infinite;
   }
 }

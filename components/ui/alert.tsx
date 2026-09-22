@@ -47,7 +47,10 @@ export function Alert({
       data-slot="alert"
       role={tone === "danger" ? "alert" : "status"}
       className={cn(
-        "flex items-start gap-2 text-sm",
+        // The ring is the tone colour itself at low opacity rather than a
+        // flat grey border, so the edge reads as part of the same colour
+        // as the fill instead of a generic box drawn around it.
+        "flex items-start gap-2 text-sm ring-1 ring-current/15",
         size === "sm" ? "rounded-lg px-3 py-2" : "rounded-xl px-4 py-3",
         TONES[tone],
         className,

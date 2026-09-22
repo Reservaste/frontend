@@ -95,13 +95,18 @@ export function AgendaCalendar({
 
   const filter =
     lockedServiceId || services.length <= 1 ? null : (
+      // Same filled-chip treatment as the public calendar's filter, at
+      // admin density: a solid pill at rest instead of a hairline border,
+      // so "on" vs "off" reads as a state change, not a colour nuance.
       <div className="flex flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={() => persist(new Set())}
           className={cn(
-            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-            hidden.size === 0 ? "border-primary bg-primary text-primary-foreground" : "hover:bg-muted",
+            "rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+            hidden.size === 0
+              ? "bg-primary text-primary-foreground shadow-card"
+              : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
           )}
         >
           Todos
@@ -120,8 +125,10 @@ export function AgendaCalendar({
                 persist(next);
               }}
               className={cn(
-                "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                on ? "bg-card" : "opacity-50 hover:opacity-80",
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all",
+                on
+                  ? "bg-card text-foreground shadow-card ring-1 ring-border/70"
+                  : "bg-muted/60 text-muted-foreground opacity-70 hover:opacity-100",
               )}
             >
               <span

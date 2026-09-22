@@ -3,14 +3,19 @@ import { cn } from "cn";
 
 /**
  * The mark: a rounded square holding a calendar grid where one cell is
- * filled -- a taken slot. It's the product in one glyph, and it reads at
- * 20px, which a literal calendar illustration wouldn't.
+ * filled -- a taken slot, the product in one glyph. Two things give it
+ * more presence than a flat coloured square without touching the glyph
+ * itself: a subtle diagonal gradient between --primary and --primary-hover
+ * (still fully driven by the org's accent under [data-brand], never a
+ * hardcoded brand colour -- ADR-0020) and a filled cell that carries a
+ * touch of its own shadow, so it reads as sitting slightly above the grid
+ * rather than painted flat onto it.
  */
 export function BrandMark({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground",
+        "inline-flex size-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-hover text-primary-foreground shadow-card",
         className,
       )}
       aria-hidden
@@ -19,7 +24,7 @@ export function BrandMark({ className }: { className?: string }) {
         <rect x="3" y="5" width="18" height="16" rx="3" stroke="currentColor" strokeWidth="2" />
         <path d="M3 10h18" stroke="currentColor" strokeWidth="2" />
         <path d="M8 2.5V6M16 2.5V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <rect x="7" y="13" width="4.5" height="4" rx="1" fill="currentColor" />
+        <rect x="7" y="13" width="4.5" height="4" rx="1.5" fill="currentColor" fillOpacity="0.95" />
       </svg>
     </span>
   );

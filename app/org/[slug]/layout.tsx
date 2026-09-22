@@ -16,7 +16,7 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
 
   return (
     <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
-      <header className="border-b bg-card">
+      <header className="brand-wash border-b border-border/70 bg-card shadow-card">
         <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             {/* Was a bare mark, which made this a dead end: once inside an

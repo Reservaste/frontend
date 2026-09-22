@@ -71,7 +71,11 @@ export default async function PublicOrganizationPage({
 
   return (
     <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
-      <header className="border-b bg-card">
+      {/* brand-wash: the one place per page where the organization's own
+          accent (ADR-0020) gets to be a colour field, not just a button --
+          otherwise every unbranded surface and every branded one look the
+          same except for the "Reservar" button. */}
+      <header className="brand-wash border-b border-border/70 bg-card shadow-card">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
           <Brand href={user ? "/dashboard" : "/"} />
           <Link
@@ -85,7 +89,7 @@ export default async function PublicOrganizationPage({
         {/* Compact on purpose: the identity has to be recognisable, but
             the calendar is what the page is for and it should be visible
             without scrolling on a phone. */}
-        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 border-t px-5 py-4">
+        <div className="mx-auto flex w-full max-w-2xl items-center gap-3 border-t border-border/70 px-5 py-4">
           <OrganizationLogo name={organization.name} logoPath={organization.logoPath} size="md" />
           <div className="flex min-w-0 flex-col">
             <h1 className="truncate text-lg">{organization.name}</h1>

@@ -58,7 +58,7 @@ export default async function PlatformAdminPage() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b bg-card">
+      <header className="brand-wash border-b border-border/70 bg-card shadow-card">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-2 px-5 py-3">
           <div className="flex items-center gap-2.5">
             <Brand href="/dashboard" label="Reservaste" />

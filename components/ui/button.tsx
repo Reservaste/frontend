@@ -7,7 +7,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // Real elevation and a real hover colour (--primary-hover, not the
+        // same hue faded 20%) instead of the button just going translucent
+        // -- a translucent primary reads as "disabled", not "responding".
+        default:
+          "bg-primary text-primary-foreground shadow-card hover:bg-primary-hover hover:shadow-raised",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

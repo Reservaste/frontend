@@ -82,15 +82,19 @@ export function PublicCalendar({
 
   const filter =
     services.length > 1 ? (
+      // Filled chips, not hairline-bordered ones: the unselected state is a
+      // solid neutral pill (real weight at rest) and the selected one adds
+      // a resting shadow on top of the brand fill, rather than a border
+      // colour being the only thing that changed.
       <div className="no-scrollbar -mx-5 flex gap-2 overflow-x-auto px-5">
         <button
           type="button"
           onClick={() => setServiceFilter(null)}
           className={cn(
-            "shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+            "shrink-0 rounded-full px-3.5 py-2 text-sm font-medium transition-all",
             serviceFilter === null
-              ? "border-primary bg-primary text-primary-foreground"
-              : "bg-card hover:bg-muted",
+              ? "bg-primary text-primary-foreground shadow-card"
+              : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
           )}
         >
           Todos
@@ -101,10 +105,10 @@ export function PublicCalendar({
             type="button"
             onClick={() => setServiceFilter(service.id)}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors",
+              "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all",
               serviceFilter === service.id
-                ? "border-primary bg-primary text-primary-foreground"
-                : "bg-card hover:bg-muted",
+                ? "bg-primary text-primary-foreground shadow-card"
+                : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground",
             )}
           >
             <span

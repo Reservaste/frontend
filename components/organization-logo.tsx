@@ -42,7 +42,7 @@ export function OrganizationLogo({
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center justify-center bg-primary font-semibold text-primary-foreground",
+        "flex shrink-0 items-center justify-center bg-gradient-to-br from-primary to-primary-hover font-semibold text-primary-foreground shadow-card",
         box,
         className,
       )}

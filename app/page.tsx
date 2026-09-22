@@ -31,7 +31,7 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="border-b bg-card">
+      <header className="brand-wash border-b border-border/70 bg-card shadow-card">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4">
           <Brand />
           <div className="flex items-center gap-2">
@@ -46,7 +46,7 @@ export default async function Home() {
       </header>
 
       <main className="flex flex-1 flex-col">
-        <section className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-5 py-16 text-center sm:py-24">
+        <section className="brand-wash mx-auto flex w-full max-w-3xl flex-col items-center gap-6 px-5 py-16 text-center sm:py-24">
           <span className="inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
             <span className="size-1.5 rounded-full bg-success" />
             Para gimnasios, consultorios, canchas y estudios
@@ -75,7 +75,10 @@ export default async function Home() {
           <div className="mx-auto grid w-full max-w-5xl gap-8 px-5 py-14 sm:grid-cols-3">
             {FEATURES.map((feature) => (
               <div key={feature.title} className="flex flex-col gap-2">
-                <BrandMark className="size-8 rounded-lg bg-primary-subtle text-primary" />
+                {/* bg-none cancels BrandMark's own gradient fill: this is
+                    the "subtle" icon treatment for a feature list, not the
+                    brand mark itself, so it goes back to a flat tint. */}
+                <BrandMark className="size-8 rounded-lg bg-none bg-primary-subtle text-primary shadow-none" />
                 <h2 className="text-base">{feature.title}</h2>
                 <p className="text-sm leading-relaxed text-muted-foreground">{feature.body}</p>
               </div>

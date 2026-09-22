@@ -45,15 +45,21 @@ export interface CalendarEvent {
   muted?: boolean;
 }
 
+// Tone-tinted text (not a flat text-foreground on every tone) so a block's
+// colour carries into its title the way Badge's `subtle` variant already
+// does -- the same recipe applied to a bigger surface, not a new one.
 const TONE_BG: Record<CalendarEvent["tone"], string> = {
-  neutral: "bg-muted text-foreground border-border",
-  primary: "bg-primary-subtle text-foreground border-primary/30",
-  success: "bg-success-subtle text-foreground border-success/30",
-  warning: "bg-warning-subtle text-foreground border-warning/40",
-  danger: "bg-destructive-subtle text-foreground border-destructive/30",
+  neutral: "bg-muted text-foreground border-border/80",
+  primary: "bg-primary-subtle text-primary border-primary/25",
+  success: "bg-success-subtle text-success border-success/25",
+  warning: "bg-warning-subtle text-warning-foreground border-warning/35",
+  danger: "bg-destructive-subtle text-destructive border-destructive/25",
 };
 
-const HOUR_HEIGHT = 56;
+// Tall enough that a 30-minute slot still has room for a bold hour, a
+// title and a meta line without any of the three touching the block's own
+// edge -- the "more air" the flat hairline grid was missing.
+const HOUR_HEIGHT = 64;
 
 /**
  * Whether the viewport is phone-sized.
@@ -179,7 +185,11 @@ export function ScheduleCalendar({
         </div>
 
         {views.length > 1 ? (
-          <div className="flex items-center gap-0.5 rounded-lg border bg-card p-0.5">
+          // A real segmented control: the track is sunken, the active
+          // segment is a raised card, not a flat colour fill -- the same
+          // "which one is pressed" idiom iOS and Linear use, which reads
+          // as a control rather than a row of link-like pills.
+          <div className="flex items-center gap-0.5 rounded-lg border border-border/70 bg-surface-sunken p-0.5">
             {CALENDAR_VIEWS.filter((v) => views.includes(v.value)).map((v) => (
               <button
                 key={v.value}
@@ -187,9 +197,9 @@ export function ScheduleCalendar({
                 onClick={() => setPickedView(v.value)}
                 aria-pressed={view === v.value}
                 className={cn(
-                  "rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
+                  "rounded-md px-2.5 py-1.5 text-sm font-medium transition-all",
                   view === v.value
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-card text-foreground shadow-card"
                     : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -243,46 +253,56 @@ function TimeGrid({
 }) {
   const hours = Array.from({ length: Math.max(1, endHour - startHour) }, (_, i) => startHour + i);
   const height = hours.length * HOUR_HEIGHT;
+  const columns = `3.5rem repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
-    <div className="overflow-x-auto rounded-xl border bg-card shadow-card">
-      <div className={cn("min-w-full", singleDay ? "" : "min-w-[42rem]")}>
+    // The sunken frame is the fix for "it's a spreadsheet": each day
+    // (header + hour column together) is its own bg-card lane floating on
+    // this recessed backdrop, so the seam between two days is a gap of
+    // background colour, not a hairline border trying to do the same job.
+    <div className="overflow-x-auto rounded-xl border border-border/70 bg-surface-sunken p-2 shadow-card">
+      <div className={cn("min-w-full", singleDay ? "" : "min-w-[44rem]")}>
         {/* Day headers */}
         {!singleDay ? (
-          <div
-            className="grid border-b"
-            style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))` }}
-          >
+          <div className="grid gap-1.5" style={{ gridTemplateColumns: columns }}>
             <div />
-            {days.map((day) => (
-              <div
-                key={day}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 border-l px-1 py-2",
-                  isToday(day, timeZone) && "bg-primary-subtle",
-                )}
-              >
-                <span className="text-[11px] font-medium uppercase text-muted-foreground">
-                  {WEEKDAY_SHORT[new Date(`${day}T12:00:00Z`).getUTCDay()]}
-                </span>
-                <span className={cn("tnum text-sm font-semibold", isToday(day, timeZone) && "text-primary")}>
-                  {day.slice(8)}
-                </span>
-              </div>
-            ))}
+            {days.map((day) => {
+              const today = isToday(day, timeZone);
+              return (
+                <div
+                  key={day}
+                  className={cn(
+                    "flex flex-col items-center gap-1 rounded-t-lg bg-card px-1 py-2.5",
+                    today && "bg-primary-subtle",
+                  )}
+                >
+                  <span className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
+                    {WEEKDAY_SHORT[new Date(`${day}T12:00:00Z`).getUTCDay()]}
+                  </span>
+                  {/* "Hoy" gets its own filled chip rather than just a
+                      tinted text colour -- the date column that actually
+                      matters should not rely on a subtle hue shift alone. */}
+                  {today ? (
+                    <span className="tnum flex size-6 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-card">
+                      {day.slice(8)}
+                    </span>
+                  ) : (
+                    <span className="tnum text-sm font-semibold text-foreground">{day.slice(8)}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : null}
 
-        <div
-          className="relative grid"
-          style={{ gridTemplateColumns: `3.5rem repeat(${days.length}, minmax(0, 1fr))`, height }}
-        >
-          {/* Hour labels and lines */}
+        <div className="relative grid gap-1.5" style={{ gridTemplateColumns: columns, height }}>
+          {/* Hour labels float on the sunken frame itself, between the
+              lanes rather than inside one of them. */}
           <div className="relative">
             {hours.map((hour, i) => (
               <div
                 key={hour}
-                className="absolute right-2 -translate-y-1/2 text-[11px] text-muted-foreground tnum"
+                className="tnum absolute right-2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
                 style={{ top: i * HOUR_HEIGHT }}
               >
                 {String(hour).padStart(2, "0")}:00
@@ -290,35 +310,45 @@ function TimeGrid({
             ))}
           </div>
 
-          {days.map((day) => (
-            <div key={day} className="relative border-l">
-              {hours.map((hour, i) => (
-                <div
-                  key={hour}
-                  className="absolute inset-x-0 border-t border-border/60"
-                  style={{ top: i * HOUR_HEIGHT }}
-                />
-              ))}
-
-              {(byDay.get(day) ?? []).map((event) => {
-                const top =
-                  (minutesIntoDay(new Date(event.startAt), timeZone) - startHour * 60) *
-                  (HOUR_HEIGHT / 60);
-                const durationMinutes = Math.max(
-                  20,
-                  (new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60000,
-                );
-                return (
-                  <EventBlock
-                    key={event.id}
-                    event={event}
-                    timeZone={timeZone}
-                    style={{ top, height: durationMinutes * (HOUR_HEIGHT / 60) - 4 }}
+          {days.map((day) => {
+            const today = isToday(day, timeZone);
+            return (
+              <div
+                key={day}
+                className={cn(
+                  "relative overflow-hidden bg-card",
+                  singleDay ? "rounded-lg" : "rounded-b-lg",
+                  today && "bg-primary-subtle/50",
+                )}
+              >
+                {hours.map((hour, i) => (
+                  <div
+                    key={hour}
+                    className="absolute inset-x-0 border-t border-dashed border-border/70"
+                    style={{ top: i * HOUR_HEIGHT }}
                   />
-                );
-              })}
-            </div>
-          ))}
+                ))}
+
+                {(byDay.get(day) ?? []).map((event) => {
+                  const top =
+                    (minutesIntoDay(new Date(event.startAt), timeZone) - startHour * 60) *
+                    (HOUR_HEIGHT / 60);
+                  const durationMinutes = Math.max(
+                    20,
+                    (new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60000,
+                  );
+                  return (
+                    <EventBlock
+                      key={event.id}
+                      event={event}
+                      timeZone={timeZone}
+                      style={{ top, height: durationMinutes * (HOUR_HEIGHT / 60) - 4 }}
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
@@ -341,30 +371,34 @@ function EventBlock({
     hourCycle: "h23",
   }).format(new Date(event.startAt));
 
+  // ADR-0023: choosing a slot is choosing a time, so the time is the
+  // biggest, boldest thing in the block. It stays on --foreground rather
+  // than the tone colour so it reads clearly even at the smallest block
+  // heights, where the tone-tinted title and meta can afford to be quieter.
   const body = (
     <>
-      <span className="tnum text-[11px] font-medium opacity-80">{time}</span>
+      <span className="tnum text-sm leading-none font-bold text-foreground">{time}</span>
       {/* The title links separately so staff can jump to the service
           without losing the ability to open the slot itself. */}
       {event.titleHref ? (
         <Link
           href={event.titleHref}
           onClick={(e) => e.stopPropagation()}
-          className="truncate text-xs font-semibold underline-offset-2 hover:underline"
+          className="truncate text-[11px] font-semibold underline-offset-2 hover:underline"
         >
           {event.title}
         </Link>
       ) : (
-        <span className="truncate text-xs font-semibold">{event.title}</span>
+        <span className="truncate text-[11px] font-semibold">{event.title}</span>
       )}
-      <span className="tnum truncate text-[11px] opacity-80">{event.meta}</span>
+      <span className="tnum truncate text-[11px] font-medium opacity-80">{event.meta}</span>
     </>
   );
 
   const className = cn(
-    "absolute inset-x-1 flex flex-col gap-0.5 overflow-hidden rounded-lg border px-1.5 py-1 text-left transition-shadow",
+    "absolute inset-x-1 flex flex-col gap-0.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left shadow-card transition-all",
     TONE_BG[event.tone],
-    event.muted && "opacity-60",
+    event.muted && "opacity-60 shadow-none",
     event.href && "hover:shadow-raised",
   );
 
@@ -404,10 +438,13 @@ function MonthGrid({
   const MAX_PER_DAY = 3;
 
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-card">
-      <div className="grid grid-cols-7 border-b">
+    <div className="overflow-hidden rounded-xl border border-border/70 bg-card shadow-card">
+      <div className="grid grid-cols-7 border-b bg-surface-sunken">
         {WEEKDAY_SHORT.slice(1).concat(WEEKDAY_SHORT[0]!).map((label) => (
-          <div key={label} className="px-2 py-2 text-center text-[11px] font-medium uppercase text-muted-foreground">
+          <div
+            key={label}
+            className="px-2 py-2.5 text-center text-[11px] font-semibold tracking-wide text-muted-foreground uppercase"
+          >
             {label}
           </div>
         ))}
@@ -419,6 +456,7 @@ function MonthGrid({
           const shown = dayEvents.slice(0, MAX_PER_DAY);
           const rest = dayEvents.length - shown.length;
           const outside = !isSameMonth(day, anchor);
+          const today = isToday(day, timeZone);
 
           return (
             <button
@@ -426,16 +464,16 @@ function MonthGrid({
               type="button"
               onClick={() => onPickDay(day)}
               className={cn(
-                "flex min-h-24 flex-col gap-1 border-b border-l p-1.5 text-left transition-colors hover:bg-muted/50",
-                outside && "bg-muted/30",
+                "flex min-h-28 flex-col gap-1.5 border-b border-l border-border/60 p-1.5 text-left transition-colors hover:bg-muted/50",
+                outside && "bg-surface-sunken/60",
               )}
             >
               <span
                 className={cn(
-                  "tnum text-xs font-medium",
-                  outside ? "text-muted-foreground/60" : "text-muted-foreground",
-                  isToday(day, timeZone) &&
-                    "flex size-5 items-center justify-center rounded-full bg-primary text-primary-foreground",
+                  "tnum text-xs font-semibold",
+                  outside ? "text-muted-foreground/50" : "text-muted-foreground",
+                  today &&
+                    "flex size-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card",
                 )}
               >
                 {day.slice(8)}
@@ -445,7 +483,7 @@ function MonthGrid({
                 <span
                   key={event.id}
                   className={cn(
-                    "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px]",
+                    "flex items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
                     TONE_BG[event.tone],
                   )}
                   style={
