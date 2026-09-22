@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import type { ServicePlanKind } from "@reservaste/domain";
+import type { Service, ServicePlanKind } from "@reservaste/domain";
 import type { ActionState } from "@/app/actions/admin";
 import {
   createServicePlan,
@@ -31,8 +31,10 @@ import { formatMoney } from "@/lib/money";
 import {
   BILLING_CYCLE_LABEL,
   PLAN_KIND_LABEL,
+  QUOTA_SCOPE_LABEL,
   planBillingLabel,
   planPriceSuffix,
+  planScopeLabel,
   planSummary,
 } from "@/lib/plan-labels";
 
@@ -152,9 +154,114 @@ function PlanKindFields({
   );
 }
 
+/**
+ * ADR-0029: alcance del plan -- un toggle "todos los servicios" y un
+ * checklist de servicios puntuales, mutuamente excluyentes (la base los
+ * rechaza si se mandan los dos). Ausente para DROP_IN: un turno suelto
+ * sigue atado a exactamente un servicio (§1.1), sin selector.
+ */
+function ScopeFields({
+  services,
+  currentServiceId,
+  appliesToAllServices,
+  onAppliesToAllServicesChange,
+  selectedServiceIds,
+  onSelectedServiceIdsChange,
+  planKind,
+  quotaScope,
+  onQuotaScopeChange,
+  idPrefix,
+}: {
+  services: Service[];
+  currentServiceId: string;
+  appliesToAllServices: boolean;
+  onAppliesToAllServicesChange: (value: boolean) => void;
+  selectedServiceIds: string[];
+  onSelectedServiceIdsChange: (value: string[]) => void;
+  planKind: ServicePlanKind;
+  quotaScope: "PER_SERVICE" | "SHARED_ACROSS_SERVICES";
+  onQuotaScopeChange: (value: "PER_SERVICE" | "SHARED_ACROSS_SERVICES") => void;
+  idPrefix: string;
+}) {
+  if (planKind === "DROP_IN") {
+    // Single service, forced -- the one the Planes tab is already on.
+    return <input type="hidden" name="serviceIds" value={currentServiceId} />;
+  }
+
+  const coversMultiple = appliesToAllServices || selectedServiceIds.length > 1;
+  const active = services.filter((s) => s.isActive);
+
+  return (
+    <>
+      <Field>
+        <div className="flex items-center gap-2">
+          <input
+            id={`${idPrefix}-appliesToAllServices`}
+            name="appliesToAllServices"
+            type="checkbox"
+            className="size-4"
+            checked={appliesToAllServices}
+            onChange={(event) => onAppliesToAllServicesChange(event.target.checked)}
+          />
+          <Label htmlFor={`${idPrefix}-appliesToAllServices`} className="!mb-0">
+            Todos los servicios (actuales y futuros)
+          </Label>
+        </div>
+        {appliesToAllServices ? (
+          <FieldHint>Este plan va a cubrir automáticamente cualquier servicio nuevo que agregues.</FieldHint>
+        ) : (
+          <div className="mt-1.5 flex flex-col gap-1.5 rounded-lg border p-2.5">
+            {active.map((service) => (
+              <label key={service.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="serviceIds"
+                  value={service.id}
+                  className="size-4"
+                  checked={selectedServiceIds.includes(service.id)}
+                  onChange={(event) => {
+                    onSelectedServiceIdsChange(
+                      event.target.checked
+                        ? [...selectedServiceIds, service.id]
+                        : selectedServiceIds.filter((id) => id !== service.id),
+                    );
+                  }}
+                />
+                {service.name}
+              </label>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      {planKind === "WEEKLY_QUOTA" && coversMultiple ? (
+        <Field>
+          <Label htmlFor={`${idPrefix}-quotaScope`}>Cómo se reparte la cuota</Label>
+          <Select
+            id={`${idPrefix}-quotaScope`}
+            name="quotaScope"
+            touch
+            value={quotaScope}
+            onChange={(event) => onQuotaScopeChange(event.target.value as typeof quotaScope)}
+          >
+            <option value="PER_SERVICE">{QUOTA_SCOPE_LABEL.PER_SERVICE}</option>
+            <option value="SHARED_ACROSS_SERVICES">{QUOTA_SCOPE_LABEL.SHARED_ACROSS_SERVICES}</option>
+          </Select>
+          <FieldHint>
+            {quotaScope === "PER_SERVICE"
+              ? "Ej.: 2 por semana en cada servicio cubierto."
+              : "Ej.: 2 por semana en total, repartidos entre los servicios cubiertos."}
+          </FieldHint>
+        </Field>
+      ) : null}
+    </>
+  );
+}
+
 export function NewPlanDialog({
   organizationSlug,
   serviceId,
+  services,
   paymentRequired,
   currency,
   canEdit,
@@ -162,6 +269,8 @@ export function NewPlanDialog({
 }: {
   organizationSlug: string;
   serviceId: string;
+  /** Every service of the organization, for the "varios servicios" checklist (ADR-0029). */
+  services: Service[];
   paymentRequired: boolean;
   /** ISO 4217 of the organization (ADR-0024): the plan has no currency of its own. */
   currency: string;
@@ -173,6 +282,9 @@ export function NewPlanDialog({
   const [planKind, setPlanKind] = useState<ServicePlanKind>(
     paymentRequired ? "WEEKLY_QUOTA" : "UNLIMITED",
   );
+  const [appliesToAllServices, setAppliesToAllServices] = useState(false);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([serviceId]);
+  const [quotaScope, setQuotaScope] = useState<"PER_SERVICE" | "SHARED_ACROSS_SERVICES">("PER_SERVICE");
   const [state, formAction, pending] = useActionState(
     createServicePlan.bind(null, organizationSlug, serviceId),
     initialState,
@@ -189,7 +301,8 @@ export function NewPlanDialog({
         <DialogHeader>
           <DialogTitle>Nuevo plan</DialogTitle>
           <DialogDescription>
-            Un plan es un precio y lo que ese precio da. Un mismo servicio puede tener varios.
+            Un plan es un precio y lo que ese precio da. Un mismo servicio puede tener varios, y un
+            plan puede cubrir más de un servicio a la vez.
           </DialogDescription>
         </DialogHeader>
 
@@ -216,6 +329,19 @@ export function NewPlanDialog({
             billingCycle={null}
             disabled={false}
             paymentRequired={paymentRequired}
+          />
+
+          <ScopeFields
+            idPrefix="new"
+            services={services}
+            currentServiceId={serviceId}
+            appliesToAllServices={appliesToAllServices}
+            onAppliesToAllServicesChange={setAppliesToAllServices}
+            selectedServiceIds={selectedServiceIds}
+            onSelectedServiceIdsChange={setSelectedServiceIds}
+            planKind={planKind}
+            quotaScope={quotaScope}
+            onQuotaScopeChange={setQuotaScope}
           />
 
           <Field>
@@ -259,11 +385,14 @@ function EditPlanDialog({
   serviceId,
   plan,
   currency,
+  serviceNameById,
 }: {
   organizationSlug: string;
   serviceId: string;
   plan: ServicePlanWithUsage;
   currency: string;
+  /** ADR-0029: to render the frozen scope ("Pilates + Musculación"). */
+  serviceNameById: Record<string, string>;
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
@@ -336,6 +465,13 @@ function EditPlanDialog({
               billingCycle={plan.billingCycle}
               disabled
             />
+            <Field>
+              <Label>Alcance</Label>
+              <p className="text-sm text-muted-foreground">
+                {planScopeLabel(plan.appliesToAllServices, plan.serviceIds, serviceNameById)}
+                {plan.quotaScope ? ` · ${QUOTA_SCOPE_LABEL[plan.quotaScope]}` : ""}
+              </p>
+            </Field>
             <Alert tone="info" size="sm">
               {plan.paymentCount > 0 ? (
                 <>
@@ -379,12 +515,15 @@ export function PlanRow({
   plan,
   currency,
   canEdit,
+  serviceNameById,
 }: {
   organizationSlug: string;
   serviceId: string;
   plan: ServicePlanWithUsage;
   currency: string;
   canEdit: boolean;
+  /** ADR-0029: to render the scope ("Pilates + Musculación") next to the plan. */
+  serviceNameById: Record<string, string>;
 }) {
   return (
     <DataListRow className={plan.isActive ? undefined : "opacity-75"}>
@@ -402,6 +541,12 @@ export function PlanRow({
             <span className="text-sm text-muted-foreground">
               {planSummary(plan.planKind, plan.weeklyQuota)}
             </span>
+            {plan.appliesToAllServices || plan.serviceIds.length > 1 ? (
+              <span className="text-xs text-muted-foreground">
+                Cubre: {planScopeLabel(plan.appliesToAllServices, plan.serviceIds, serviceNameById)}
+                {plan.quotaScope ? ` · ${QUOTA_SCOPE_LABEL[plan.quotaScope]}` : ""}
+              </span>
+            ) : null}
             <span className="text-xs text-muted-foreground">
               {planBillingLabel(plan.billingType, plan.billingCycle)}
               {plan.paymentCount > 0 ? (
@@ -432,6 +577,7 @@ export function PlanRow({
               serviceId={serviceId}
               plan={plan}
               currency={currency}
+              serviceNameById={serviceNameById}
             />
 
             {plan.isActive ? (

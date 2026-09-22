@@ -15,6 +15,7 @@ import { Field, FieldHint, FormError, FormSuccess } from "@/components/ui/form";
 import { Select } from "@/components/ui/select";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import { planSummary } from "@/lib/plan-labels";
 
@@ -68,7 +69,9 @@ export function RegisterPaymentForm({
   // trigger), and that is the "pagá este turno" flow on the agenda, not
   // this form. Offering it here would produce a rejected insert every time.
   const chargeable = plans.filter((plan) => plan.planKind !== "DROP_IN");
-  const plansFor = (serviceId: string) => chargeable.filter((plan) => plan.serviceId === serviceId);
+  // ADR-0029: a plan can cover several services now, so it shows up under
+  // every service it covers rather than exactly one.
+  const plansFor = (serviceId: string) => chargeable.filter((plan) => plan.serviceIds.includes(serviceId));
 
   const eligible = payable.filter((service) => plansFor(service.id).length > 0);
   const blocked = payable.filter((service) => plansFor(service.id).length === 0);
@@ -255,11 +258,11 @@ export function MakeupCreditsPanel({
       {credits.length === 0 ? (
         <EmptyState size="sm" title="Sin créditos de recupero." />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {credits.map((c) => {
             const usable = c.status === "AVAILABLE" && !c.isExpired;
             return (
-              <li key={c.creditId} className="flex items-center justify-between gap-2 px-4 py-3">
+              <DataListRow key={c.creditId} className="flex items-center justify-between gap-2 px-4 py-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium">{c.serviceName}</span>
                   <span className="text-xs text-muted-foreground">
@@ -271,10 +274,10 @@ export function MakeupCreditsPanel({
                 <StatusBadge tone={usable ? "success" : c.status === "CONSUMED" ? "neutral" : "danger"}>
                   {usable ? "Disponible" : c.status === "CONSUMED" ? "Usado" : c.status === "REVOKED" ? "Anulado" : "Vencido"}
                 </StatusBadge>
-              </li>
+              </DataListRow>
             );
           })}
-        </ul>
+        </DataList>
       )}
 
       <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
@@ -368,12 +371,12 @@ export function PaymentList({
   };
 
   return (
-    <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+    <DataList>
       {payments.map((p) => {
         const plan = plans.find((candidate) => candidate.id === p.servicePlanId);
 
         return (
-          <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+          <DataListRow key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
             <div className="flex flex-col gap-0.5">
               {/* Which service the payment is for: without it the list is
                   just amounts and dates, which answers nothing. */}
@@ -406,9 +409,9 @@ export function PaymentList({
                 </Button>
               </form>
             ) : null}
-          </li>
+          </DataListRow>
         );
       })}
-    </ul>
+    </DataList>
   );
 }

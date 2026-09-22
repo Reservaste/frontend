@@ -1,4 +1,4 @@
-import type { BillingCycle, BillingType, ServicePlanKind } from "@reservaste/domain";
+import type { BillingCycle, BillingType, PlanQuotaScope, ServicePlanKind } from "@reservaste/domain";
 
 /**
  * What a ServicePlan says, in words (ADR-0024).
@@ -68,3 +68,23 @@ export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
   CALENDAR_MONTH: "Mes calendario (del 1 al último día)",
   ROLLING_MONTH: "Mes desde el pago (30 días corridos)",
 };
+
+/**
+ * ADR-0029: only shown when a WEEKLY_QUOTA plan covers more than one
+ * service -- a single-service plan is PER_SERVICE in effect and the
+ * distinction is meaningless to show.
+ */
+export const QUOTA_SCOPE_LABEL: Record<PlanQuotaScope, string> = {
+  PER_SERVICE: "Cada servicio tiene su propio cupo",
+  SHARED_ACROSS_SERVICES: "Un cupo compartido entre todos",
+};
+
+/** "Pilates + Musculación", or "Todos los servicios" for a live-resolved plan. */
+export function planScopeLabel(
+  appliesToAllServices: boolean,
+  serviceIds: string[],
+  serviceNameById: Record<string, string>,
+): string {
+  if (appliesToAllServices) return "Todos los servicios";
+  return serviceIds.map((id) => serviceNameById[id] ?? "Servicio").join(" + ") || "Sin servicios";
+}

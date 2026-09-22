@@ -49,6 +49,9 @@ export default async function ServicePlansPage({
   // so this is a product policy, not the security boundary.
   const canEdit = membership.role === "OWNER";
   const activeCount = result.plans.filter((plan) => plan.isActive).length;
+  // ADR-0029: a plan can cover several services -- this renders their
+  // names ("Pilates + Musculación") without a second round trip per row.
+  const serviceNameById = Object.fromEntries(services.map((s) => [s.id, s.name]));
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-5 px-5 py-6">
@@ -89,6 +92,7 @@ export default async function ServicePlansPage({
           <NewPlanDialog
             organizationSlug={slug}
             serviceId={serviceId}
+            services={services}
             paymentRequired={service.paymentRequired}
             currency={organization.currency}
             canEdit={canEdit}
@@ -104,6 +108,7 @@ export default async function ServicePlansPage({
             <NewPlanDialog
               organizationSlug={slug}
               serviceId={serviceId}
+              services={services}
               paymentRequired={service.paymentRequired}
               currency={organization.currency}
               canEdit={canEdit}
@@ -121,6 +126,7 @@ export default async function ServicePlansPage({
               plan={plan}
               currency={organization.currency}
               canEdit={canEdit}
+              serviceNameById={serviceNameById}
             />
           ))}
         </DataList>

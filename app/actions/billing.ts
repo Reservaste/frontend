@@ -90,10 +90,11 @@ export async function registerPayment(
   });
 
   if (error) {
-    // The EXCLUDE constraint (ADR-0022) rejects a second PAID period
-    // overlapping an existing one -- that's a double charge, worth saying
+    // The EXCLUDE constraint (ADR-0022, moved onto payment_service_coverage
+    // by ADR-0029) rejects a second PAID period overlapping an existing one
+    // for the same customer/service -- that's a double charge, worth saying
     // plainly rather than as a generic failure.
-    if (error.message.includes("payments_no_overlapping_paid")) {
+    if (error.message.includes("payment_service_coverage_no_overlap")) {
       return { error: "Ya hay un pago registrado que cubre parte de ese período", success: null };
     }
     if (error.message.includes("payments_valid_period")) {
