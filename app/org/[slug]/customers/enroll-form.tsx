@@ -36,14 +36,18 @@ export function EnrollForm({ organizationSlug }: { organizationSlug: string }) {
 
   return (
     <Sheet>
-      <SheetTrigger render={<Button variant="outline" size="touch" className="self-start" />}>
-        + Habilitar cliente
+      {/* variant="ghost", no "outline" como el de al lado: son dos
+          caminos válidos, pero uno de los dos no exige nada de la
+          persona y tiene que verse como la opción por default (ADR-0026). */}
+      <SheetTrigger render={<Button variant="ghost" size="touch" className="self-start" />}>
+        + Cliente con cuenta existente
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>Habilitar cliente</SheetTitle>
+          <SheetTitle>Cliente con cuenta existente</SheetTitle>
           <SheetDescription>
-            Tiene que tener cuenta creada. Si todavía no se registró, pedile que lo haga primero.
+            Solo si la persona ya se registró por su cuenta. Si no tiene cuenta todavía, cerrá esto y usá
+            &quot;Cliente sin cuenta&quot; -- no hace falta que se registre antes.
           </SheetDescription>
         </SheetHeader>
         <SheetBody>

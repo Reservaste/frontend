@@ -31,15 +31,25 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
         description={`${customers.filter((c) => c.isActive).length} habilitados`}
       />
 
+      {/*
+        "Cliente sin cuenta" va primero a propósito (ADR-0026): es el
+        camino sin fricción, el que no depende de que la persona se haya
+        registrado antes -- justo lo que el feedback original pedía.
+        "Cliente con cuenta" queda segundo, para cuando ya se registró por
+        su cuenta. Antes el orden era al revés y el botón por email se
+        llamaba "Habilitar cliente" a secas, lo bastante genérico como
+        para leerse como "la forma normal" -- llevaba al dueño derecho al
+        único camino que sí exige registro previo.
+      */}
       <div className="flex flex-wrap gap-2">
-        <EnrollForm organizationSlug={slug} />
         <ManagedCustomerForm organizationSlug={slug} />
+        <EnrollForm organizationSlug={slug} />
       </div>
 
       {customers.length === 0 ? (
         <EmptyState
           title="Todavía no hay clientes"
-          description="Habilitá a alguien por email para que pueda reservar. La persona tiene que tener cuenta creada."
+          description="Dalo de alta con nombre y teléfono -- no hace falta que tenga cuenta. Si ya se registró por su cuenta, usá 'Cliente con cuenta existente'."
         />
       ) : (
         <DataList>

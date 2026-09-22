@@ -347,7 +347,7 @@ export interface ActionState {
 function describeError(message: string | undefined): string {
   if (!message) return "Algo salió mal";
   if (message.includes("PROFILE_NOT_FOUND")) {
-    return "No existe una cuenta con ese email. La persona tiene que registrarse primero.";
+    return "No existe una cuenta con ese email. Si todavía no se registró, cerrá esto y usá \"Cliente sin cuenta\" en vez de esperar a que lo haga.";
   }
   if (message.includes("NOT_AUTHORIZED")) return "No tenés permiso para hacer esto";
   if (message.includes("LAST_OWNER")) return "No podés quitar al último dueño de la organización";
