@@ -32,8 +32,35 @@ sistema entero, `sshd` incluido, y te quedás sin forma de entrar.
 
 ## Deploy
 
-Hoy la imagen **se construye en la máquina de desarrollo y se envía**, no
-se construye en el droplet:
+**Automático desde el 2026-09-22**: cada push a `main` que pasa CI corre
+`.github/workflows/ci.yml` → job `deploy` — construye con las variables
+reales (secrets del repo, no las placeholder de CI), empuja la imagen a
+`ghcr.io/reservaste/frontend`, y por SSH la baja al droplet, la retaggea
+como `reservaste-app:latest` y corre `docker compose up -d` + el mismo
+loop de health-check que se usaba a mano. Nadie tiene que tocar una
+terminal para que un cambio llegue a producción.
+
+Sin gate de aprobación a propósito (a diferencia de las migraciones del
+backend, que sí lo tienen): un despliegue del frontend que sale mal se
+deshace re-corriendo el workflow anterior, y las `NEXT_PUBLIC_*` no son
+secretas — ya viajan al navegador de cualquier visitante. Ver el ADR de
+CI/CD en `docs/decisions.md` del workspace de coordinación.
+
+Secrets que el workflow necesita en `Reservaste/frontend` (Settings →
+Secrets and variables → Actions): `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` (públicos, ya
+cargados), y dos que **nadie en el proceso de desarrollo tuvo en mano
+nunca, a propósito** — tienen que cargarse directo en la UI de GitHub:
+`DROPLET_SSH_KEY` (la clave privada autorizada como `root` en el
+droplet) y `DROPLET_HOST` (la IP).
+
+**Paso único pendiente, solo desde la UI de GitHub**: después de la
+primera corrida exitosa, el paquete `ghcr.io/reservaste/frontend` se crea
+privado por default. Settings → Packages → frontend → Change visibility
+→ Public, así el droplet no necesita loguearse contra el registro para
+bajarla (la imagen no tiene ningún secreto de servidor adentro).
+
+### El camino manual sigue documentado, como respaldo
 
 ```bash
 cd frontend
@@ -50,11 +77,17 @@ ssh root@<IP> 'cd /srv/reservaste/deploy && docker compose up -d'
 `NEXT_PUBLIC_*` se **hornea en el bundle del cliente en tiempo de build**,
 así que cambiar el dominio exige reconstruir, no solo reiniciar.
 
-### Por qué no se construye en el droplet
+### Por qué la imagen no se construye en el droplet
 
-`@reservaste/domain` vive en un repo privado (ADR-0016) y **las deploy
-keys están deshabilitadas por política de la organización** en GitHub, así
-que el droplet no tiene forma de clonarlo durante un build.
+No es (ya) una cuestión de acceso: `Reservaste/backend` es un repo
+**público**, así que clonar `@reservaste/domain` no necesita ninguna
+credencial, en el droplet o en GitHub Actions. La razón real es más
+simple — el droplet tiene 1 GB de RAM y ya corre ajustado (`mem_limit:
+600m` en el contenedor de la app); construir ahí competiría por memoria
+con la app que tiene que seguir sirviendo mientras se despliega la
+próxima versión. Construir en el runner de GitHub Actions (o antes, en la
+máquina de desarrollo) y enviar solo el artefacto ya construido evita esa
+competencia por completo.
 
 Ventaja no buscada: el droplet no guarda ninguna credencial de git.
 
