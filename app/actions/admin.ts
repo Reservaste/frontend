@@ -151,11 +151,22 @@ export async function getCustomers(organizationSlug: string): Promise<Organizati
 }
 
 /** ADR-0026: alta de un cliente sin cuenta (nombre + teléfono). */
+/**
+ * `whatsappUrl` set means: skip the trip through the customer's own page
+ * to find "enviar activación" -- the form can put the send button right
+ * here. Absent means either the phone was skipped or issuing the token
+ * failed after the customer was already created (a soft error, not a
+ * blocking one: the customer exists either way).
+ */
+export interface ManagedCustomerState extends ActionState {
+  whatsappUrl?: string;
+}
+
 export async function createManagedCustomer(
   organizationSlug: string,
-  _prev: ActionState,
+  _prev: ManagedCustomerState,
   formData: FormData,
-): Promise<ActionState> {
+): Promise<ManagedCustomerState> {
   const { organization } = await requireOrganizationMembership(organizationSlug);
   const displayName = String(formData.get("displayName") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
@@ -163,20 +174,43 @@ export async function createManagedCustomer(
   if (!displayName) {
     return { error: "El nombre es obligatorio", success: null };
   }
+  if (!phone) {
+    // Required now, not optional: the point of this screen is to go
+    // straight to sending the WhatsApp link, and issueCustomerActivation
+    // below refuses without one anyway.
+    return { error: "El teléfono es obligatorio para poder mandarle el link de WhatsApp", success: null };
+  }
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("create_managed_customer", {
+  const { data: customerRow, error } = await supabase.rpc("create_managed_customer", {
     p_organization_id: organization.id,
     p_display_name: displayName,
-    p_phone: phone || null,
+    p_phone: phone,
   });
 
-  if (error) {
-    return { error: describeError(error.message), success: null };
+  if (error || !customerRow) {
+    return { error: describeError(error?.message), success: null };
   }
 
   revalidatePath(`/org/${organizationSlug}/customers`);
-  return { error: null, success: `${displayName} quedó habilitado como cliente` };
+
+  // Issue the activation in the same round trip -- "ya de una", per the
+  // request, instead of leaving the owner to open the customer afterward
+  // just to find this same button (reuses issueCustomerActivation as-is,
+  // so there is one place that builds this link, not two).
+  const activationResult = await issueCustomerActivation(organizationSlug, (customerRow as { id: string }).id);
+  if (activationResult.error || !activationResult.activation) {
+    return {
+      error: null,
+      success: `${displayName} quedó habilitado como cliente, pero no se pudo generar el link de WhatsApp: ${activationResult.error ?? "error desconocido"}. Podés reintentarlo desde su ficha.`,
+    };
+  }
+
+  return {
+    error: null,
+    success: `${displayName} quedó habilitado como cliente`,
+    whatsappUrl: activationResult.activation.whatsappUrl,
+  };
 }
 
 export interface CustomerActivationStatus {
