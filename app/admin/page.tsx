@@ -11,6 +11,7 @@ import { Brand } from "@/components/brand";
 import { StatusBadge } from "@/components/status";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { InviteForm } from "./invite-form";
 import { SubscriptionControls } from "./subscription-controls";
 
@@ -98,9 +99,9 @@ export default async function PlatformAdminPage() {
           {pendingInvites.length === 0 ? (
             <EmptyState size="sm" title="No hay códigos pendientes." />
           ) : (
-            <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+            <DataList>
               {pendingInvites.map((invite) => (
-                <li key={invite.code} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <DataListRow key={invite.code} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <div className="flex flex-col gap-0.5">
                     <span className="font-mono text-sm font-semibold tracking-widest">{invite.code}</span>
                     <span className="text-xs text-muted-foreground">
@@ -115,9 +116,9 @@ export default async function PlatformAdminPage() {
                       vence {new Date(invite.expiresAt).toLocaleDateString("es-UY")}
                     </span>
                   ) : null}
-                </li>
+                </DataListRow>
               ))}
-            </ul>
+            </DataList>
           )}
         </section>
 

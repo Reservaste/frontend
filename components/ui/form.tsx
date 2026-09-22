@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "cn";
+import { AlertCircleIcon, CheckIcon } from "@/components/icons";
 
 /**
  * Form scaffolding.
@@ -69,15 +70,7 @@ export function FormError({
       className={cn("flex items-start gap-1.5 text-sm text-destructive", className)}
       {...props}
     >
-      <svg viewBox="0 0 24 24" fill="none" className="mt-0.5 size-4 shrink-0" aria-hidden>
-        <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" />
-        <path
-          d="M12 8v4.5M12 16h.01"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
+      <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
       <span>{children}</span>
     </p>
   );
@@ -104,15 +97,7 @@ export function FormSuccess({
       className={cn("flex items-start gap-1.5 text-sm text-success", className)}
       {...props}
     >
-      <svg viewBox="0 0 24 24" fill="none" className="mt-0.5 size-4 shrink-0" aria-hidden>
-        <path
-          d="M4 12.5l5 5L20 7"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+      <CheckIcon className="mt-0.5 size-4 shrink-0" />
       <span>{children}</span>
     </p>
   );

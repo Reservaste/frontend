@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import type { OccurrenceAttendee, OrganizationCustomer } from "@/app/actions/admin";
 import {
   bookCustomerIntoSlot,
@@ -17,6 +17,14 @@ import { EmptyState } from "@/components/ui/empty-state";
 
 const initialState: ActionState = { error: null, success: null };
 
+/**
+ * The body of a turno's own detail page (`agenda/[occurrenceId]/page.tsx`,
+ * the only caller). This used to also render a collapsed "Ver detalle"
+ * toggle for an embedded, collapsible use that no call site ever exercised
+ * — `alwaysOpen` was always `true` in practice, so that branch was dead
+ * code. Removed rather than kept "for later": a props contract nobody
+ * exercises is exactly the kind of thing that silently breaks.
+ */
 export function OccurrenceActions({
   organizationSlug,
   occurrenceId,
@@ -24,7 +32,6 @@ export function OccurrenceActions({
   attendees,
   customers,
   isCancelled,
-  alwaysOpen = false,
 }: {
   organizationSlug: string;
   occurrenceId: string;
@@ -32,10 +39,7 @@ export function OccurrenceActions({
   attendees: OccurrenceAttendee[];
   customers: OrganizationCustomer[];
   isCancelled: boolean;
-  /** On the occurrence's own page there is nothing to collapse into. */
-  alwaysOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(alwaysOpen);
   const [bookState, bookAction, booking] = useActionState(
     bookCustomerIntoSlot.bind(null, organizationSlug, occurrenceId),
     initialState,
@@ -46,20 +50,6 @@ export function OccurrenceActions({
   );
 
   const confirmed = attendees.filter((a) => a.status === "CONFIRMED");
-
-  if (!open && !alwaysOpen) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="focus-ring flex min-h-11 w-full items-center justify-center gap-1.5 border-t px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        {confirmed.length > 0 ? `Ver ${confirmed.length} anotado${confirmed.length === 1 ? "" : "s"}` : "Ver detalle"}
-        <svg viewBox="0 0 24 24" fill="none" className="size-3.5">
-          <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-5 border-t bg-muted/40 px-4 py-4">
@@ -74,7 +64,7 @@ export function OccurrenceActions({
                 <span className="text-sm">{attendee.customerName}</span>
                 {!isCancelled ? (
                   <form action={cancelBookingAsStaff.bind(null, organizationSlug, attendee.bookingId)}>
-                    <Button type="submit" variant="ghost" size="xs">
+                    <Button type="submit" variant="ghost" size="touch">
                       Quitar
                     </Button>
                   </form>
@@ -90,7 +80,7 @@ export function OccurrenceActions({
           <section className="flex flex-col gap-2">
             <h4 className="eyebrow text-muted-foreground">Anotar cliente</h4>
             <form action={bookAction} className="flex flex-wrap items-center gap-2">
-              <Select name="customerId" className="min-w-40 flex-1" required>
+              <Select name="customerId" className="min-w-40 flex-1" touch required>
                 <option value="">Elegir cliente…</option>
                 {customers
                   .filter((c) => c.isActive)
@@ -100,7 +90,7 @@ export function OccurrenceActions({
                     </option>
                   ))}
               </Select>
-              <Button type="submit" size="sm" disabled={booking}>
+              <Button type="submit" size="touch" disabled={booking}>
                 {booking ? "Anotando…" : "Anotar"}
               </Button>
             </form>
@@ -120,16 +110,17 @@ export function OccurrenceActions({
                   type="number"
                   min={1}
                   defaultValue={capacity}
+                  touch
                   className="w-24"
                 />
               </Field>
-              <Button type="submit" variant="outline" size="sm" disabled={savingCapacity}>
+              <Button type="submit" variant="outline" size="touch" disabled={savingCapacity}>
                 {savingCapacity ? "Guardando…" : "Guardar"}
               </Button>
             </form>
 
             <form action={cancelOccurrence.bind(null, organizationSlug, occurrenceId)}>
-              <Button type="submit" variant="destructive" size="sm">
+              <Button type="submit" variant="destructive" size="touch">
                 Cancelar horario
               </Button>
             </form>
@@ -138,13 +129,6 @@ export function OccurrenceActions({
           <FormSuccess>{capacityState.success}</FormSuccess>
         </>
       ) : null}
-
-      <button
-        onClick={() => setOpen(false)}
-        className="focus-ring self-center rounded-md px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        Cerrar
-      </button>
     </div>
   );
 }

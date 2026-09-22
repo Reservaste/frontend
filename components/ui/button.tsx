@@ -18,12 +18,21 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // Two heights, on purpose (decision recorded in architecture.md →
+      // "Sistema visual" → "Alturas de control"): `default` (32px, h-8) is
+      // the admin-desktop baseline shared with `Input`/`Select`'s non-`touch`
+      // state, and `touch` (44px → 36px from `sm`) is the only variant that
+      // scales for a finger. There used to be a third, `lg` (h-9, no
+      // responsive behaviour) that matched neither and had zero call sites —
+      // removed rather than kept "for later": a size nobody reaches for is
+      // exactly the drift L0 flagged, and anything that wants a bigger
+      // desktop target already has `touch`, which lands on the same h-9 from
+      // `sm` up.
       size: {
         default:
           "h-8 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
         // 44px on a phone, desktop density from `sm` up. Every action on a
         // customer- or public-facing screen uses this: the default h-8 is a
         // 32px target, which is fine for a mouse on the admin panel and too
@@ -35,7 +44,6 @@ const buttonVariants = cva(
           "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
         "icon-sm":
           "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
       },
     },
     defaultVariants: {

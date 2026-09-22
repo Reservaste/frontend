@@ -8,9 +8,11 @@ import { listServices } from "@/app/actions/services";
 import { listPaymentPlanOptions } from "@/app/actions/service-plans";
 import { formatMoney } from "@/lib/money";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { RegisterPaymentForm } from "../../customers/[customerId]/customer-forms";
 
 export const metadata = { title: "Pagos del cliente" };
@@ -54,11 +56,15 @@ export default async function CustomerPaymentsPage({
   const total = live.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   const paid = live.filter((r) => r.status === "PAID").reduce((sum, r) => sum + (r.amount ?? 0), 0);
 
-  const monthLabel = new Intl.DateTimeFormat("es-UY", {
+  const monthLabelRaw = new Intl.DateTimeFormat("es-UY", {
     timeZone: "UTC",
     month: "long",
     year: "numeric",
   }).format(new Date(`${range.month}-01T12:00:00Z`));
+  // Intl gives lowercase month names in es-UY ("septiembre de 2026");
+  // `PageHeader`'s description isn't styled with `capitalize` (it's plain
+  // page copy elsewhere), so the sentence case is fixed here instead.
+  const monthLabel = monthLabelRaw.charAt(0).toUpperCase() + monthLabelRaw.slice(1);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
@@ -69,18 +75,18 @@ export default async function CustomerPaymentsPage({
         ]}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl">{customer.fullName}</h1>
-          <p className="text-sm capitalize text-muted-foreground">{monthLabel}</p>
-        </div>
-        <Link
-          href={`/org/${slug}/customers/${customerId}`}
-          className={buttonVariants({ variant: "outline", size: "sm" })}
-        >
-          Ver cliente
-        </Link>
-      </div>
+      <PageHeader
+        title={customer.fullName}
+        description={monthLabel}
+        actions={
+          <Link
+            href={`/org/${slug}/customers/${customerId}`}
+            className={buttonVariants({ variant: "outline", size: "sm" })}
+          >
+            Ver cliente
+          </Link>
+        }
+      />
 
       <div className="grid gap-3 sm:grid-cols-3">
         {[
@@ -101,11 +107,11 @@ export default async function CustomerPaymentsPage({
         {rows.length === 0 ? (
           <EmptyState size="sm" title="Sin pagos registrados para este mes." />
         ) : (
-          <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+          <DataList>
             {rows.map((row) => {
               const meta = STATUS[row.status]!;
               return (
-                <li key={row.paymentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <DataListRow key={row.paymentId} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <span className="truncate font-medium">{row.serviceName}</span>
                     <span className="tnum text-xs text-muted-foreground">
@@ -136,10 +142,10 @@ export default async function CustomerPaymentsPage({
                       </form>
                     ) : null}
                   </div>
-                </li>
+                </DataListRow>
               );
             })}
-          </ul>
+          </DataList>
         )}
       </section>
 

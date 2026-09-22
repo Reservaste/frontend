@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Toast as ToastPrimitive } from "@base-ui/react/toast";
 import { cn } from "cn";
+import { CloseIcon } from "@/components/icons";
 
 /**
  * Toasts, on Base UI's Toast (already a dependency — no toast library).
@@ -94,14 +95,7 @@ function ToastList() {
               aria-label="Cerrar"
               className="focus-ring -m-1 flex size-11 shrink-0 items-center justify-center rounded-lg opacity-60 transition-opacity hover:opacity-100 sm:size-8"
             >
-              <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden>
-                <path
-                  d="M6 6l12 12M18 6L6 18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
+              <CloseIcon />
             </ToastPrimitive.Close>
           </ToastPrimitive.Root>
         ))}

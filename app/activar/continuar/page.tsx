@@ -53,7 +53,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex flex-1 flex-col items-center justify-center gap-6 px-5 py-10">
       <Brand />
       <div className="flex w-full max-w-sm flex-col gap-4 rounded-2xl border bg-card p-6 shadow-raised sm:p-7">
-        <h1 className="text-xl">Activar tu cuenta</h1>
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl">Activar tu cuenta</h1>
+          <p className="text-sm text-muted-foreground">
+            Vinculá tu cuenta a la invitación que te mandó el negocio por WhatsApp.
+          </p>
+        </div>
         {children}
       </div>
     </div>

@@ -6,6 +6,7 @@ import { signOut } from "@/app/actions/auth";
 import { isCustomerSomewhere } from "@/app/actions/customer";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Brand } from "@/components/brand";
+import { PageHeader } from "@/components/page-header";
 import { roleLabel } from "@/lib/labels";
 import { cityForTimezone } from "@/lib/timezones";
 import { ChevronRight } from "@/components/icons";
@@ -54,7 +55,7 @@ export default async function DashboardPage() {
             </p>
             <Link
               href="/me"
-              className={buttonVariants({ variant: "outline", size: "sm", className: "self-start" })}
+              className={buttonVariants({ variant: "outline", size: "touch", className: "self-start" })}
             >
               Ver mis reservas
             </Link>
@@ -65,14 +66,14 @@ export default async function DashboardPage() {
             <p className="text-sm text-muted-foreground">
               Publicá tus horarios, controlá los cupos y dejá que tus clientes reserven solos.
             </p>
-            <Link href="/onboarding" className={buttonVariants({ size: "sm", className: "self-start" })}>
+            <Link href="/onboarding" className={buttonVariants({ size: "touch", className: "self-start" })}>
               Crear mi organización
             </Link>
           </div>
         </div>
 
         <form action={signOut}>
-          <Button type="submit" variant="ghost" size="sm">
+          <Button type="submit" variant="ghost" size="touch">
             Salir
           </Button>
         </form>
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
           <Brand href="/dashboard" />
           <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
+            <Button type="submit" variant="ghost" size="touch">
               Salir
             </Button>
           </form>
@@ -94,7 +95,7 @@ export default async function DashboardPage() {
       </header>
 
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-5 py-6">
-        <h1 className="text-xl">Tus organizaciones</h1>
+        <PageHeader title="Tus organizaciones" />
 
         <div className="flex flex-col gap-2">
           {organizations.map(({ organization, membership }) => (

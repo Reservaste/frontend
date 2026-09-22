@@ -108,7 +108,7 @@ export default async function OccurrenceDetailPage({
             </div>
             <Link
               href={`/org/${slug}/agenda/${occurrenceId}/asistencia`}
-              className={buttonVariants({ size: "sm" })}
+              className={buttonVariants({ size: "touch" })}
             >
               Pasar lista
             </Link>
@@ -124,7 +124,6 @@ export default async function OccurrenceDetailPage({
           attendees={attendees}
           customers={customers}
           isCancelled={cancelled}
-          alwaysOpen
         />
       </div>
     </div>

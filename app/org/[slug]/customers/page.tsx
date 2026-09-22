@@ -4,6 +4,7 @@ import { getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { ChevronRight } from "@/components/icons";
 import { EnrollForm } from "./enroll-form";
 import { ManagedCustomerForm } from "./managed-customer-form";
@@ -41,9 +42,9 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
           description="Habilitá a alguien por email para que pueda reservar. La persona tiene que tener cuenta creada."
         />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {customers.map((customer) => (
-            <li key={customer.customerId}>
+            <DataListRow key={customer.customerId}>
               <Link
                 href={`/org/${slug}/customers/${customer.customerId}`}
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
@@ -58,9 +59,9 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
                 {!customer.isActive ? <StatusBadge tone="neutral">Inactivo</StatusBadge> : null}
                 <ChevronRight className="shrink-0 text-muted-foreground" />
               </Link>
-            </li>
+            </DataListRow>
           ))}
-        </ul>
+        </DataList>
       )}
     </div>
   );

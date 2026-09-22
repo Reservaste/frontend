@@ -76,7 +76,7 @@ export default async function PublicOrganizationPage({
           <Brand href={user ? "/dashboard" : "/"} />
           <Link
             href={user ? "/me" : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`}
-            className={buttonVariants({ variant: "ghost", size: "sm" })}
+            className={buttonVariants({ variant: "ghost", size: "touch" })}
           >
             {user ? "Mis reservas" : "Ingresar"}
           </Link>

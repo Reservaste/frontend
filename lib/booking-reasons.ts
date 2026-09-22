@@ -28,6 +28,41 @@ export const BOOKING_REASONS: Record<string, string> = {
 };
 
 /**
+ * How to *show* a `can_book_reason` — what to say is `BOOKING_REASONS` above,
+ * this is the color/icon/urgency. Three buckets, because one red banner for
+ * all of them is how a customer reads "se completaron los lugares" (nobody's
+ * fault, just timing) as "hice algo mal":
+ *
+ * - `neutral` — the slot changed while they were looking. Nothing to fix,
+ *   nothing to blame, just pick another one.
+ * - `customer` — there's something *they* can do right now: log in, pay,
+ *   ask to join a plan. Reads as a warning because it's actionable.
+ * - `owner` — the business hasn't configured something (no plan published,
+ *   inactive service/org). Trying again or paying does nothing, so this
+ *   reads as the harder stop — the copy already says "escribile al negocio".
+ */
+export type BookingReasonTone = "neutral" | "customer" | "owner";
+
+const NEUTRAL_REASONS = new Set([
+  "SLOT_FULL",
+  "OCCURRENCE_NOT_AVAILABLE",
+  "ALREADY_BOOKED",
+  "DUPLICATE",
+]);
+
+const OWNER_FAULT_REASONS = new Set([
+  "ORGANIZATION_INACTIVE",
+  "SERVICE_INACTIVE",
+  "SERVICE_HAS_NO_PLAN",
+]);
+
+export function bookingReasonTone(code: string): BookingReasonTone {
+  if (NEUTRAL_REASONS.has(code)) return "neutral";
+  if (OWNER_FAULT_REASONS.has(code)) return "owner";
+  return "customer";
+}
+
+/**
  * The same reason codes, worded for whoever is standing at the desk: short
  * enough to read in a list of dates, and naming the action *the business*
  * has to take rather than the one the customer has to.

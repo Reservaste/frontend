@@ -1,6 +1,10 @@
 import { getMyMakeupCredits } from "@/app/actions/customer";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { PageHeader } from "@/components/page-header";
+import { Alert } from "@/components/ui/alert";
+import { DataList, DataListRow } from "@/components/ui/table";
+import { CheckIcon } from "@/components/icons";
 
 export const metadata = { title: "Mis créditos" };
 
@@ -29,12 +33,12 @@ export default async function MyMakeupCreditsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
-      <h1 className="text-xl">Mis créditos</h1>
+      <PageHeader title="Mis créditos" />
 
       {usable.length > 0 ? (
-        <p className="rounded-xl bg-success-subtle px-4 py-3 text-sm text-success">
+        <Alert tone="success" icon={<CheckIcon />}>
           Tenés {usable.length} {usable.length === 1 ? "crédito" : "créditos"} para recuperar una clase.
-        </p>
+        </Alert>
       ) : null}
 
       {credits.length === 0 ? (
@@ -43,7 +47,7 @@ export default async function MyMakeupCreditsPage() {
           description="Si liberás un cupo con suficiente anticipación, puede quedarte un crédito acá para recuperar la clase dentro del mes."
         />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {credits.map((c) => {
             const usableNow = c.status === "AVAILABLE" && !c.isExpired;
             const tone = usableNow ? "success" : c.status === "CONSUMED" ? "neutral" : "danger";
@@ -54,21 +58,27 @@ export default async function MyMakeupCreditsPage() {
                 : c.status === "REVOKED"
                   ? "Anulado"
                   : "Vencido";
+            // "Vence" only while it's still true -- a credit that already
+            // expired or was used/revoked isn't heading toward that date
+            // anymore, it's stuck at it.
+            const dateVerb = usableNow ? "Vence" : "Venció";
 
             return (
-              <li key={c.creditId} className="flex items-center justify-between gap-3 px-4 py-3">
+              <DataListRow key={c.creditId} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-sm font-medium">{c.serviceName}</span>
                   <span className="truncate text-xs text-muted-foreground">
                     {c.organizationName} · {ORIGIN_LABEL[c.origin] ?? c.origin}
                   </span>
-                  <span className="tnum text-xs text-muted-foreground">Vence el {formatDate(c.expiresOn)}</span>
+                  <span className="tnum text-xs text-muted-foreground">
+                    {dateVerb} el {formatDate(c.expiresOn)}
+                  </span>
                 </div>
                 <StatusBadge tone={tone as "success" | "neutral" | "danger"}>{label}</StatusBadge>
-              </li>
+              </DataListRow>
             );
           })}
-        </ul>
+        </DataList>
       )}
     </div>
   );

@@ -35,10 +35,10 @@ export default async function Home() {
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4">
           <Brand />
           <div className="flex items-center gap-2">
-            <Link href="/login" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <Link href="/login" className={buttonVariants({ variant: "ghost", size: "touch" })}>
               Ingresar
             </Link>
-            <Link href="/signup" className={buttonVariants({ size: "sm" })}>
+            <Link href="/signup" className={buttonVariants({ size: "touch" })}>
               Crear cuenta
             </Link>
           </div>
@@ -62,10 +62,10 @@ export default async function Home() {
           </p>
 
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href="/signup" className={buttonVariants({ size: "lg" })}>
+            <Link href="/signup" className={buttonVariants({ size: "touch" })}>
               Empezar gratis
             </Link>
-            <Link href="/login" className={buttonVariants({ variant: "outline", size: "lg" })}>
+            <Link href="/login" className={buttonVariants({ variant: "outline", size: "touch" })}>
               Ya tengo cuenta
             </Link>
           </div>

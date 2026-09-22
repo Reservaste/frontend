@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { getMyBookings, releaseMyBooking } from "@/app/actions/customer";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { PageHeader } from "@/components/page-header";
+import { CheckIcon } from "@/components/icons";
 
 export const metadata = { title: "Mis reservas" };
 
@@ -23,36 +26,32 @@ export default async function MyBookingsPage({
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl">Mis reservas</h1>
-        <Link
-          href={includePast ? "/me" : "/me?pasadas=1"}
-          className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {includePast ? "Solo próximas" : "Ver pasadas"}
-        </Link>
-      </div>
+      <PageHeader
+        title="Mis reservas"
+        actions={
+          <Link
+            href={includePast ? "/me" : "/me?pasadas=1"}
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {includePast ? "Solo próximas" : "Ver pasadas"}
+          </Link>
+        }
+      />
 
       {reservado === "1" ? (
-        <p className="flex items-center gap-2 rounded-xl bg-success-subtle px-4 py-3 text-sm text-success">
-          <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0">
-            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <Alert tone="success" icon={<CheckIcon />}>
           Listo, tu reserva quedó confirmada.
-        </p>
+        </Alert>
       ) : null}
 
       {liberado === "1" ? (
-        <p className="flex items-center gap-2 rounded-xl bg-success-subtle px-4 py-3 text-sm text-success">
-          <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0">
-            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <Alert tone="success" icon={<CheckIcon />}>
           {creditoHasta
             ? `Liberaste tu cupo. Te queda un crédito para recuperar la clase, válido hasta el ${new Date(
                 `${creditoHasta}T00:00:00`,
               ).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" })}.`
             : "Liberaste tu cupo."}
-        </p>
+        </Alert>
       ) : null}
 
       {visible.length === 0 ? (
@@ -134,7 +133,13 @@ export default async function MyBookingsPage({
                         faltar sin avisar) te puede dejar un credito para
                         recuperar la clase dentro del mes -- la RPC decide
                         si corresponde, este boton nunca lo promete. */}
-                    <Button type="submit" variant="outline" size="xs" title="Si avisás con anticipación, puede quedarte un crédito para recuperar la clase">
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      size="touch"
+                      className="shrink-0"
+                      title="Si avisás con anticipación, puede quedarte un crédito para recuperar la clase"
+                    >
                       Liberar cupo
                     </Button>
                   </form>

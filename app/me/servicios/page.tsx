@@ -1,6 +1,7 @@
 import { getMyServices } from "@/app/actions/customer";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
+import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Mis servicios" };
 
@@ -14,7 +15,7 @@ export default async function MyServicesPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
-      <h1 className="text-xl">Mis servicios</h1>
+      <PageHeader title="Mis servicios" />
 
       {services.length === 0 ? (
         <EmptyState

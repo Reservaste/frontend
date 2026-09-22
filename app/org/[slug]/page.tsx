@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
 import { OccupancyBar } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { cityForTimezone } from "@/lib/timezones";
 
 export const metadata = { title: "Inicio" };
@@ -85,9 +86,9 @@ export default async function OrganizationHomePage({ params }: { params: Promise
             }
           />
         ) : (
-          <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+          <DataList>
             {upcoming.slice(0, 8).map((occ) => (
-              <li key={occ.id} className="flex items-center gap-4 px-4 py-3">
+              <DataListRow key={occ.id} className="flex items-center gap-4 px-4 py-3">
                 <span className="tnum min-w-12 text-base font-semibold">
                   {timeFormatter.format(new Date(occ.startAt))}
                 </span>
@@ -98,9 +99,9 @@ export default async function OrganizationHomePage({ params }: { params: Promise
                 <span className="tnum text-sm text-muted-foreground">
                   {occ.confirmedCount}/{occ.capacity}
                 </span>
-              </li>
+              </DataListRow>
             ))}
-          </ul>
+          </DataList>
         )}
       </section>
 

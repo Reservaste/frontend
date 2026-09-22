@@ -2,6 +2,7 @@ import { listServices } from "@/app/actions/services";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { DataList } from "@/components/ui/table";
 import { ServiceForm } from "./service-form";
 import { ServiceRow } from "./service-row";
 
@@ -24,11 +25,11 @@ export default async function ServicesPage({ params }: { params: Promise<{ slug:
           description="Un servicio es lo que la gente reserva: una clase, un turno, una cancha."
         />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {services.map((service) => (
             <ServiceRow key={service.id} organizationSlug={slug} service={service} />
           ))}
-        </ul>
+        </DataList>
       )}
     </div>
   );

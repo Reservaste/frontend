@@ -12,6 +12,7 @@ import type {
 } from "@base-ui/react/dialog";
 import { cn } from "cn";
 import { Button } from "@/components/ui/button";
+import { CloseIcon } from "@/components/icons";
 
 /**
  * Modal dialog, on Base UI's Dialog (already a dependency — no new one).
@@ -127,14 +128,7 @@ export function DialogContent({
             aria-label={closeLabel}
             className="focus-ring absolute end-2 top-2 flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:size-8"
           >
-            <svg viewBox="0 0 24 24" fill="none" className="size-4" aria-hidden>
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
+            <CloseIcon />
           </DialogPrimitive.Close>
         ) : null}
       </DialogPrimitive.Popup>

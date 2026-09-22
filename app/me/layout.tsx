@@ -24,7 +24,7 @@ export default async function CustomerLayout({ children }: LayoutProps<"/me">) {
               is already one tap away in the bar below. */}
           <Brand href="/dashboard" />
           <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
+            <Button type="submit" variant="ghost" size="touch">
               Salir
             </Button>
           </form>

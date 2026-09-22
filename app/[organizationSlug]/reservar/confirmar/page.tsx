@@ -1,14 +1,32 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { checkCanBook, getSlotDetail } from "@/app/actions/customer";
 import { getPublicOrganization } from "@/app/actions/public";
-import { BOOKING_REASONS } from "@/lib/booking-reasons";
+import { BOOKING_REASONS, bookingReasonTone } from "@/lib/booking-reasons";
 import { availabilityLabel } from "../../availability-label";
 import { createClient } from "@/lib/supabase/server";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { BackLink } from "@/components/back-link";
 import { BrandTheme } from "@/components/brand-theme";
+import { Alert, type AlertTone } from "@/components/ui/alert";
+import { AlertCircleIcon, AlertTriangleIcon, InfoIcon } from "@/components/icons";
 import { ConfirmForm } from "./confirm-form";
+
+/**
+ * `bookingReasonTone` says *which* bucket a reason falls in; this is the
+ * mapping to how `Alert` renders it. Kept next to the one call site instead
+ * of inside `lib/booking-reasons.ts` because that module is shared with
+ * server actions that don't render anything.
+ */
+const REASON_ALERT: Record<
+  ReturnType<typeof bookingReasonTone>,
+  { tone: AlertTone; icon: ReactNode }
+> = {
+  neutral: { tone: "info", icon: <InfoIcon /> },
+  customer: { tone: "warning", icon: <AlertTriangleIcon /> },
+  owner: { tone: "danger", icon: <AlertCircleIcon /> },
+};
 
 export const metadata = { title: "Confirmar reserva" };
 
@@ -99,7 +117,15 @@ export default async function ConfirmarPage({
               <span className="text-lg font-normal text-muted-foreground"> – {timeFormatter.format(end)}</span>
             </p>
             <StatusBadge tone={availabilityTone(detail.status, detail.remaining)} className="mt-1">
-              {availabilityLabel({ ...detail, serviceName: detail.serviceName, serviceColor: null })}
+              {availabilityLabel({
+                ...detail,
+                serviceName: detail.serviceName,
+                serviceColor: null,
+                // Esta pantalla es la confirmación de un turno ya elegido, no
+                // la agenda: el badge de "cupo liberado" (ADR-0025) no aplica
+                // acá, es una señal de la lista, no de la confirmación.
+                recentlyReleased: null,
+              })}
             </StatusBadge>
           </div>
 
@@ -107,9 +133,9 @@ export default async function ConfirmarPage({
             <ConfirmForm slotOccurrenceId={slot} />
           ) : (
             <div className="flex flex-col gap-3">
-              <p className="rounded-xl bg-warning-subtle px-4 py-3 text-sm text-warning-foreground">
+              <Alert {...REASON_ALERT[bookingReasonTone(canBook)]}>
                 {BOOKING_REASONS[canBook] ?? "No podés reservar este horario"}
-              </p>
+              </Alert>
               <Link
                 href={`/${organizationSlug}`}
                 className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"

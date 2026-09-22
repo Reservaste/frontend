@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Field, FormError } from "@/components/ui/form";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { DataListRow } from "@/components/ui/table";
 
 const initialState: CreateResourceState = { error: null };
 
@@ -28,7 +30,7 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
 
   if (editing) {
     return (
-      <li className="bg-muted/40 px-4 py-3.5">
+      <DataListRow className="bg-muted/40 px-4 py-3.5">
         <form action={formAction} className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field>
@@ -53,30 +55,33 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
               Cancelar
             </Button>
             <span className="flex-1" />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="text-destructive"
-              onClick={(event) => {
-                // Archives rather than deletes: schedules and their
-                // generated history still point at this resource.
-                if (!confirm(`¿Archivar "${resource.name}"? Los horarios que lo usan dejan de generar turnos.`)) {
-                  event.preventDefault();
-                }
-              }}
-              formAction={archiveResource.bind(null, organizationSlug, resource.id)}
+            {/* Archives rather than deletes: schedules and their generated
+                history still point at this resource. `ConfirmDialog` portals
+                its content, so the nested `<form>` below never lands inside
+                this row's own `<form>`. */}
+            <ConfirmDialog
+              trigger={
+                <Button type="button" variant="ghost" size="sm" className="text-destructive">
+                  Archivar
+                </Button>
+              }
+              title={`¿Archivar "${resource.name}"?`}
+              description="Los horarios que lo usan dejan de generar turnos. El historial se conserva."
             >
-              Archivar
-            </Button>
+              <form action={archiveResource.bind(null, organizationSlug, resource.id)}>
+                <Button type="submit" variant="destructive" className="w-full sm:w-auto">
+                  Sí, archivar
+                </Button>
+              </form>
+            </ConfirmDialog>
           </div>
         </form>
-      </li>
+      </DataListRow>
     );
   }
 
   return (
-    <li className="flex items-center gap-2 px-4 py-3.5">
+    <DataListRow className="flex items-center gap-2 px-4 py-3.5">
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate font-medium">{resource.name}</span>
         {resource.description ? (
@@ -87,6 +92,6 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
       <Button variant="ghost" size="xs" onClick={() => setEditing(true)}>
         Editar
       </Button>
-    </li>
+    </DataListRow>
   );
 }

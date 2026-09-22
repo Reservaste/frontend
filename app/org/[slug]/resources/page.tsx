@@ -2,6 +2,7 @@ import { listResources } from "@/app/actions/resources";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/empty-state";
+import { DataList } from "@/components/ui/table";
 import { ResourceForm } from "./resource-form";
 import { ResourceRow } from "./resource-row";
 
@@ -27,11 +28,11 @@ export default async function ResourcesPage({ params }: { params: Promise<{ slug
           description="Cada horario ocupa un recurso, así que necesitás al menos uno para armar la agenda."
         />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {resources.map((resource) => (
             <ResourceRow key={resource.id} organizationSlug={slug} resource={resource} />
           ))}
-        </ul>
+        </DataList>
       )}
     </div>
   );

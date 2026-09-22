@@ -5,6 +5,7 @@ import { listServices } from "@/app/actions/services";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { ServiceTabs } from "../service-tabs";
 
 export const metadata = { title: "Asistencia" };
@@ -49,9 +50,9 @@ export default async function ServiceAttendancePage({
           description="Cuando pasen las primeras clases vas a ver acá quién asistió."
         />
       ) : (
-        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+        <DataList>
           {history.map((entry) => (
-            <li key={entry.slotOccurrenceId}>
+            <DataListRow key={entry.slotOccurrenceId}>
               <Link
                 href={`/org/${slug}/agenda/${entry.slotOccurrenceId}/asistencia`}
                 className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
@@ -69,9 +70,9 @@ export default async function ServiceAttendancePage({
                   ) : null}
                 </div>
               </Link>
-            </li>
+            </DataListRow>
           ))}
-        </ul>
+        </DataList>
       )}
     </div>
   );

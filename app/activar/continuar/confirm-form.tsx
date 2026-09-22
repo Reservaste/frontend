@@ -18,7 +18,7 @@ export function ConfirmActivationForm() {
         </Button>
       </form>
       <form action={signOutForActivation}>
-        <Button type="submit" variant="ghost" size="sm" className="w-full">
+        <Button type="submit" variant="ghost" size="touch" className="w-full">
           No soy yo — usar otra cuenta
         </Button>
       </form>

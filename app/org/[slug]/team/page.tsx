@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status";
 import { roleLabel } from "@/lib/labels";
 import { Button } from "@/components/ui/button";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { InviteForm } from "./invite-form";
 
 export const metadata = { title: "Equipo" };
@@ -26,9 +27,9 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
         </p>
       )}
 
-      <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+      <DataList>
         {team.map((member) => (
-          <li key={member.memberId} className="flex flex-wrap items-center gap-3 px-4 py-3">
+          <DataListRow key={member.memberId} className="flex flex-wrap items-center gap-3 px-4 py-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">
               {member.fullName
                 .split(" ")
@@ -47,9 +48,9 @@ export default async function TeamPage({ params }: { params: Promise<{ slug: str
                 </Button>
               </form>
             ) : null}
-          </li>
+          </DataListRow>
         ))}
-      </ul>
+      </DataList>
     </div>
   );
 }
