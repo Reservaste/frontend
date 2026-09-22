@@ -331,7 +331,7 @@ function MissingPlans({
         {services.map((service) => (
           <li key={service.id}>
             <Link
-              href={`/org/${organizationSlug}/services/${service.id}/plans`}
+              href={`/org/${organizationSlug}/plans?serviceId=${service.id}`}
               className="underline underline-offset-4"
             >
               Crear un plan para {service.name}

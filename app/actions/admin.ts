@@ -447,7 +447,7 @@ export async function bookCustomerIntoSlot(
       OVER_PLAN_QUOTA:
         "Su plan no cubre otro horario fijo por semana. Cambialo a un plan con más frecuencia, o quitale otro horario.",
       SERVICE_HAS_NO_PLAN:
-        "Este servicio exige pago y no tiene ningún plan activo. Creá uno en la pestaña Planes del servicio.",
+        "Este servicio exige pago y no tiene ningún plan activo. Creá uno en Planes y elegí este servicio en su alcance.",
     };
     return { error: reasons[status] ?? "No se pudo anotar al cliente", success: null };
   }

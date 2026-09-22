@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listResources } from "@/app/actions/resources";
 import { listServices } from "@/app/actions/services";
 import { discontinueScheduleRuleGroup, listScheduleRuleGroups } from "@/app/actions/schedule";
 import { getCustomers } from "@/app/actions/admin";
 import { listStandingReservations } from "@/app/actions/standing";
+import { listOrganizationServicePlans } from "@/app/actions/service-plans";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
@@ -26,12 +28,21 @@ export default async function ServiceSchedulePage({
 }) {
   const { slug, serviceId } = await params;
   const { organization, membership } = await requireOrganizationMembership(slug);
-  const [resources, services, groups, customers] = await Promise.all([
+  const [resources, services, groups, customers, plans] = await Promise.all([
     listResources(slug),
     listServices(slug),
     listScheduleRuleGroups(slug, serviceId),
     getCustomers(slug),
+    listOrganizationServicePlans(slug),
   ]);
+
+  // ADR-0029: un plan puede cubrir este servicio explícitamente o por
+  // "todos los servicios" -- sin esta referencia, el dueño mirando un
+  // servicio no tiene ninguna pista de que tiene planes asociados ni de a
+  // dónde ir a gestionarlos, ya que Planes dejó de vivir acá.
+  const coveringPlans = plans.filter(
+    (plan) => plan.isActive && (plan.appliesToAllServices || plan.serviceIds.includes(serviceId)),
+  );
 
   // Standing reservations subscribe to a single ScheduleRule, so a
   // Mon/Wed/Fri group has three of them -- which is correct: a standing
@@ -61,6 +72,22 @@ export default async function ServiceSchedulePage({
       />
 
       <ServiceTabs organizationSlug={slug} serviceId={serviceId} />
+
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border bg-card px-4 py-3 text-sm shadow-card">
+        <span className="text-muted-foreground">
+          {coveringPlans.length === 0
+            ? "Este servicio todavía no tiene planes."
+            : `Este servicio tiene ${coveringPlans.length} ${coveringPlans.length === 1 ? "plan" : "planes"}: ${coveringPlans
+                .map((plan) => plan.name)
+                .join(", ")}.`}
+        </span>
+        <Link
+          href={`/org/${slug}/plans?serviceId=${serviceId}`}
+          className="shrink-0 text-primary underline-offset-4 hover:underline"
+        >
+          {coveringPlans.length === 0 ? "Crear un plan" : "Ver todos los planes"}
+        </Link>
+      </div>
 
       {service ? (
         <ServiceSettingsForm

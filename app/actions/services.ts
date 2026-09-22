@@ -178,7 +178,7 @@ export async function updateServiceSettings(
     if (error.message.includes("SERVICE_HAS_ACTIVE_QUOTA_PLANS")) {
       return {
         error:
-          "Este servicio tiene planes de turnos fijos por semana activos, que sin pago no pueden limitar nada. Desactivalos en la pestaña Planes y volvé a intentarlo.",
+          "Este servicio tiene planes de turnos fijos por semana activos, que sin pago no pueden limitar nada. Desactivalos en Planes y volvé a intentarlo.",
         success: null,
       };
     }

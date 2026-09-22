@@ -17,7 +17,9 @@ const PRESETS = ["#0067e1", "#0f766e", "#7c3aed", "#db2777", "#ea580c", "#16a34a
  * Configuration of a service that isn't its price (ADR-0024).
  *
  * The price, the billing period and how the month is counted used to be
- * here and are now in the Planes tab, on `service_plans`: a service has
+ * here and are now in the top-level Planes section, on `service_plans`
+ * (ADR-0029 moved it out of a per-service tab: a plan can cover several
+ * services). A service has
  * several simultaneous prices (a single slot, two a week, three a week),
  * which a single set of columns on the Service could not express, and
  * having both would be two sources of truth for "what period does a
@@ -53,7 +55,7 @@ export function ServiceSettingsForm({
           Si hace falta estar al día para reservarlo, y cómo se lo distingue en la agenda. Los
           precios viven en{" "}
           <Link
-            href={`/org/${organizationSlug}/services/${service.id}/plans`}
+            href={`/org/${organizationSlug}/plans?serviceId=${service.id}`}
             className="text-primary underline-offset-4 hover:underline"
           >
             Planes

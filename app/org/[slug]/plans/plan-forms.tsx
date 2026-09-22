@@ -43,6 +43,13 @@ const initialState: ActionState = { error: null, success: null };
 /**
  * The plan editor, as a dialog on top of the price list.
  *
+ * Moved here from `services/[serviceId]/plans/` (pedido del dueño tras
+ * ADR-0029: un plan puede cubrir 1, 2, 3 o todos los servicios, así que
+ * gestionarlo "adentro" de uno de ellos ya no representa el dominio).
+ * Planes es ahora una sección de nivel superior, hermana de Servicios --
+ * no hay un "servicio actual" del que partir, el checklist de alcance
+ * arranca vacío y el dueño elige explícitamente.
+ *
  * The shape of the form is `service-settings-form.tsx`'s: a `Select` that reveals a
  * second field. `plan_kind === "WEEKLY_QUOTA"` reveals `weekly_quota`, and
  * `DROP_IN` hides the monthly cycle because a one-off payment has no month
@@ -67,7 +74,6 @@ function PlanKindFields({
   weeklyQuota,
   billingCycle,
   disabled,
-  paymentRequired,
   idPrefix,
 }: {
   planKind: ServicePlanKind;
@@ -76,17 +82,8 @@ function PlanKindFields({
   billingCycle: string | null;
   /** Terms are frozen: editing an existing plan, always. */
   disabled: boolean;
-  /**
-   * Whether the service demands payment. A quota plan on a service that
-   * doesn't is rejected by trigger (SERVICE_NOT_PAYMENT_REQUIRED), so the
-   * option is closed off here *with the reason*. Irrelevant when the whole
-   * block is already disabled, hence the default.
-   */
-  paymentRequired?: boolean;
   idPrefix: string;
 }) {
-  const quotaBlocked = !disabled && paymentRequired === false;
-
   return (
     <>
       <Field>
@@ -100,16 +97,13 @@ function PlanKindFields({
           onChange={(event) => onPlanKindChange?.(event.target.value as ServicePlanKind)}
         >
           <option value="DROP_IN">{PLAN_KIND_LABEL.DROP_IN} — se paga cada vez</option>
-          <option value="WEEKLY_QUOTA" disabled={quotaBlocked}>
-            {PLAN_KIND_LABEL.WEEKLY_QUOTA} — elegís cuántos
-          </option>
+          <option value="WEEKLY_QUOTA">{PLAN_KIND_LABEL.WEEKLY_QUOTA} — elegís cuántos</option>
           <option value="UNLIMITED">{PLAN_KIND_LABEL.UNLIMITED} — sin límite en el período</option>
         </Select>
-        {quotaBlocked ? (
+        {planKind === "WEEKLY_QUOTA" ? (
           <FieldHint>
-            Los turnos fijos por semana necesitan que el servicio exija pago al día: sin un pago
-            vigente no hay de dónde leer la frecuencia. Activalo en la configuración del servicio,
-            en la pestaña Horarios.
+            Los turnos fijos por semana necesitan que cada servicio cubierto exija pago al día: sin
+            un pago vigente no hay de dónde leer la frecuencia.
           </FieldHint>
         ) : null}
       </Field>
@@ -129,8 +123,8 @@ function PlanKindFields({
             required
           />
           <FieldHint>
-            Cuántos horarios fijos puede tener a la vez en este servicio. Si tiene más, los que
-            sobran quedan pendientes en vez de confirmarse.
+            Cuántos horarios fijos puede tener a la vez en los servicios cubiertos. Si tiene más,
+            los que sobran quedan pendientes en vez de confirmarse.
           </FieldHint>
         </Field>
       ) : null}
@@ -155,14 +149,15 @@ function PlanKindFields({
 }
 
 /**
- * ADR-0029: alcance del plan -- un toggle "todos los servicios" y un
+ * ADR-0029: alcance del plan. Para `DROP_IN` es un único servicio
+ * obligatorio (§1.1 -- multi-servicio en un turno suelto sigue fuera de
+ * alcance a propósito). Para el resto, un toggle "todos los servicios" y un
  * checklist de servicios puntuales, mutuamente excluyentes (la base los
- * rechaza si se mandan los dos). Ausente para DROP_IN: un turno suelto
- * sigue atado a exactamente un servicio (§1.1), sin selector.
+ * rechaza si se mandan los dos). Sin preselección: quien crea el plan desde
+ * esta pantalla elige explícitamente 1, 2, 3 o todos.
  */
 function ScopeFields({
   services,
-  currentServiceId,
   appliesToAllServices,
   onAppliesToAllServicesChange,
   selectedServiceIds,
@@ -173,7 +168,6 @@ function ScopeFields({
   idPrefix,
 }: {
   services: Service[];
-  currentServiceId: string;
   appliesToAllServices: boolean;
   onAppliesToAllServicesChange: (value: boolean) => void;
   selectedServiceIds: string[];
@@ -183,13 +177,35 @@ function ScopeFields({
   onQuotaScopeChange: (value: "PER_SERVICE" | "SHARED_ACROSS_SERVICES") => void;
   idPrefix: string;
 }) {
+  const active = services.filter((s) => s.isActive);
+
   if (planKind === "DROP_IN") {
-    // Single service, forced -- the one the Planes tab is already on.
-    return <input type="hidden" name="serviceIds" value={currentServiceId} />;
+    return (
+      <Field>
+        <Label htmlFor={`${idPrefix}-dropInService`}>Servicio</Label>
+        <Select
+          id={`${idPrefix}-dropInService`}
+          name="serviceIds"
+          touch
+          required
+          value={selectedServiceIds[0] ?? ""}
+          onChange={(event) =>
+            onSelectedServiceIdsChange(event.target.value ? [event.target.value] : [])
+          }
+        >
+          <option value="">Elegí un servicio…</option>
+          {active.map((service) => (
+            <option key={service.id} value={service.id}>
+              {service.name}
+            </option>
+          ))}
+        </Select>
+        <FieldHint>Un turno suelto cubre exactamente un servicio.</FieldHint>
+      </Field>
+    );
   }
 
   const coversMultiple = appliesToAllServices || selectedServiceIds.length > 1;
-  const active = services.filter((s) => s.isActive);
 
   return (
     <>
@@ -211,25 +227,29 @@ function ScopeFields({
           <FieldHint>Este plan va a cubrir automáticamente cualquier servicio nuevo que agregues.</FieldHint>
         ) : (
           <div className="mt-1.5 flex flex-col gap-1.5 rounded-lg border p-2.5">
-            {active.map((service) => (
-              <label key={service.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="serviceIds"
-                  value={service.id}
-                  className="size-4"
-                  checked={selectedServiceIds.includes(service.id)}
-                  onChange={(event) => {
-                    onSelectedServiceIdsChange(
-                      event.target.checked
-                        ? [...selectedServiceIds, service.id]
-                        : selectedServiceIds.filter((id) => id !== service.id),
-                    );
-                  }}
-                />
-                {service.name}
-              </label>
-            ))}
+            {active.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Todavía no hay servicios activos.</p>
+            ) : (
+              active.map((service) => (
+                <label key={service.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    name="serviceIds"
+                    value={service.id}
+                    className="size-4"
+                    checked={selectedServiceIds.includes(service.id)}
+                    onChange={(event) => {
+                      onSelectedServiceIdsChange(
+                        event.target.checked
+                          ? [...selectedServiceIds, service.id]
+                          : selectedServiceIds.filter((id) => id !== service.id),
+                      );
+                    }}
+                  />
+                  {service.name}
+                </label>
+              ))
+            )}
           </div>
         )}
       </Field>
@@ -260,18 +280,14 @@ function ScopeFields({
 
 export function NewPlanDialog({
   organizationSlug,
-  serviceId,
   services,
-  paymentRequired,
   currency,
   canEdit,
   variant = "default",
 }: {
   organizationSlug: string;
-  serviceId: string;
   /** Every service of the organization, for the "varios servicios" checklist (ADR-0029). */
   services: Service[];
-  paymentRequired: boolean;
   /** ISO 4217 of the organization (ADR-0024): the plan has no currency of its own. */
   currency: string;
   canEdit: boolean;
@@ -279,14 +295,14 @@ export function NewPlanDialog({
   variant?: "default" | "outline";
 }) {
   const [open, setOpen] = useState(false);
-  const [planKind, setPlanKind] = useState<ServicePlanKind>(
-    paymentRequired ? "WEEKLY_QUOTA" : "UNLIMITED",
-  );
+  const [planKind, setPlanKind] = useState<ServicePlanKind>("WEEKLY_QUOTA");
   const [appliesToAllServices, setAppliesToAllServices] = useState(false);
-  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([serviceId]);
+  // Sin preselección (pedido explícito del dueño): el checklist arranca
+  // vacío, no hay un "servicio actual" del que partir.
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [quotaScope, setQuotaScope] = useState<"PER_SERVICE" | "SHARED_ACROSS_SERVICES">("PER_SERVICE");
   const [state, formAction, pending] = useActionState(
-    createServicePlan.bind(null, organizationSlug, serviceId),
+    createServicePlan.bind(null, organizationSlug),
     initialState,
   );
 
@@ -295,14 +311,28 @@ export function NewPlanDialog({
   if (!canEdit) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(value) => setOpen(value)}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        setOpen(value);
+        if (value) {
+          // Reset every time it opens, not just on mount -- Dialog unmounts
+          // its content on close, but this keeps the reset explicit and
+          // independent of that implementation detail.
+          setPlanKind("WEEKLY_QUOTA");
+          setAppliesToAllServices(false);
+          setSelectedServiceIds([]);
+          setQuotaScope("PER_SERVICE");
+        }
+      }}
+    >
       <DialogTrigger render={<Button variant={variant} size="touch" />}>Crear plan</DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nuevo plan</DialogTitle>
           <DialogDescription>
-            Un plan es un precio y lo que ese precio da. Un mismo servicio puede tener varios, y un
-            plan puede cubrir más de un servicio a la vez.
+            Un plan es un precio y lo que ese precio da. Elegí qué servicios cubre: uno, varios o
+            todos.
           </DialogDescription>
         </DialogHeader>
 
@@ -328,13 +358,11 @@ export function NewPlanDialog({
             weeklyQuota={null}
             billingCycle={null}
             disabled={false}
-            paymentRequired={paymentRequired}
           />
 
           <ScopeFields
             idPrefix="new"
             services={services}
-            currentServiceId={serviceId}
             appliesToAllServices={appliesToAllServices}
             onAppliesToAllServicesChange={setAppliesToAllServices}
             selectedServiceIds={selectedServiceIds}
@@ -382,13 +410,11 @@ export function NewPlanDialog({
 
 function EditPlanDialog({
   organizationSlug,
-  serviceId,
   plan,
   currency,
   serviceNameById,
 }: {
   organizationSlug: string;
-  serviceId: string;
   plan: ServicePlanWithUsage;
   currency: string;
   /** ADR-0029: to render the frozen scope ("Pilates + Musculación"). */
@@ -396,7 +422,7 @@ function EditPlanDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
-    updateServicePlan.bind(null, organizationSlug, serviceId, plan.id),
+    updateServicePlan.bind(null, organizationSlug, plan.id),
     initialState,
   );
 
@@ -481,7 +507,7 @@ function EditPlanDialog({
                   seguir resolviendo sus términos.{" "}
                 </>
               ) : (
-                <>Qué da un plan y con qué frecuencia no se editan. </>
+                <>Qué da un plan, con qué frecuencia y qué servicios cubre no se editan. </>
               )}
               Si te equivocaste, desactivá este plan y creá otro: desactivar no le corta la
               cobertura a nadie que ya haya pagado.
@@ -511,14 +537,12 @@ function EditPlanDialog({
  */
 export function PlanRow({
   organizationSlug,
-  serviceId,
   plan,
   currency,
   canEdit,
   serviceNameById,
 }: {
   organizationSlug: string;
-  serviceId: string;
   plan: ServicePlanWithUsage;
   currency: string;
   canEdit: boolean;
@@ -541,12 +565,10 @@ export function PlanRow({
             <span className="text-sm text-muted-foreground">
               {planSummary(plan.planKind, plan.weeklyQuota)}
             </span>
-            {plan.appliesToAllServices || plan.serviceIds.length > 1 ? (
-              <span className="text-xs text-muted-foreground">
-                Cubre: {planScopeLabel(plan.appliesToAllServices, plan.serviceIds, serviceNameById)}
-                {plan.quotaScope ? ` · ${QUOTA_SCOPE_LABEL[plan.quotaScope]}` : ""}
-              </span>
-            ) : null}
+            <span className="text-xs text-muted-foreground">
+              Cubre: {planScopeLabel(plan.appliesToAllServices, plan.serviceIds, serviceNameById)}
+              {plan.quotaScope ? ` · ${QUOTA_SCOPE_LABEL[plan.quotaScope]}` : ""}
+            </span>
             <span className="text-xs text-muted-foreground">
               {planBillingLabel(plan.billingType, plan.billingCycle)}
               {plan.paymentCount > 0 ? (
@@ -574,7 +596,6 @@ export function PlanRow({
           <div className="flex flex-wrap items-center gap-2">
             <EditPlanDialog
               organizationSlug={organizationSlug}
-              serviceId={serviceId}
               plan={plan}
               currency={currency}
               serviceNameById={serviceNameById}
@@ -590,24 +611,14 @@ export function PlanRow({
                 title={`¿Desactivar «${plan.name}»?`}
                 description="Deja de ofrecerse para nuevos pagos. Quien ya pagó conserva su cobertura hasta que termine el período: desactivar un plan nunca invalida un pago hecho."
               >
-                <form
-                  action={setServicePlanActive.bind(
-                    null,
-                    organizationSlug,
-                    serviceId,
-                    plan.id,
-                    false,
-                  )}
-                >
+                <form action={setServicePlanActive.bind(null, organizationSlug, plan.id, false)}>
                   <Button type="submit" variant="destructive" size="touch" className="w-full">
                     Sí, desactivar
                   </Button>
                 </form>
               </ConfirmDialog>
             ) : (
-              <form
-                action={setServicePlanActive.bind(null, organizationSlug, serviceId, plan.id, true)}
-              >
+              <form action={setServicePlanActive.bind(null, organizationSlug, plan.id, true)}>
                 <Button type="submit" variant="ghost" size="touch">
                   Reactivar
                 </Button>

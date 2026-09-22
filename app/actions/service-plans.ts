@@ -92,34 +92,20 @@ async function loadCoveredServiceIds(
   return covered;
 }
 
-export async function listServicePlans(
-  organizationSlug: string,
-  serviceId: string,
-): Promise<ServicePlanListResult> {
+export async function listServicePlans(organizationSlug: string): Promise<ServicePlanListResult> {
   const { organization } = await requireOrganizationMembership(organizationSlug);
   const supabase = await createClient();
 
-  // A plan appears here if it names this service explicitly, or if it
-  // applies to every service. Two queries: which plans link this service
-  // (service_plan_services), then the plans themselves.
-  const { data: linkRows, error: linkError } = await supabase
-    .from("service_plan_services")
-    .select("service_plan_id")
-    .eq("service_id", serviceId);
-
-  if (linkError) {
-    return { plans: [], error: "No se pudieron cargar los planes" };
-  }
-
-  const linkedPlanIds = (linkRows ?? []).map((r) => (r as { service_plan_id: string }).service_plan_id);
-
-  let query = supabase.from("service_plans").select("*").eq("organization_id", organization.id);
-  query =
-    linkedPlanIds.length > 0
-      ? query.or(`applies_to_all_services.eq.true,id.in.(${linkedPlanIds.join(",")})`)
-      : query.eq("applies_to_all_services", true);
-
-  const { data, error } = await query
+  // Frontend Admin decision (mover Planes a sección de nivel superior): esta
+  // ya no filtra por un service_id "actual" -- devuelve todos los planes de
+  // la organización, activos o no, tal como los va a listar la pantalla
+  // /org/:slug/plans. `service_plan_services`/`applies_to_all_services` solo
+  // se usan para resolver qué servicios cubre cada uno (loadCoveredServiceIds),
+  // no para filtrar cuáles aparecen.
+  const { data, error } = await supabase
+    .from("service_plans")
+    .select("*")
+    .eq("organization_id", organization.id)
     .order("is_active", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
@@ -305,15 +291,15 @@ function describePlanError(message: string | undefined): string {
   return "No se pudo guardar el plan";
 }
 
-function revalidatePlans(organizationSlug: string, serviceId: string): void {
-  revalidatePath(`/org/${organizationSlug}/services/${serviceId}/plans`);
+/** Planes es ahora una sección de nivel superior (ya no cuelga de un Service). */
+function revalidatePlans(organizationSlug: string): void {
+  revalidatePath(`/org/${organizationSlug}/plans`);
   // A plan change moves what the payment screens can charge.
   revalidatePath(`/org/${organizationSlug}`, "layout");
 }
 
 export async function createServicePlan(
   organizationSlug: string,
-  serviceId: string,
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
@@ -324,18 +310,22 @@ export async function createServicePlan(
 
   const planKind = String(formData.get("planKind") ?? "") as ServicePlanKind;
 
-  // Scope (ADR-0029): "todos los servicios", or an explicit multi-select --
-  // both mutually exclusive with the other, enforced by the database
-  // (create_service_plan / validate_service_plan_scope). DROP_IN keeps the
-  // pre-ADR-0029 single-service form: multi-service DROP_IN is out of scope
-  // on purpose (it is the prepaid-package shape ADR-0022/0024 already
-  // rejected).
+  // Scope (ADR-0029): "todos los servicios", o una selección explícita --
+  // mutuamente excluyentes, reforzado por la base (create_service_plan /
+  // validate_service_plan_scope). Ya no hay un service_id "actual" del que
+  // partir (Planes dejó de vivir dentro de un Service): el formulario manda
+  // siempre la selección explícita, incluido el caso DROP_IN (single-select
+  // obligatorio en el form -- multi-servicio en DROP_IN sigue fuera de
+  // alcance a propósito, es la forma de paquete prepago que ADR-0022/0024 ya
+  // rechazó).
   const appliesToAllServices = formData.get("appliesToAllServices") === "on";
   const serviceIds = appliesToAllServices
     ? []
-    : planKind === "DROP_IN"
-      ? [serviceId]
-      : formData.getAll("serviceIds").map(String).filter(Boolean);
+    : formData.getAll("serviceIds").map(String).filter(Boolean);
+
+  if (planKind === "DROP_IN" && !appliesToAllServices && serviceIds.length !== 1) {
+    return { error: "Un turno suelto cubre exactamente un servicio.", success: null };
+  }
 
   const parsed = createServicePlanSchema.safeParse({
     appliesToAllServices,
@@ -395,7 +385,7 @@ export async function createServicePlan(
     return { error: describePlanError(error.message), success: null };
   }
 
-  revalidatePlans(organizationSlug, serviceId);
+  revalidatePlans(organizationSlug);
   return { error: null, success: "Plan creado" };
 }
 
@@ -409,7 +399,6 @@ export async function createServicePlan(
  */
 export async function updateServicePlan(
   organizationSlug: string,
-  serviceId: string,
   planId: string,
   _prev: ActionState,
   formData: FormData,
@@ -449,7 +438,7 @@ export async function updateServicePlan(
     return { error: describePlanError(error.message), success: null };
   }
 
-  revalidatePlans(organizationSlug, serviceId);
+  revalidatePlans(organizationSlug);
   return { error: null, success: "Plan actualizado" };
 }
 
@@ -468,7 +457,6 @@ export async function updateServicePlan(
  */
 export async function setServicePlanActive(
   organizationSlug: string,
-  serviceId: string,
   planId: string,
   isActive: boolean,
 ): Promise<void> {
@@ -492,5 +480,5 @@ export async function setServicePlanActive(
     .eq("id", planId)
     .eq("organization_id", organization.id);
 
-  revalidatePlans(organizationSlug, serviceId);
+  revalidatePlans(organizationSlug);
 }
