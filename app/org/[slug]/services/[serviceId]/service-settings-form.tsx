@@ -7,6 +7,7 @@ import { updateServiceSettings, type ServiceSettingsState } from "@/app/actions/
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Field, FieldHint, FormError, FormSuccess } from "@/components/ui/form";
+import { CheckIcon } from "@/components/icons";
 import { cn } from "cn";
 
 const initialState: ServiceSettingsState = { error: null, success: null };
@@ -64,17 +65,23 @@ export function ServiceSettingsForm({
         </p>
       </div>
 
-      <label className="flex w-fit items-start gap-2 text-sm">
+      <label
+        className={cn(
+          "flex w-full items-start gap-3 rounded-lg px-1 py-2 text-sm transition-colors",
+          canEdit && "hover:bg-muted/50",
+          !canEdit && "opacity-60",
+        )}
+      >
         <input
           type="checkbox"
           name="paymentRequired"
           defaultChecked={service.paymentRequired}
           disabled={!canEdit}
-          className="focus-ring mt-0.5 size-4 accent-primary"
+          className="focus-ring mt-0.5 size-4 shrink-0 accent-primary"
         />
-        <span>
-          Exigir pago al día para reservar
-          <span className="block text-xs text-muted-foreground">
+        <span className="flex flex-col gap-0.5">
+          <span className="font-medium">Exigir pago al día para reservar</span>
+          <span className="text-xs text-muted-foreground">
             Si está apagado, podés registrar los pagos igual pero nadie queda bloqueado. Los planes
             de turnos fijos por semana necesitan que esté encendido.
           </span>
@@ -83,13 +90,13 @@ export function ServiceSettingsForm({
 
       <Field className="border-t pt-4">
         <Label>Color en el calendario</Label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
           <input
             type="color"
             value={color || "#0067e1"}
             disabled={!canEdit}
             onChange={(event) => setColor(event.target.value)}
-            className="focus-ring size-9 cursor-pointer rounded-lg border bg-card p-1"
+            className="focus-ring size-10 cursor-pointer rounded-lg border bg-card p-1"
             aria-label="Color del servicio"
           />
           {PRESETS.map((preset) => (
@@ -99,12 +106,19 @@ export function ServiceSettingsForm({
               disabled={!canEdit}
               onClick={() => setColor(preset)}
               aria-label={`Usar ${preset}`}
+              aria-pressed={color === preset}
               className={cn(
-                "focus-ring size-7 rounded-full border transition-transform hover:scale-110",
+                "focus-ring relative size-8 rounded-full border transition-transform hover:scale-110",
                 color === preset && "ring-2 ring-ring ring-offset-2",
               )}
               style={{ backgroundColor: preset }}
-            />
+            >
+              {color === preset ? (
+                <span className="absolute inset-0 flex items-center justify-center">
+                  <CheckIcon className="size-4 text-white drop-shadow" />
+                </span>
+              ) : null}
+            </button>
           ))}
           {color ? (
             <Button type="button" variant="ghost" size="xs" onClick={() => setColor("")} disabled={!canEdit}>
@@ -119,7 +133,7 @@ export function ServiceSettingsForm({
       <FormError>{state.error}</FormError>
       <FormSuccess>{state.success}</FormSuccess>
 
-      <Button type="submit" size="sm" className="self-start" disabled={!canEdit || pending}>
+      <Button type="submit" size="touch" className="self-start" disabled={!canEdit || pending}>
         {pending ? "Guardando…" : "Guardar configuración"}
       </Button>
 

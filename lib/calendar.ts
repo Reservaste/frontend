@@ -15,7 +15,16 @@ export const CALENDAR_VIEWS: { value: CalendarView; label: string }[] = [
 ];
 
 export const WEEKDAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-export const WEEKDAY_LETTER = ["D", "L", "M", "X", "J", "V", "S"];
+/**
+ * Two letters per day, for chips too small for `WEEKDAY_SHORT`'s three
+ * (the day picker in `schedule-rule-form.tsx`). Used to be one letter each
+ * ("D L M X J V S"), which is the standalone Spanish convention of writing
+ * Miércoles as "X" so it doesn't collide with Martes' "M" — a convention
+ * nobody outside that specific context recognizes, so it just read as a
+ * typo. Two letters removes the collision without needing a code most
+ * people have never seen.
+ */
+export const WEEKDAY_LETTER = ["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"];
 export const WEEKDAY_LONG = [
   "Domingo",
   "Lunes",

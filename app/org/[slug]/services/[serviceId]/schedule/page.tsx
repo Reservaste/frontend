@@ -11,7 +11,9 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
-import { WEEKDAY_SHORT } from "@/lib/calendar";
+import { InfoIcon } from "@/components/icons";
+import { cn } from "cn";
+import { WEEKDAY_LETTER, WEEKDAY_SHORT } from "@/lib/calendar";
 import { ServiceTabs } from "../service-tabs";
 import { ServiceSettingsForm } from "../service-settings-form";
 import { ScheduleRuleForm } from "./schedule-rule-form";
@@ -73,8 +75,9 @@ export default async function ServiceSchedulePage({
 
       <ServiceTabs organizationSlug={slug} serviceId={serviceId} />
 
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border bg-card px-4 py-3 text-sm shadow-card">
-        <span className="text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border bg-surface-sunken px-4 py-3 text-sm">
+        <InfoIcon className="size-4 shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-muted-foreground">
           {coveringPlans.length === 0
             ? "Este servicio todavía no tiene planes."
             : `Este servicio tiene ${coveringPlans.length} ${coveringPlans.length === 1 ? "plan" : "planes"}: ${coveringPlans
@@ -83,7 +86,7 @@ export default async function ServiceSchedulePage({
         </span>
         <Link
           href={`/org/${slug}/plans?serviceId=${serviceId}`}
-          className="shrink-0 text-primary underline-offset-4 hover:underline"
+          className="focus-ring shrink-0 rounded-md font-medium text-primary underline-offset-4 hover:underline"
         >
           {coveringPlans.length === 0 ? "Crear un plan" : "Ver todos los planes"}
         </Link>
@@ -97,9 +100,10 @@ export default async function ServiceSchedulePage({
         />
       ) : null}
 
-      <h2 className="text-sm font-semibold">Horarios</h2>
-
-      <ScheduleRuleForm organizationSlug={slug} serviceId={serviceId} resources={resources} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base">Horarios</h2>
+        <ScheduleRuleForm organizationSlug={slug} serviceId={serviceId} resources={resources} />
+      </div>
 
       {groups.length === 0 ? (
         <EmptyState
@@ -115,31 +119,37 @@ export default async function ServiceSchedulePage({
 
             return (
               <li key={group.groupId} className="overflow-hidden rounded-xl border bg-card shadow-card">
-                <div className="flex flex-wrap items-start justify-between gap-3 px-4 py-3.5">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Day + hour lead: picking a horario is picking a time,
+                      same hierarchy the calendar itself uses. Resource and
+                      duration are context, not the headline. */}
+                  <div className="flex items-center gap-3">
+                    <div aria-hidden className="flex shrink-0 gap-1">
                       {WEEK_ORDER.map((day) => (
                         <span
                           key={day}
-                          className={`flex size-7 items-center justify-center rounded-md text-xs font-semibold ${
+                          className={cn(
+                            "flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-[0.65rem] font-semibold",
                             group.weekdays.includes(day)
                               ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground/50"
-                          }`}
+                              : "bg-muted text-muted-foreground/40",
+                          )}
                         >
-                          {WEEKDAY_SHORT[day]!.slice(0, 1)}
+                          {WEEKDAY_LETTER[day]}
                         </span>
                       ))}
-                      <span className="tnum ml-1.5 font-medium">
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="tnum text-lg leading-tight font-semibold">
                         {group.localStartTime.slice(0, 5)}
                       </span>
+                      <span className="text-xs text-muted-foreground">
+                        {group.resourceName} · {group.durationMinutes} min
+                      </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
-                      {group.resourceName} · {group.durationMinutes} min
-                    </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2 sm:justify-end">
                     <StatusBadge tone="primary">{group.capacity} lugares</StatusBadge>
                     <form action={discontinueScheduleRuleGroup.bind(null, slug, serviceId, group.groupId)}>
                       <Button type="submit" variant="ghost" size="sm">

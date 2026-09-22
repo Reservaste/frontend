@@ -70,7 +70,7 @@ export function StandingReservations({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="eyebrow text-muted-foreground">Horario fijo ({active.length})</span>
         {!open && available.length > 0 ? (
-          <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+          <Button variant="outline" size="touch" onClick={() => setOpen(true)}>
             + Asignar cliente
           </Button>
         ) : null}
@@ -152,6 +152,7 @@ export function StandingReservations({
                     id={`customer-${scheduleRuleId}`}
                     name="customerId"
                     required
+                    touch
                     className="min-w-48 flex-1"
                     defaultValue={preview.customerId ?? ""}
                   >
@@ -164,7 +165,7 @@ export function StandingReservations({
                       </option>
                     ))}
                   </Select>
-                  <Button type="submit" variant="outline" size="sm" disabled={previewPending}>
+                  <Button type="submit" variant="outline" size="touch" disabled={previewPending}>
                     {previewPending ? "Buscando…" : "Ver fechas"}
                   </Button>
                 </div>
@@ -201,10 +202,10 @@ export function StandingReservations({
 
                   <form action={createAction} className="flex flex-wrap items-center gap-2">
                     <input type="hidden" name="customerId" value={preview.customerId ?? ""} />
-                    <Button type="submit" size="sm" disabled={createPending}>
+                    <Button type="submit" size="touch" disabled={createPending}>
                       {createPending ? "Asignando…" : "Confirmar horario fijo"}
                     </Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+                    <Button type="button" variant="ghost" size="touch" onClick={() => setOpen(false)}>
                       Cancelar
                     </Button>
                   </form>
@@ -227,7 +228,7 @@ export function StandingReservations({
           )}
 
           {available.length === 0 || preview.dates.length === 0 ? (
-            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setOpen(false)}>
+            <Button type="button" variant="ghost" size="touch" className="self-start" onClick={() => setOpen(false)}>
               Cerrar
             </Button>
           ) : null}
