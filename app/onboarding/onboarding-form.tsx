@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { FormError } from "@/components/ui/form";
 
 const initialState: CreateOrganizationState = { error: null };
 
@@ -41,8 +42,8 @@ export function OnboardingForm() {
         </div>
       </div>
       <TimezonePicker />
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      <Button type="submit" disabled={pending} className="w-full">
+      <FormError>{state.error}</FormError>
+      <Button type="submit" size="touch" disabled={pending} className="w-full">
         {pending ? "Creando..." : "Crear organización"}
       </Button>
     </form>

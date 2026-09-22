@@ -1,15 +1,15 @@
 import { cn } from "cn";
+import { Badge, type BadgeTone } from "@/components/ui/badge";
 
-type Tone = "neutral" | "primary" | "success" | "warning" | "danger";
+type Tone = BadgeTone;
 
-const TONES: Record<Tone, string> = {
-  neutral: "bg-muted text-muted-foreground",
-  primary: "bg-primary-subtle text-primary",
-  success: "bg-success-subtle text-success",
-  warning: "bg-warning-subtle text-warning-foreground",
-  danger: "bg-destructive-subtle text-destructive",
-};
-
+/**
+ * Domain-flavoured alias of `Badge`: a booking/payment/availability status.
+ *
+ * It exists because the call sites read better as "status badge", and
+ * because `availabilityTone()` below returns exactly this tone set. The
+ * styling is `Badge`'s — there is only one badge in the product.
+ */
 export function StatusBadge({
   tone = "neutral",
   children,
@@ -20,15 +20,9 @@ export function StatusBadge({
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap",
-        TONES[tone],
-        className,
-      )}
-    >
+    <Badge tone={tone} className={className}>
       {children}
-    </span>
+    </Badge>
   );
 }
 

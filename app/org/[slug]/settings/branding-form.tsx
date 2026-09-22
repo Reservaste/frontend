@@ -11,6 +11,9 @@ import { OrganizationLogo } from "@/components/organization-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert } from "@/components/ui/alert";
+import { FieldHint, FormError, FormSuccess } from "@/components/ui/form";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -136,9 +139,9 @@ export function BrandingForm({
             ) : null}
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">PNG, JPG o WebP, hasta 512 KB.</p>
-        {logoState.error ? <p className="text-sm text-destructive">{logoState.error}</p> : null}
-        {logoState.success ? <p className="text-sm text-success">{logoState.success}</p> : null}
+        <FieldHint>PNG, JPG o WebP, hasta 512 KB.</FieldHint>
+        <FormError>{logoState.error}</FormError>
+        <FormSuccess>{logoState.success}</FormSuccess>
       </div>
 
       {/* ---------------- Colour ---------------- */}
@@ -172,6 +175,7 @@ export function BrandingForm({
               onChange={(event) => setColor(event.target.value)}
               className="w-32 font-mono"
               aria-label="Color en hexadecimal"
+              aria-invalid={normalized === null}
             />
             <div className="flex flex-wrap gap-1.5">
               {PRESETS.map((preset) => (
@@ -181,7 +185,7 @@ export function BrandingForm({
                   disabled={!canEdit}
                   onClick={() => setColor(preset)}
                   aria-label={`Usar ${preset}`}
-                  className="size-7 rounded-full border transition-transform hover:scale-110"
+                  className="focus-ring size-7 rounded-full border transition-transform hover:scale-110"
                   style={{ backgroundColor: preset }}
                 />
               ))}
@@ -193,15 +197,15 @@ export function BrandingForm({
             default", which is how the colour gets cleared. */}
         <input type="hidden" name="brandColor" value={enabled ? (normalized ?? "") : ""} />
 
-        {enabled && normalized === null ? (
-          <p className="text-sm text-destructive">Escribí un hexadecimal como #0067e1</p>
-        ) : null}
+        <FormError>
+          {enabled && normalized === null ? "Escribí un hexadecimal como #0067e1" : null}
+        </FormError>
 
         {lowContrast ? (
-          <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-foreground">
+          <Alert tone="warning" size="sm">
             Con ese color el texto de los botones queda difícil de leer. Podés guardarlo igual, pero
             probá uno un poco más oscuro o más claro.
-          </p>
+          </Alert>
         ) : null}
 
         {/* Rendered with the same derived palette the real pages use, so
@@ -219,19 +223,15 @@ export function BrandingForm({
           }
           className="flex flex-wrap items-center gap-3 rounded-xl border bg-background px-4 py-3"
         >
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-            Vista previa
-          </span>
+          <span className="eyebrow text-muted-foreground">Vista previa</span>
           <Button type="button" size="sm" className="pointer-events-none">
             Reservar
           </Button>
-          <span className="rounded-full bg-primary-subtle px-2.5 py-1 text-xs font-medium text-primary">
-            3 lugares
-          </span>
+          <Badge tone="primary">3 lugares</Badge>
         </div>
 
-        {colorState.error ? <p className="text-sm text-destructive">{colorState.error}</p> : null}
-        {colorState.success ? <p className="text-sm text-success">{colorState.success}</p> : null}
+        <FormError>{colorState.error}</FormError>
+        <FormSuccess>{colorState.success}</FormSuccess>
 
         <Button
           type="submit"

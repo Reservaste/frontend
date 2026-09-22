@@ -6,6 +6,8 @@ import { cn } from "cn";
 import type { PaymentSummaryRow, RollupStatus } from "@/app/actions/payments";
 import { StatusBadge } from "@/components/status";
 import { Input } from "@/components/ui/input";
+import { DataList, DataListRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ChevronRight } from "@/components/icons";
 
 const STATUS_META: Record<
@@ -76,9 +78,7 @@ export function PaymentsList({
           { label: "Clientes", value: String(visible.length) },
         ].map((stat) => (
           <div key={stat.label} className="flex flex-col gap-1 rounded-xl border bg-card px-4 py-3 shadow-card">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {stat.label}
-            </span>
+            <span className="eyebrow text-muted-foreground">{stat.label}</span>
             <span className="tnum text-xl font-semibold leading-none">{stat.value}</span>
           </div>
         ))}
@@ -99,7 +99,7 @@ export function PaymentsList({
             onClick={() => setFilter(option.value)}
             aria-pressed={filter === option.value}
             className={cn(
-              "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              "focus-ring shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               filter === option.value
                 ? "border-primary bg-primary text-primary-foreground"
                 : "bg-card hover:bg-muted",
@@ -111,18 +111,16 @@ export function PaymentsList({
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
-          Ningún cliente coincide con ese filtro.
-        </p>
+        <EmptyState size="sm" title="Ningún cliente coincide con ese filtro." />
       ) : (
-        <ul className="flex flex-col gap-2 sm:gap-0 sm:divide-y sm:overflow-hidden sm:rounded-xl sm:border sm:bg-card sm:shadow-card">
+        <DataList>
           {visible.map((row) => {
             const meta = STATUS_META[row.rollupStatus];
             return (
-              <li key={row.customerId} className="rounded-xl border bg-card shadow-card sm:rounded-none sm:border-0 sm:shadow-none">
+              <DataListRow key={row.customerId}>
                 <Link
                   href={`/org/${organizationSlug}/payments/${row.customerId}?mes=${month}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                  className="focus-ring flex min-h-11 items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
                 >
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="truncate font-medium">{row.customerName}</span>
@@ -138,10 +136,10 @@ export function PaymentsList({
                   <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
                   <ChevronRight className="shrink-0 text-muted-foreground" />
                 </Link>
-              </li>
+              </DataListRow>
             );
           })}
-        </ul>
+        </DataList>
       )}
     </div>
   );

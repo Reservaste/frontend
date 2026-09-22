@@ -87,9 +87,7 @@ export default async function ConfirmarPage({
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-raised">
         <div className="flex flex-col items-center gap-1 border-b bg-primary-subtle px-6 py-6 text-center">
-          <span className="text-xs font-semibold uppercase tracking-wider text-primary">
-            {detail.organizationName}
-          </span>
+          <span className="eyebrow text-primary">{detail.organizationName}</span>
           <h1 className="text-xl">{detail.serviceName}</h1>
         </div>
 

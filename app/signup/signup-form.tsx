@@ -6,6 +6,7 @@ import { signInWithGoogle, signUpWithPassword, type AuthActionState } from "@/ap
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError } from "@/components/ui/form";
 
 const initialState: AuthActionState = { error: null, notice: null };
 
@@ -18,11 +19,11 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
         <input type="hidden" name="returnTo" value={returnTo} />
         <div className="flex flex-col gap-2">
           <Label htmlFor="fullName">Nombre completo</Label>
-          <Input id="fullName" name="fullName" type="text" autoComplete="name" required />
+          <Input id="fullName" name="fullName" type="text" autoComplete="name" required touch />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" autoComplete="email" required />
+          <Input id="email" name="email" type="email" autoComplete="email" required touch />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="password">Contraseña</Label>
@@ -33,13 +34,14 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
             autoComplete="new-password"
             minLength={8}
             required
+            touch
           />
         </div>
-        {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+        <FormError>{state.error}</FormError>
         {state.notice ? (
           <p className="rounded-md bg-muted p-3 text-sm">{state.notice}</p>
         ) : null}
-        <Button type="submit" disabled={pending} className="w-full">
+        <Button type="submit" size="touch" disabled={pending} className="w-full">
           {pending ? "Creando cuenta..." : "Crear cuenta"}
         </Button>
       </form>
@@ -52,7 +54,7 @@ export function SignupForm({ returnTo }: { returnTo: string }) {
 
       <form action={signInWithGoogle}>
         <input type="hidden" name="returnTo" value={returnTo} />
-        <Button type="submit" variant="outline" className="w-full">
+        <Button type="submit" variant="outline" size="touch" className="w-full">
           Continuar con Google
         </Button>
       </form>

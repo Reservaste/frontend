@@ -11,11 +11,11 @@ import {
 } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Field, FormError, FormSuccess } from "@/components/ui/form";
+import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 
 const initialState: ActionState = { error: null, success: null };
-
-const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function OccurrenceActions({
   organizationSlug,
@@ -51,7 +51,7 @@ export function OccurrenceActions({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="flex w-full items-center justify-center gap-1.5 border-t px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="focus-ring flex min-h-11 w-full items-center justify-center gap-1.5 border-t px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         {confirmed.length > 0 ? `Ver ${confirmed.length} anotado${confirmed.length === 1 ? "" : "s"}` : "Ver detalle"}
         <svg viewBox="0 0 24 24" fill="none" className="size-3.5">
@@ -64,11 +64,9 @@ export function OccurrenceActions({
   return (
     <div className="flex flex-col gap-5 border-t bg-muted/40 px-4 py-4">
       <section className="flex flex-col gap-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Anotados ({confirmed.length})
-        </h4>
+        <h4 className="eyebrow text-muted-foreground">Anotados ({confirmed.length})</h4>
         {confirmed.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Todavía no hay nadie anotado.</p>
+          <EmptyState size="sm" title="Todavía no hay nadie anotado." />
         ) : (
           <ul className="flex flex-col divide-y rounded-lg border bg-card">
             {confirmed.map((attendee) => (
@@ -90,11 +88,9 @@ export function OccurrenceActions({
       {!isCancelled ? (
         <>
           <section className="flex flex-col gap-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Anotar cliente
-            </h4>
+            <h4 className="eyebrow text-muted-foreground">Anotar cliente</h4>
             <form action={bookAction} className="flex flex-wrap items-center gap-2">
-              <select name="customerId" className={`${selectClass} min-w-40 flex-1`} required>
+              <Select name="customerId" className="min-w-40 flex-1" required>
                 <option value="">Elegir cliente…</option>
                 {customers
                   .filter((c) => c.isActive)
@@ -103,18 +99,18 @@ export function OccurrenceActions({
                       {c.fullName}
                     </option>
                   ))}
-              </select>
+              </Select>
               <Button type="submit" size="sm" disabled={booking}>
                 {booking ? "Anotando…" : "Anotar"}
               </Button>
             </form>
-            {bookState.error ? <p className="text-sm text-destructive">{bookState.error}</p> : null}
-            {bookState.success ? <p className="text-sm text-success">{bookState.success}</p> : null}
+            <FormError>{bookState.error}</FormError>
+            <FormSuccess>{bookState.success}</FormSuccess>
           </section>
 
           <div className="flex flex-wrap items-end justify-between gap-3 border-t pt-4">
             <form action={capacityAction} className="flex items-end gap-2">
-              <div className="flex flex-col gap-1.5">
+              <Field>
                 <label htmlFor={`capacity-${occurrenceId}`} className="text-xs font-medium text-muted-foreground">
                   Capacidad
                 </label>
@@ -124,9 +120,9 @@ export function OccurrenceActions({
                   type="number"
                   min={1}
                   defaultValue={capacity}
-                  className="h-9 w-24"
+                  className="w-24"
                 />
-              </div>
+              </Field>
               <Button type="submit" variant="outline" size="sm" disabled={savingCapacity}>
                 {savingCapacity ? "Guardando…" : "Guardar"}
               </Button>
@@ -138,14 +134,14 @@ export function OccurrenceActions({
               </Button>
             </form>
           </div>
-          {capacityState.error ? <p className="text-sm text-destructive">{capacityState.error}</p> : null}
-          {capacityState.success ? <p className="text-sm text-success">{capacityState.success}</p> : null}
+          <FormError>{capacityState.error}</FormError>
+          <FormSuccess>{capacityState.success}</FormSuccess>
         </>
       ) : null}
 
       <button
         onClick={() => setOpen(false)}
-        className="self-center text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="focus-ring self-center rounded-md px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         Cerrar
       </button>

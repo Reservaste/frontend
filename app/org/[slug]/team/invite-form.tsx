@@ -5,11 +5,10 @@ import { inviteMember, type ActionState } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FieldHint, FormError, FormSuccess } from "@/components/ui/form";
+import { Select } from "@/components/ui/select";
 
 const initialState: ActionState = { error: null, success: null };
-
-const selectClass =
-  "h-9 rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
 
 export function InviteForm({ organizationSlug }: { organizationSlug: string }) {
   const [open, setOpen] = useState(false);
@@ -29,30 +28,30 @@ export function InviteForm({ organizationSlug }: { organizationSlug: string }) {
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
-        <div className="flex flex-col gap-1.5">
+        <Field>
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" placeholder="persona@email.com" required autoFocus />
-        </div>
-        <div className="flex flex-col gap-1.5">
+        </Field>
+        <Field>
           <Label htmlFor="role">Rol</Label>
-          <select id="role" name="role" className={selectClass}>
+          <Select id="role" name="role">
             <option value="STAFF">Equipo</option>
             <option value="OWNER">Dueño</option>
-          </select>
-        </div>
+          </Select>
+        </Field>
         <Button type="submit" disabled={pending}>
           {pending ? "Sumando…" : "Sumar"}
         </Button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <FieldHint>
         Equipo gestiona la agenda y los clientes. Dueño además maneja el equipo y la configuración.
-      </p>
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      {state.success ? <p className="text-sm text-success">{state.success}</p> : null}
+      </FieldHint>
+      <FormError>{state.error}</FormError>
+      <FormSuccess>{state.success}</FormSuccess>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="self-start text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="focus-ring self-start rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         Cerrar
       </button>

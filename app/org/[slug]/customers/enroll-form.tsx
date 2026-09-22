@@ -5,6 +5,7 @@ import { enrollCustomer, type ActionState } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FieldHint, FormError, FormSuccess } from "@/components/ui/form";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -25,7 +26,7 @@ export function EnrollForm({ organizationSlug }: { organizationSlug: string }) {
 
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
-      <div className="flex flex-col gap-1.5">
+      <Field>
         <Label htmlFor="email">Email de la persona</Label>
         <div className="flex flex-wrap gap-2">
           <Input
@@ -41,16 +42,16 @@ export function EnrollForm({ organizationSlug }: { organizationSlug: string }) {
             {pending ? "Habilitando…" : "Habilitar"}
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <FieldHint>
           Tiene que tener cuenta creada. Si todavía no se registró, pedile que lo haga primero.
-        </p>
-      </div>
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-      {state.success ? <p className="text-sm text-success">{state.success}</p> : null}
+        </FieldHint>
+      </Field>
+      <FormError>{state.error}</FormError>
+      <FormSuccess>{state.success}</FormSuccess>
       <button
         type="button"
         onClick={() => setOpen(false)}
-        className="self-start text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="focus-ring self-start rounded-md text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         Cerrar
       </button>

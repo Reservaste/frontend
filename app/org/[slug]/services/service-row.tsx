@@ -7,6 +7,7 @@ import { archiveService, updateService, type CreateServiceState } from "@/app/ac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FormError } from "@/components/ui/form";
 import { ChevronRight } from "@/components/icons";
 
 const initialState: CreateServiceState = { error: null };
@@ -32,20 +33,20 @@ export function ServiceRow({ organizationSlug, service }: { organizationSlug: st
       <li className="bg-muted/40 px-4 py-3.5">
         <form action={formAction} className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+            <Field>
               <Label htmlFor={`name-${service.id}`}>Nombre</Label>
               <Input id={`name-${service.id}`} name="name" defaultValue={service.name} required autoFocus />
-            </div>
-            <div className="flex flex-col gap-1.5">
+            </Field>
+            <Field>
               <Label htmlFor={`description-${service.id}`}>Descripción</Label>
               <Input
                 id={`description-${service.id}`}
                 name="description"
                 defaultValue={service.description ?? ""}
               />
-            </div>
+            </Field>
           </div>
-          {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+          <FormError>{state.error}</FormError>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}

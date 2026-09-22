@@ -41,7 +41,7 @@ export function PlanUsageCard({ usage }: { usage: PlanUsage }) {
     <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5">
-          <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Tu plan</span>
+          <span className="eyebrow text-muted-foreground">Tu plan</span>
           <span className="text-lg font-semibold">
             {usage.planName ?? "Sin plan"}
             {usage.monthlyPriceUsd !== null ? (

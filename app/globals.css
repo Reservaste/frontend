@@ -47,6 +47,7 @@
   --color-destructive-subtle: var(--destructive-subtle);
   --shadow-card: var(--shadow-card);
   --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -117,9 +118,15 @@
   --sidebar-border: oklch(0.92 0.005 250);
   --sidebar-ring: oklch(0.54 0.21 258);
 
-  /* Elevation: two soft steps, never a hard drop shadow. */
+  /* Elevation: three soft steps, never a hard drop shadow.
+     card     -- resting surface on the canvas (cards, list containers)
+     raised   -- lifted but still in the page (hover, sticky headers)
+     overlay  -- floating over the page (dialog, sheet, toast, popover)
+     Nothing in the product needs a fourth step: if a surface seems to,
+     the layering is probably wrong rather than the shadow. */
   --shadow-card: 0 1px 2px 0 oklch(0.21 0.02 258 / 0.04), 0 1px 3px 0 oklch(0.21 0.02 258 / 0.06);
   --shadow-raised: 0 4px 12px -2px oklch(0.21 0.02 258 / 0.08), 0 2px 6px -2px oklch(0.21 0.02 258 / 0.05);
+  --shadow-overlay: 0 16px 48px -12px oklch(0.21 0.02 258 / 0.22), 0 4px 16px -4px oklch(0.21 0.02 258 / 0.12);
 }
 
 .dark {
@@ -173,6 +180,7 @@
 
   --shadow-card: 0 1px 2px 0 oklch(0 0 0 / 0.30), 0 1px 3px 0 oklch(0 0 0 / 0.25);
   --shadow-raised: 0 4px 14px -2px oklch(0 0 0 / 0.45), 0 2px 6px -2px oklch(0 0 0 / 0.30);
+  --shadow-overlay: 0 18px 52px -12px oklch(0 0 0 / 0.60), 0 4px 16px -4px oklch(0 0 0 / 0.40);
 }
 
 /* Per-organization branding (ADR-0020).
@@ -197,6 +205,54 @@
   --ring: var(--brand);
 }
 
+/* ---------------------------------------------------------------------------
+   The scale, written down once.
+
+   These are conventions, not new utilities: Tailwind already has the
+   numbers, what was missing was agreement on which number means what. The
+   admin panel, the customer portal and the public agenda all follow this
+   list so a screen built by one agent doesn't feel like a different product
+   from the screen next to it.
+
+   SPACING (the only steps used)
+     gap-1 / gap-1.5   inside a label+control pair, or a line of metadata
+     gap-2             between sibling controls on one row
+     gap-3             between fields in a form, between cards in a list
+     gap-5             between sections of a page
+     px-4 py-3         padding of a list row
+     px-4 py-4         padding of a card body (px-5 on page shells)
+
+   TYPOGRAPHY
+     text-2xl          page title (one per screen, via PageHeader)
+     text-base         card / section title
+     text-sm           body copy and every control -- the product default
+     text-xs           metadata, counts, helper text
+     .eyebrow          the small uppercase label above a value or section
+     .tnum             anything numeric that lines up in a column
+   Headings get weight and tight tracking from the base layer; don't add
+   font-bold on top of them.
+
+   RADIUS (derived from --radius: 0.75rem)
+     rounded-lg        controls: buttons, inputs, selects, badges-as-chips
+     rounded-xl        surfaces: cards, list containers, dialogs, sheets
+     rounded-full      pills and status badges
+
+   TOUCH TARGETS
+     Anything tapped on a phone is at least 44px (h-11). Desktop-density
+     controls stay at h-8, so on customer- and public-facing screens use
+     the `touch` size of Button/Input/Select instead of the default. The
+     roll-call screen deliberately goes further, to 56px (h-14) -- ADR-0023.
+
+   STATES
+     focus     one ring everywhere: buttons/inputs/selects bake it in, and
+               anything hand-rolled uses .focus-ring. Never remove it.
+     disabled  opacity-50 + pointer-events-none, never a colour change
+               (a greyed-out colour reads as a different variant).
+     invalid   aria-invalid on the control -- that draws the destructive
+               border and ring -- plus a <FormError> next to it. Colour
+               alone is not an error message.
+   --------------------------------------------------------------------------- */
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -216,6 +272,33 @@
   /* Times, counts and capacities line up in columns everywhere. */
   .tnum {
     font-variant-numeric: tabular-nums;
+  }
+  /* The small uppercase label above a value or a section. It was inlined
+     by hand a dozen times with two different weights, which is how a
+     "system" quietly stops being one. Colour stays with the caller: the
+     same label is muted in a panel and brand-coloured on a confirmation. */
+  .eyebrow {
+    /* Hardcoded rather than var(--text-xs): Tailwind only emits the theme
+       variables its own utilities use, so referencing them from plain CSS
+       is how you get a rule that silently resolves to nothing. */
+    font-size: 0.75rem;
+    line-height: 1rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  /* One focus ring for the whole product. Button, Input and Select bake it
+     in; this class is for anything hand-rolled that can receive focus --
+     filter chips, tappable rows, custom toggles. It uses `outline` rather
+     than a box-shadow on purpose, so it can't erase an element's own
+     shadow, and it's keyboard-only (`:focus-visible`) so tapping a row on
+     a phone doesn't leave a ring behind. */
+  .focus-ring {
+    outline: none;
+  }
+  .focus-ring:focus-visible {
+    outline: 3px solid color-mix(in oklab, var(--ring), transparent 50%);
+    outline-offset: 0;
   }
   /* Horizontal strips (nav tabs, the day picker) still scroll, but the
      scrollbar track itself took vertical space and read as a stray line

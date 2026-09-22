@@ -3,9 +3,8 @@
 import { useState } from "react";
 import { COUNTRIES, DEFAULT_TIMEZONE, countryForTimezone } from "@/lib/timezones";
 import { Label } from "@/components/ui/label";
-
-const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
+import { Field, FieldHint } from "@/components/ui/form";
+import { Select } from "@/components/ui/select";
 
 /**
  * Two selects, one hidden field. The form still submits an IANA zone --
@@ -32,12 +31,13 @@ export function TimezonePicker({
 
   return (
     <div className="grid gap-3 sm:grid-cols-2">
-      <div className="flex flex-col gap-1.5">
+      <Field>
         <Label htmlFor={`${name}-country`}>País</Label>
-        <select
+        <Select
           id={`${name}-country`}
           value={countryCode}
           disabled={disabled}
+          touch
           onChange={(event) => {
             const next = COUNTRIES.find((c) => c.code === event.target.value)!;
             setCountryCode(next.code);
@@ -46,35 +46,34 @@ export function TimezonePicker({
             // zone and the schedule silently generates in the wrong time.
             setTimezone(next.zones[0]!.iana);
           }}
-          className={selectClass}
         >
           {COUNTRIES.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name}
             </option>
           ))}
-        </select>
-      </div>
+        </Select>
+      </Field>
 
-      <div className="flex flex-col gap-1.5">
+      <Field>
         <Label htmlFor={`${name}-city`}>Ciudad</Label>
-        <select
+        <Select
           id={`${name}-city`}
           value={timezone}
           disabled={disabled || onlyOneCity}
+          touch
           onChange={(event) => setTimezone(event.target.value)}
-          className={selectClass}
         >
           {country.zones.map((zone) => (
             <option key={zone.iana} value={zone.iana}>
               {zone.city}
             </option>
           ))}
-        </select>
+        </Select>
         {onlyOneCity ? (
-          <p className="text-xs text-muted-foreground">{country.name} tiene una sola zona horaria.</p>
+          <FieldHint>{country.name} tiene una sola zona horaria.</FieldHint>
         ) : null}
-      </div>
+      </Field>
 
       <input type="hidden" name={name} value={timezone} />
     </div>

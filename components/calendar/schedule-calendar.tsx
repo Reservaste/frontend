@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
 import { cn } from "cn";
 import { ChevronLeft, ChevronRight } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   CALENDAR_VIEWS,
   WEEKDAY_SHORT,
@@ -215,11 +216,7 @@ export function ScheduleCalendar({
         />
       )}
 
-      {visible.length === 0 ? (
-        <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-          {emptyLabel}
-        </p>
-      ) : null}
+      {visible.length === 0 ? <EmptyState size="sm" title={emptyLabel} /> : null}
     </div>
   );
 }

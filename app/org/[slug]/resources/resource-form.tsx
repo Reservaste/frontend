@@ -5,6 +5,7 @@ import { createResource, type CreateResourceState } from "@/app/actions/resource
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FormError } from "@/components/ui/form";
 
 const initialState: CreateResourceState = { error: null };
 
@@ -26,16 +27,16 @@ export function ResourceForm({ organizationSlug }: { organizationSlug: string })
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
       <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
+        <Field>
           <Label htmlFor="name">Nombre</Label>
           <Input id="name" name="name" type="text" placeholder="Sala principal" required autoFocus />
-        </div>
-        <div className="flex flex-col gap-1.5">
+        </Field>
+        <Field>
           <Label htmlFor="description">Descripción (opcional)</Label>
           <Input id="description" name="description" type="text" placeholder="Capacidad 20 personas" />
-        </div>
+        </Field>
       </div>
-      {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+      <FormError>{state.error}</FormError>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Creando…" : "Crear recurso"}

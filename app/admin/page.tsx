@@ -82,9 +82,7 @@ export default async function PlatformAdminPage() {
             { label: "MRR", value: `${mrr} USD` },
           ].map((stat) => (
             <div key={stat.label} className="flex flex-col gap-1 rounded-xl border bg-card px-4 py-3.5 shadow-card">
-              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                {stat.label}
-              </span>
+              <span className="eyebrow text-muted-foreground">{stat.label}</span>
               <span className="tnum text-2xl font-semibold leading-none">{stat.value}</span>
             </div>
           ))}
@@ -98,9 +96,7 @@ export default async function PlatformAdminPage() {
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold">Códigos sin usar ({pendingInvites.length})</h2>
           {pendingInvites.length === 0 ? (
-            <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-              No hay códigos pendientes.
-            </p>
+            <EmptyState size="sm" title="No hay códigos pendientes." />
           ) : (
             <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
               {pendingInvites.map((invite) => (

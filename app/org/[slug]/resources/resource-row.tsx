@@ -6,6 +6,7 @@ import { archiveResource, updateResource, type CreateResourceState } from "@/app
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Field, FormError } from "@/components/ui/form";
 
 const initialState: CreateResourceState = { error: null };
 
@@ -30,20 +31,20 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
       <li className="bg-muted/40 px-4 py-3.5">
         <form action={formAction} className="flex flex-col gap-3">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
+            <Field>
               <Label htmlFor={`name-${resource.id}`}>Nombre</Label>
               <Input id={`name-${resource.id}`} name="name" defaultValue={resource.name} required autoFocus />
-            </div>
-            <div className="flex flex-col gap-1.5">
+            </Field>
+            <Field>
               <Label htmlFor={`description-${resource.id}`}>Descripción</Label>
               <Input
                 id={`description-${resource.id}`}
                 name="description"
                 defaultValue={resource.description ?? ""}
               />
-            </div>
+            </Field>
           </div>
-          {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+          <FormError>{state.error}</FormError>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}
