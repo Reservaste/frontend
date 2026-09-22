@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { cancelMyBooking, getMyBookings } from "@/app/actions/customer";
+import { getMyBookings, releaseMyBooking } from "@/app/actions/customer";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
@@ -9,9 +9,9 @@ export const metadata = { title: "Mis reservas" };
 export default async function MyBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pasadas?: string; reservado?: string }>;
+  searchParams: Promise<{ pasadas?: string; reservado?: string; liberado?: string; credito_hasta?: string }>;
 }) {
-  const { pasadas, reservado } = await searchParams;
+  const { pasadas, reservado, liberado, credito_hasta: creditoHasta } = await searchParams;
   const includePast = pasadas === "1";
   const bookings = await getMyBookings(includePast);
   // A date from a standing reservation that didn't confirm stays visible:
@@ -39,6 +39,19 @@ export default async function MyBookingsPage({
             <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Listo, tu reserva quedó confirmada.
+        </p>
+      ) : null}
+
+      {liberado === "1" ? (
+        <p className="flex items-center gap-2 rounded-xl bg-success-subtle px-4 py-3 text-sm text-success">
+          <svg viewBox="0 0 24 24" fill="none" className="size-4 shrink-0">
+            <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          {creditoHasta
+            ? `Liberaste tu cupo. Te queda un crédito para recuperar la clase, válido hasta el ${new Date(
+                `${creditoHasta}T00:00:00`,
+              ).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" })}.`
+            : "Liberaste tu cupo."}
         </p>
       ) : null}
 
@@ -115,9 +128,14 @@ export default async function MyBookingsPage({
                           : "Sin lugar"}
                   </StatusBadge>
                 ) : isUpcoming ? (
-                  <form action={cancelMyBooking.bind(null, booking.bookingId)}>
-                    <Button type="submit" variant="outline" size="xs">
-                      Cancelar
+                  <form action={releaseMyBooking.bind(null, booking.bookingId)}>
+                    {/* ADR-0025: si el negocio tiene creditos de recupero
+                        activados y avisas a tiempo, liberar (en vez de
+                        faltar sin avisar) te puede dejar un credito para
+                        recuperar la clase dentro del mes -- la RPC decide
+                        si corresponde, este boton nunca lo promete. */}
+                    <Button type="submit" variant="outline" size="xs" title="Si avisás con anticipación, puede quedarte un crédito para recuperar la clase">
+                      Liberar cupo
                     </Button>
                   </form>
                 ) : (

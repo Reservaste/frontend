@@ -1,15 +1,17 @@
 import { notFound } from "next/navigation";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
-import { getCustomers } from "@/app/actions/admin";
+import { getCustomerActivationStatus, getCustomerMakeupCredits, getCustomers } from "@/app/actions/admin";
 import { getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
 import {
   listOrganizationServicePlans,
   listPaymentPlanOptions,
 } from "@/app/actions/service-plans";
+import { createClient } from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/status";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { PaymentList, RegisterPaymentForm } from "./customer-forms";
+import { MakeupCreditsPanel, PaymentList, RegisterPaymentForm } from "./customer-forms";
+import { ActivationPanel } from "./activation-panel";
 
 export default async function CustomerDetailPage({
   params,
@@ -19,7 +21,7 @@ export default async function CustomerDetailPage({
   const { slug, customerId } = await params;
   const { organization } = await requireOrganizationMembership(slug);
 
-  const [customers, services, payments, planOptions, allPlans] = await Promise.all([
+  const [customers, services, payments, planOptions, allPlans, makeupCredits] = await Promise.all([
     getCustomers(slug),
     listServices(slug),
     getCustomerPayments(slug, customerId),
@@ -28,11 +30,34 @@ export default async function CustomerDetailPage({
     // bought.
     listPaymentPlanOptions(slug),
     listOrganizationServicePlans(slug),
+    getCustomerMakeupCredits(slug, customerId),
   ]);
 
   const customer = customers.find((c) => c.customerId === customerId);
   if (!customer) {
     notFound();
+  }
+
+  // ADR-0026: only a managed customer (no profileId) can have an
+  // activation to manage. Phone isn't part of organization_customers()'s
+  // shape, so it's read directly -- customers_select_self_or_staff (Phase
+  // 1) already lets any member of this organization read this row.
+  let activationPanel: React.ReactNode = null;
+  if (customer.profileId === null) {
+    const supabase = await createClient();
+    const [{ data: customerRow }, activationStatus] = await Promise.all([
+      supabase.from("customers").select("phone").eq("id", customerId).maybeSingle(),
+      getCustomerActivationStatus(slug, customerId),
+    ]);
+
+    activationPanel = (
+      <ActivationPanel
+        organizationSlug={slug}
+        customerId={customerId}
+        phone={(customerRow?.phone as string | null) ?? null}
+        initialStatus={activationStatus}
+      />
+    );
   }
 
   const initials = customer.fullName
@@ -63,6 +88,8 @@ export default async function CustomerDetailPage({
         </div>
       </div>
 
+      {activationPanel}
+
       <section className="flex flex-col gap-3">
         <h2 className="text-sm font-semibold">Pagos</h2>
         <PaymentList
@@ -79,6 +106,16 @@ export default async function CustomerDetailPage({
           services={services}
           plans={planOptions}
           currency={organization.currency}
+        />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold">Créditos de recupero</h2>
+        <MakeupCreditsPanel
+          organizationSlug={slug}
+          customerId={customerId}
+          services={services.filter((s) => s.isActive)}
+          credits={makeupCredits}
         />
       </section>
     </div>

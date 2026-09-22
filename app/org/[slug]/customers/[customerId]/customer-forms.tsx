@@ -3,8 +3,9 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import type { Payment, Service, ServicePlan } from "@reservaste/domain";
-import type { ActionState } from "@/app/actions/admin";
+import type { ActionState, CustomerMakeupCredit } from "@/app/actions/admin";
 import type { PaymentPlanOption } from "@/app/actions/service-plans";
+import { grantManualMakeupCredit } from "@/app/actions/admin";
 import { registerPayment, voidPayment } from "@/app/actions/billing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -217,6 +218,98 @@ export function RegisterPaymentForm({
       </form>
 
       {missingPlans}
+    </div>
+  );
+}
+
+const MAKEUP_ORIGIN_LABEL: Record<string, string> = {
+  CUSTOMER_RELEASE: "Liberó a tiempo",
+  ORGANIZATION_CANCELLED: "Canceló el negocio",
+  MANUAL: "Cortesía",
+};
+
+/**
+ * ADR-0025: the credits this customer has, and the one door that mints one
+ * with no reservation behind it -- gated OWNER-only and audited with a
+ * note by grant_manual_makeup_credit() itself, not by hiding the form from
+ * STAFF (whoever submits it finds out from the RPC's own error).
+ */
+export function MakeupCreditsPanel({
+  organizationSlug,
+  customerId,
+  services,
+  credits,
+}: {
+  organizationSlug: string;
+  customerId: string;
+  services: Service[];
+  credits: CustomerMakeupCredit[];
+}) {
+  const [state, formAction, pending] = useActionState(
+    grantManualMakeupCredit.bind(null, organizationSlug, customerId),
+    initialState,
+  );
+
+  return (
+    <div className="flex flex-col gap-3">
+      {credits.length === 0 ? (
+        <EmptyState size="sm" title="Sin créditos de recupero." />
+      ) : (
+        <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
+          {credits.map((c) => {
+            const usable = c.status === "AVAILABLE" && !c.isExpired;
+            return (
+              <li key={c.creditId} className="flex items-center justify-between gap-2 px-4 py-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium">{c.serviceName}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {MAKEUP_ORIGIN_LABEL[c.origin] ?? c.origin}
+                    {c.note ? ` · ${c.note}` : ""}
+                  </span>
+                  <span className="tnum text-xs text-muted-foreground">Vence {c.expiresOn}</span>
+                </div>
+                <StatusBadge tone={usable ? "success" : c.status === "CONSUMED" ? "neutral" : "danger"}>
+                  {usable ? "Disponible" : c.status === "CONSUMED" ? "Usado" : c.status === "REVOKED" ? "Anulado" : "Vencido"}
+                </StatusBadge>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
+        <p className="text-xs text-muted-foreground">
+          Crédito de cortesía: sólo el dueño de la organización puede otorgarlo, y queda auditado con un
+          motivo (ADR-0025).
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field className="sm:col-span-2">
+            <Label htmlFor="mc-serviceId">Servicio</Label>
+            <Select id="mc-serviceId" name="serviceId" required defaultValue={services[0]?.id ?? ""}>
+              {services.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <Label htmlFor="mc-expiresOn">Vence</Label>
+            <Input id="mc-expiresOn" name="expiresOn" type="date" required />
+          </Field>
+          <Field className="sm:col-span-2">
+            <Label htmlFor="mc-note">Motivo</Label>
+            <Input id="mc-note" name="note" required placeholder="Por qué se otorga" />
+          </Field>
+        </div>
+
+        <FormError>{state.error}</FormError>
+        <FormSuccess>{state.success}</FormSuccess>
+
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          {pending ? "Otorgando…" : "Otorgar crédito"}
+        </Button>
+      </form>
     </div>
   );
 }

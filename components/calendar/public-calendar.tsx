@@ -14,6 +14,12 @@ export interface PublicSlot {
   /** "4 lugares disponibles", "Completo" -- already respecting ADR-0008. */
   availability: string;
   full: boolean;
+  /**
+   * ADR-0025: a seat freed by someone's own on-time release, in the last
+   * 72h. Already null (not false) where ADR-0008 suppresses it (BOOLEAN
+   * mode, capacity 1) -- this component only renders what it is given.
+   */
+  recentlyReleased?: boolean | null;
 }
 
 /**
@@ -60,7 +66,10 @@ export function PublicCalendar({
           endAt: slot.endAt,
           title: slot.serviceName,
           color: slot.serviceColor,
-          meta: slot.availability,
+          // ADR-0025: no number, no name, no timestamp -- just a plain
+          // marker next to the availability text, the same one anyone
+          // polling the page would already be able to infer.
+          meta: slot.recentlyReleased ? `${slot.availability} · Cupo liberado` : slot.availability,
           tone: slot.full ? "neutral" : "success",
           // A full slot is not a dead link, it is simply not a link.
           href: slot.full

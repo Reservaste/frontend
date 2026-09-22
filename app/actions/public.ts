@@ -55,5 +55,15 @@ export async function getPublicAvailability(
     return [];
   }
 
-  return data.map(mapPublicAvailabilitySlot);
+  // ADR-0025: recently_released is new in get_public_availability() and
+  // the @reservaste/domain package this frontend depends on (a separate
+  // repo, fetched by git ref -- see CLAUDE.md) has not been re-published
+  // with it yet. Mapped by hand here instead of through
+  // mapPublicAvailabilitySlot() so the badge works today; once the
+  // backend package is pushed and bumped, this can fold back into the
+  // shared mapper.
+  return data.map((row: Parameters<typeof mapPublicAvailabilitySlot>[0] & { recently_released?: boolean | null }) => ({
+    ...mapPublicAvailabilitySlot(row),
+    recentlyReleased: row.recently_released ?? null,
+  }));
 }

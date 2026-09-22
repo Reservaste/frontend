@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { ChevronRight } from "@/components/icons";
 import { EnrollForm } from "./enroll-form";
+import { ManagedCustomerForm } from "./managed-customer-form";
 
 export const metadata = { title: "Clientes" };
 
@@ -29,7 +30,10 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
         description={`${customers.filter((c) => c.isActive).length} habilitados`}
       />
 
-      <EnrollForm organizationSlug={slug} />
+      <div className="flex flex-wrap gap-2">
+        <EnrollForm organizationSlug={slug} />
+        <ManagedCustomerForm organizationSlug={slug} />
+      </div>
 
       {customers.length === 0 ? (
         <EmptyState
@@ -48,6 +52,9 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
                   {initials(customer.fullName)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{customer.fullName}</span>
+                {customer.profileId === null ? (
+                  <StatusBadge tone="warning">Sin cuenta</StatusBadge>
+                ) : null}
                 {!customer.isActive ? <StatusBadge tone="neutral">Inactivo</StatusBadge> : null}
                 <ChevronRight className="shrink-0 text-muted-foreground" />
               </Link>

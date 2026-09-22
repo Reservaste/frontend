@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { DESK_BOOKING_REASONS } from "@/lib/booking-reasons";
+import { siteUrl } from "@/lib/site-url";
+import { buildWhatsAppActivationLink } from "@/lib/whatsapp-activation-link";
 
 // Every function here re-resolves the organization from its slug and
 // re-checks membership server-side (requireOrganizationMembership), so no
@@ -118,7 +120,8 @@ export async function getOccurrenceAttendees(
 
 export interface OrganizationCustomer {
   customerId: string;
-  profileId: string;
+  /** Null for a managed customer (ADR-0026) -- exists, agendable, no session. */
+  profileId: string | null;
   fullName: string;
   isActive: boolean;
   createdAt: string;
@@ -137,7 +140,7 @@ export async function getCustomers(organizationSlug: string): Promise<Organizati
   }
 
   return data.map(
-    (row: { customer_id: string; profile_id: string; full_name: string; is_active: boolean; created_at: string }) => ({
+    (row: { customer_id: string; profile_id: string | null; full_name: string; is_active: boolean; created_at: string }) => ({
       customerId: row.customer_id,
       profileId: row.profile_id,
       fullName: row.full_name,
@@ -145,6 +148,129 @@ export async function getCustomers(organizationSlug: string): Promise<Organizati
       createdAt: row.created_at,
     }),
   );
+}
+
+/** ADR-0026: alta de un cliente sin cuenta (nombre + teléfono). */
+export async function createManagedCustomer(
+  organizationSlug: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { organization } = await requireOrganizationMembership(organizationSlug);
+  const displayName = String(formData.get("displayName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  if (!displayName) {
+    return { error: "El nombre es obligatorio", success: null };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("create_managed_customer", {
+    p_organization_id: organization.id,
+    p_display_name: displayName,
+    p_phone: phone || null,
+  });
+
+  if (error) {
+    return { error: describeError(error.message), success: null };
+  }
+
+  revalidatePath(`/org/${organizationSlug}/customers`);
+  return { error: null, success: `${displayName} quedó habilitado como cliente` };
+}
+
+export interface CustomerActivationStatus {
+  activationId: string;
+  phone: string;
+  createdAt: string;
+  expiresAt: string;
+  redeemedAt: string | null;
+  revokedAt: string | null;
+}
+
+/** ADR-0026 Sec 5.2: the only door onto customer_activations -- never returns token_hash. */
+export async function getCustomerActivationStatus(
+  organizationSlug: string,
+  customerId: string,
+): Promise<CustomerActivationStatus | null> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("customer_activation_status", {
+    p_customer_id: customerId,
+  });
+  if (error || !data || data.length === 0) return null;
+
+  const row = data[0];
+  return {
+    activationId: row.activation_id,
+    phone: row.phone,
+    createdAt: row.created_at,
+    expiresAt: row.expires_at,
+    redeemedAt: row.redeemed_at,
+    revokedAt: row.revoked_at,
+  };
+}
+
+export interface IssuedActivation {
+  expiresAt: string;
+  /**
+   * Ready-to-open api.whatsapp.com deep link, built server-side (organization
+   * name + siteUrl() never trusted from the client). The token exists in
+   * this URL exactly once -- it is not returned separately, not persisted,
+   * not logged (ADR-0026 Sec 2.2/5.3).
+   */
+  whatsappUrl: string;
+}
+
+/** ADR-0026: emits (or reissues) the token and returns a ready WhatsApp link. */
+export async function issueCustomerActivation(
+  organizationSlug: string,
+  customerId: string,
+): Promise<{ activation: IssuedActivation | null; error: string | null }> {
+  const { organization } = await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data: customerRow } = await supabase
+    .from("customers")
+    .select("phone")
+    .eq("id", customerId)
+    .maybeSingle();
+
+  if (!customerRow?.phone) {
+    return { activation: null, error: "Cargale un teléfono a este cliente antes de mandarle el link" };
+  }
+
+  const { data, error } = await supabase.rpc("issue_customer_activation", {
+    p_customer_id: customerId,
+  });
+
+  if (error || !data || data.length === 0) {
+    return { activation: null, error: describeError(error?.message) };
+  }
+
+  const row = data[0];
+  const activationUrl = `${siteUrl()}/activar/${row.token as string}`;
+  const whatsappUrl = buildWhatsAppActivationLink({
+    phone: customerRow.phone as string,
+    organizationName: organization.name,
+    activationUrl,
+  });
+
+  revalidatePath(`/org/${organizationSlug}/customers/${customerId}`);
+  return { activation: { expiresAt: row.expires_at as string, whatsappUrl }, error: null };
+}
+
+export async function revokeCustomerActivation(
+  organizationSlug: string,
+  customerId: string,
+  activationId: string,
+): Promise<void> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  await supabase.rpc("revoke_customer_activation", { p_activation_id: activationId });
+  revalidatePath(`/org/${organizationSlug}/customers/${customerId}`);
 }
 
 export interface TeamMember {
@@ -193,6 +319,20 @@ function describeError(message: string | undefined): string {
   if (message.includes("LAST_OWNER")) return "No podés quitar al último dueño de la organización";
   if (message.includes("CAPACITY_BELOW_ACTIVE_BOOKINGS")) {
     return "La capacidad no puede quedar por debajo de las reservas ya confirmadas";
+  }
+  // ADR-0026
+  if (message.includes("DISPLAY_NAME_REQUIRED")) return "El nombre es obligatorio";
+  if (message.includes("INVALID_PHONE")) return "Ese teléfono no parece válido";
+  if (message.includes("ACTIVATION_DISABLED")) {
+    return "Esta organización tiene desactivada la activación por WhatsApp";
+  }
+  if (message.includes("CUSTOMER_INACTIVE")) return "Ese cliente está inactivo";
+  if (message.includes("ALREADY_ACTIVATED")) return "Ese cliente ya tiene cuenta propia";
+  if (message.includes("CUSTOMER_HAS_NO_PHONE")) {
+    return "Cargale un teléfono a este cliente antes de mandarle el link";
+  }
+  if (message.includes("RATE_LIMITED")) {
+    return "Se emitieron demasiados links en poco tiempo. Esperá un momento y probá de nuevo.";
   }
   return "Algo salió mal";
 }
@@ -313,7 +453,99 @@ export async function bookCustomerIntoSlot(
   }
 
   revalidatePath(`/org/${organizationSlug}/agenda`);
-  return { error: null, success: "Cliente anotado" };
+  // ADR-0025: the desk sees, after the fact, whether this seat was
+  // covered by a makeup credit instead of a payment -- same pattern as
+  // lib/booking-reasons.ts, worded for the counter rather than the client.
+  const makeupCreditId = (data as { makeup_credit_id?: string | null }).makeup_credit_id;
+  return {
+    error: null,
+    success: makeupCreditId ? "Cliente anotado (con su crédito de recupero)" : "Cliente anotado",
+  };
+}
+
+export interface CustomerMakeupCredit {
+  creditId: string;
+  serviceName: string;
+  origin: "CUSTOMER_RELEASE" | "ORGANIZATION_CANCELLED" | "MANUAL";
+  status: "AVAILABLE" | "CONSUMED" | "REVOKED";
+  issuedAt: string;
+  expiresOn: string;
+  isExpired: boolean;
+  note: string | null;
+}
+
+/** ADR-0025: the credits of one customer, for the counter's own view. */
+export async function getCustomerMakeupCredits(
+  organizationSlug: string,
+  customerId: string,
+): Promise<CustomerMakeupCredit[]> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("organization_customer_makeup_credits", {
+    p_customer_id: customerId,
+  });
+
+  if (error || !data) return [];
+
+  return data.map(
+    (row: {
+      credit_id: string;
+      service_name: string;
+      origin: CustomerMakeupCredit["origin"];
+      status: CustomerMakeupCredit["status"];
+      issued_at: string;
+      expires_on: string;
+      is_expired: boolean;
+      note: string | null;
+    }) => ({
+      creditId: row.credit_id,
+      serviceName: row.service_name,
+      origin: row.origin,
+      status: row.status,
+      issuedAt: row.issued_at,
+      expiresOn: row.expires_on,
+      isExpired: row.is_expired,
+      note: row.note,
+    }),
+  );
+}
+
+/** ADR-0025 resolución 5: crédito de cortesía, OWNER-only, auditado con nota. */
+export async function grantManualMakeupCredit(
+  organizationSlug: string,
+  customerId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const serviceId = String(formData.get("serviceId") ?? "");
+  const expiresOn = String(formData.get("expiresOn") ?? "");
+  const note = String(formData.get("note") ?? "");
+
+  if (!serviceId || !expiresOn || !note.trim()) {
+    return { error: "Completá el servicio, el vencimiento y el motivo", success: null };
+  }
+
+  const { error } = await supabase.rpc("grant_manual_makeup_credit", {
+    p_customer_id: customerId,
+    p_service_id: serviceId,
+    p_expires_on: expiresOn,
+    p_note: note,
+  });
+
+  if (error) {
+    return {
+      error: error.message.includes("NOT_AUTHORIZED")
+        ? "Sólo el dueño de la organización puede otorgar créditos manuales"
+        : "No se pudo otorgar el crédito",
+      success: null,
+    };
+  }
+
+  revalidatePath(`/org/${organizationSlug}/customers`);
+  return { error: null, success: "Crédito otorgado" };
 }
 
 export async function cancelBookingAsStaff(organizationSlug: string, bookingId: string): Promise<void> {

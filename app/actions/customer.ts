@@ -283,3 +283,63 @@ export async function cancelMyBooking(bookingId: string): Promise<void> {
   await supabase.rpc("cancel_booking", { p_booking_id: bookingId });
   revalidatePath("/me");
 }
+
+/**
+ * "Liberar mi cupo" (ADR-0025): delega TODA la lógica en release_my_booking(),
+ * que a su vez delega en cancel_booking() -- acá no se reimplementa ninguna
+ * condición de emisión. Redirige con el resultado en la URL para que la
+ * página pueda avisar "vence el DD/MM" cuando corresponda, en vez de
+ * prometer el crédito antes de saber si la anticipación alcanzó.
+ */
+export async function releaseMyBooking(bookingId: string): Promise<void> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("release_my_booking", { p_booking_id: bookingId });
+  revalidatePath("/me");
+
+  const credit = (data as { makeup_credit?: { id: string; expires_on: string } | null } | null)?.makeup_credit;
+  redirect(credit ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}` : "/me?liberado=1");
+}
+
+export interface MyMakeupCredit {
+  creditId: string;
+  organizationName: string;
+  serviceName: string;
+  origin: "CUSTOMER_RELEASE" | "ORGANIZATION_CANCELLED" | "MANUAL";
+  status: "AVAILABLE" | "CONSUMED" | "REVOKED";
+  issuedAt: string;
+  expiresOn: string;
+  isExpired: boolean;
+  sourceStartAt: string | null;
+}
+
+/** ADR-0025: mis créditos de recupero, con is_expired ya calculado en SQL. */
+export async function getMyMakeupCredits(): Promise<MyMakeupCredit[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_makeup_credits");
+
+  if (error || !data) return [];
+
+  return data.map(
+    (row: {
+      credit_id: string;
+      organization_name: string;
+      service_name: string;
+      origin: MyMakeupCredit["origin"];
+      status: MyMakeupCredit["status"];
+      issued_at: string;
+      expires_on: string;
+      is_expired: boolean;
+      source_start_at: string | null;
+    }) => ({
+      creditId: row.credit_id,
+      organizationName: row.organization_name,
+      serviceName: row.service_name,
+      origin: row.origin,
+      status: row.status,
+      issuedAt: row.issued_at,
+      expiresOn: row.expires_on,
+      isExpired: row.is_expired,
+      sourceStartAt: row.source_start_at,
+    }),
+  );
+}

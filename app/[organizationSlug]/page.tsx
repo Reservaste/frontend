@@ -59,6 +59,9 @@ export default async function PublicOrganizationPage({
     // Already respects the disclosure mode of ADR-0008.
     availability: availabilityLabel(slot),
     full: slot.status === "FULL" || slot.remaining === 0,
+    // ADR-0025: boolean-only, already suppressed by the database in
+    // BOOLEAN mode and at capacity 1 -- this page just renders it.
+    recentlyReleased: Boolean((slot as { recentlyReleased?: boolean | null }).recentlyReleased),
   }));
 
   const supabase = await createClient();
