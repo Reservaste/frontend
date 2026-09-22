@@ -2,13 +2,10 @@ import { getMyServices } from "@/app/actions/customer";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
+import { formatMoney } from "@/lib/money";
+import { PLAN_KIND_LABEL } from "@/lib/plan-labels";
 
 export const metadata = { title: "Mis servicios" };
-
-const CYCLE_LABEL: Record<string, string> = {
-  CALENDAR_MONTH: "por mes calendario",
-  ROLLING_MONTH: "por mes desde el pago",
-};
 
 export default async function MyServicesPage() {
   const services = await getMyServices();
@@ -47,18 +44,29 @@ export default async function MyServicesPage() {
                 )}
               </div>
 
+              {/* The plan that actually covers them today (ADR-0029) --
+                  never a service-level price, which stopped meaning
+                  anything the day a service could sell more than one
+                  plan (ADR-0024). No plan resolved is a fact worth
+                  showing on its own: "sin plan" is not the same silence
+                  as a free service. */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                {service.price !== null ? (
-                  <span className="tnum">
-                    ${service.price.toLocaleString("es-UY")}
-                    {service.billingType === "MONTHLY" ? " / mes" : ""}
-                  </span>
-                ) : null}
-                {service.billingCycle ? <span>{CYCLE_LABEL[service.billingCycle]}</span> : null}
-                {service.paymentRequired && service.coveredUntil ? (
-                  <span className="tnum">
-                    pago hasta {new Date(`${service.coveredUntil}T12:00:00Z`).toLocaleDateString("es-UY")}
-                  </span>
+                {service.planName ? (
+                  <>
+                    <span className="font-medium text-foreground">{service.planName}</span>
+                    {service.planPrice !== null ? (
+                      <span className="tnum">{formatMoney(service.planPrice, service.currency)}</span>
+                    ) : null}
+                    {service.planKind ? <span>{PLAN_KIND_LABEL[service.planKind]}</span> : null}
+                    {service.coveredUntil ? (
+                      <span className="tnum">
+                        cubre hasta{" "}
+                        {new Date(`${service.coveredUntil}T12:00:00Z`).toLocaleDateString("es-UY")}
+                      </span>
+                    ) : null}
+                  </>
+                ) : service.paymentRequired ? (
+                  <span>Sin plan vigente</span>
                 ) : null}
               </div>
 

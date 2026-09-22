@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { NotGeneratedReason } from "@reservaste/domain";
+import type { NotGeneratedReason, ServicePlanKind } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKING_REASONS } from "@/lib/booking-reasons";
 
@@ -86,19 +86,33 @@ export interface MyService {
   serviceName: string;
   organizationSlug: string;
   organizationName: string;
-  billingType: "FREE" | "ONE_TIME" | "MONTHLY";
-  billingCycle: "CALENDAR_MONTH" | "ROLLING_MONTH" | null;
-  price: number | null;
+  /** ISO 4217 of the organization (ADR-0024) -- a plan has no currency of its own. */
+  currency: string;
   paymentRequired: boolean;
+  /**
+   * The plan actually covering this customer today, resolved through
+   * payment_service_coverage (ADR-0029) -- null when nothing currently
+   * covers them, whether or not payment is required at all.
+   */
+  planName: string | null;
+  planPrice: number | null;
+  planKind: ServicePlanKind | null;
   coveredUntil: string | null;
   isCoveredToday: boolean;
 }
 
 /**
- * The services the customer can book, and whether their month is covered
- * (ADR-0022). Replaces the entitlement list: nobody enables a service for
- * a person any more, so there is nothing per-person to show except
- * whether payment is up to date.
+ * The services the customer can book, and which plan (if any) covers them
+ * today (ADR-0029). Replaces the entitlement list: nobody enables a
+ * service for a person any more, so there is nothing per-person to show
+ * except which plan they're covered by.
+ *
+ * Was billingType/billingCycle/price straight off `services` until this
+ * screen's own bug (2026-09-22): those columns are one number per
+ * service, deprecated since ADR-0024 specifically because a service can
+ * sell several plans -- a customer covered by the cheaper of two plans on
+ * the same service was one query away from seeing the other one's price,
+ * or a service-level number that had stopped meaning anything.
  */
 export async function getMyServices(): Promise<MyService[]> {
   const supabase = await createClient();
@@ -112,10 +126,11 @@ export async function getMyServices(): Promise<MyService[]> {
       service_name: string;
       organization_slug: string;
       organization_name: string;
-      billing_type: MyService["billingType"];
-      billing_cycle: MyService["billingCycle"];
-      price: string | number | null;
+      currency: string;
       payment_required: boolean;
+      plan_name: string | null;
+      plan_price: string | number | null;
+      plan_kind: ServicePlanKind | null;
       covered_until: string | null;
       is_covered_today: boolean;
     }) => ({
@@ -123,10 +138,11 @@ export async function getMyServices(): Promise<MyService[]> {
       serviceName: row.service_name,
       organizationSlug: row.organization_slug,
       organizationName: row.organization_name,
-      billingType: row.billing_type,
-      billingCycle: row.billing_cycle,
-      price: row.price === null ? null : Number(row.price),
+      currency: row.currency,
       paymentRequired: row.payment_required,
+      planName: row.plan_name,
+      planPrice: row.plan_price === null ? null : Number(row.plan_price),
+      planKind: row.plan_kind,
       coveredUntil: row.covered_until,
       isCoveredToday: row.is_covered_today,
     }),
