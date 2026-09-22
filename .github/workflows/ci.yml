@@ -100,18 +100,33 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
 
-      # Pulls the image this same job just pushed and retags it to the
-      # name docker-compose.yml already expects -- the exact same
-      # "load an image, then compose up" shape the manual deploy used all
-      # session, just from the registry instead of an scp'd tarball. The
-      # compose file itself needs no change: it never rebuilds an image
-      # that's already present under that tag.
-      - name: Deploy to the droplet
+      # The org disables making a GHCR package public, so the droplet
+      # can't just `docker pull` anonymously -- and storing a long-lived
+      # registry token ON the droplet to work around that would be worse,
+      # not better. Instead: point the Docker CLI at the droplet's remote
+      # daemon over the same SSH key, log in to GHCR *locally* on the
+      # runner (this ephemeral GITHUB_TOKEN, already used to push above),
+      # and pull. Docker resolves registry auth from the machine running
+      # the CLI even when the pull executes on a remote daemon, so the
+      # image bytes flow straight from GHCR to the droplet and no
+      # credential of any kind ends up stored there.
+      - name: Point Docker at the droplet's remote daemon
+        run: docker context create droplet --docker "host=ssh://root@${{ secrets.DROPLET_HOST }}"
+
+      - name: Pull the new image onto the droplet
+        run: |
+          docker --context droplet login ghcr.io -u "${{ github.actor }}" --password-stdin <<< "${{ secrets.GITHUB_TOKEN }}"
+          docker --context droplet pull ghcr.io/reservaste/frontend:latest
+          docker --context droplet tag ghcr.io/reservaste/frontend:latest reservaste-app:latest
+
+      # Only the orchestration runs over a plain ssh call from here: no
+      # image bytes cross this connection, just "start the container you
+      # already have" and the same health-check loop used by hand all
+      # session.
+      - name: Restart the app and wait for it to come up healthy
         run: |
           ssh root@${{ secrets.DROPLET_HOST }} '
             set -e
-            docker pull ghcr.io/reservaste/frontend:latest
-            docker tag ghcr.io/reservaste/frontend:latest reservaste-app:latest
             cd /srv/reservaste/deploy
             docker compose up -d
             for i in 1 2 3 4 5 6 7 8; do

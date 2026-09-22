@@ -54,11 +54,18 @@ nunca, a propósito** — tienen que cargarse directo en la UI de GitHub:
 `DROPLET_SSH_KEY` (la clave privada autorizada como `root` en el
 droplet) y `DROPLET_HOST` (la IP).
 
-**Paso único pendiente, solo desde la UI de GitHub**: después de la
-primera corrida exitosa, el paquete `ghcr.io/reservaste/frontend` se crea
-privado por default. Settings → Packages → frontend → Change visibility
-→ Public, así el droplet no necesita loguearse contra el registro para
-bajarla (la imagen no tiene ningún secreto de servidor adentro).
+**El paquete queda privado, y no hace falta cambiar eso.** El primer
+diseño hacía que el droplet bajara la imagen sola por `docker pull`
+anónimo, lo que exigía marcar `ghcr.io/reservaste/frontend` como
+público — pero la organización tiene esa opción deshabilitada por
+política a nivel org (`Setting is disabled by organization
+administrators`, confirmado el 2026-09-22). En vez de pedir ese cambio o
+guardar un token de registro en el droplet, el workflow apunta el CLI de
+Docker al demonio remoto del droplet por SSH (`docker context create
+--docker "host=ssh://..."`) y hace el login/pull **desde el runner**, que
+resuelve la autenticación localmente aunque la orden se ejecute en la
+máquina remota — así ningún secreto de registro queda guardado en el
+droplet, y no depende de ninguna política de la organización.
 
 ### El camino manual sigue documentado, como respaldo
 
