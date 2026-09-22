@@ -40,12 +40,23 @@ export async function registerPayment(
   } = await supabase.auth.getUser();
 
   const serviceId = String(formData.get("serviceId") ?? "");
+  const servicePlanId = String(formData.get("servicePlanId") ?? "");
   const periodStart = String(formData.get("periodStart") ?? "");
   const periodEnd = String(formData.get("periodEnd") ?? "");
   const amountRaw = String(formData.get("amount") ?? "").trim();
 
   if (!serviceId || !periodStart || !periodEnd) {
     return { error: "Elegí el servicio y el período", success: null };
+  }
+
+  // ADR-0024: a payment is anchored to the plan that was bought -- that is
+  // where the booking path reads "what does this month entitle them to".
+  // The compatibility bridge in the database still fills it in from the
+  // service's active UNLIMITED plan when it's missing, and raises
+  // PAYMENT_REQUIRES_PLAN when there is none; sending it explicitly is
+  // what lets that bridge go away.
+  if (!servicePlanId) {
+    return { error: "Elegí el plan que está pagando", success: null };
   }
 
   // Registering a payment can unblock pending dates of a standing
@@ -69,6 +80,7 @@ export async function registerPayment(
     organization_id: organization.id,
     customer_id: customerId,
     service_id: serviceId,
+    service_plan_id: servicePlanId,
     period_start: periodStart,
     period_end: periodEnd,
     status: String(formData.get("status") ?? "PAID"),
@@ -86,6 +98,30 @@ export async function registerPayment(
     }
     if (error.message.includes("payments_valid_period")) {
       return { error: "El fin del período no puede ser anterior al inicio", success: null };
+    }
+    // ADR-0024. The bridge fails loudly rather than leaving a payment the
+    // booking path would have to read as "unlimited, just in case" -- but
+    // the raw code means nothing at a front desk, and the way out is a
+    // screen away.
+    if (error.message.includes("PAYMENT_REQUIRES_PLAN")) {
+      return {
+        error:
+          "Ese servicio todavía no tiene ningún plan activo, así que no se sabe qué compra este pago. Creá un plan en el servicio y volvé a registrarlo.",
+        success: null,
+      };
+    }
+    if (error.message.includes("PAYMENT_PLAN_KIND_REQUIRES_OCCURRENCE")) {
+      return {
+        error:
+          "Un plan de turno suelto se cobra desde el turno, no desde acá: hay que decir qué turno se pagó.",
+        success: null,
+      };
+    }
+    if (error.message.includes("PAYMENT_PLAN_NOT_FOUND")) {
+      return { error: "Ese plan ya no existe. Recargá la pantalla y elegí de nuevo.", success: null };
+    }
+    if (error.message.includes("payments_one_paid_per_occurrence_idx")) {
+      return { error: "Ese turno ya está pago por este cliente", success: null };
     }
     return { error: "No se pudo registrar el pago", success: null };
   }

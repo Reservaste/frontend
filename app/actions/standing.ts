@@ -20,6 +20,13 @@ export interface StandingReservation {
   upcomingNotGenerated: number;
   /** Of the dates that didn't confirm, how many are waiting on a payment. */
   upcomingUnpaid: number;
+  /**
+   * How many of the upcoming dates fall outside the frequency the
+   * customer's plan bought (ADR-0024). Charging the month again does
+   * nothing for these -- the fix is a bigger plan or one series fewer --
+   * which is exactly why they are counted apart from `upcomingUnpaid`.
+   */
+  upcomingOverQuota: number;
 }
 
 export async function listStandingReservations(
@@ -45,6 +52,7 @@ export async function listStandingReservations(
       upcoming_confirmed: number;
       upcoming_not_generated: number;
       upcoming_unpaid: number;
+      upcoming_over_quota: number;
     }) => ({
       recurringBookingId: row.recurring_booking_id,
       customerId: row.customer_id,
@@ -54,6 +62,7 @@ export async function listStandingReservations(
       upcomingConfirmed: row.upcoming_confirmed,
       upcomingNotGenerated: row.upcoming_not_generated,
       upcomingUnpaid: row.upcoming_unpaid,
+      upcomingOverQuota: row.upcoming_over_quota,
     }),
   );
 }
@@ -145,6 +154,15 @@ export async function createStandingReservation(
     }
     if (message.includes("NOT_AUTHORIZED")) {
       return { error: "No tenés permiso para hacer esto", success: null };
+    }
+    // ADR-0024's soft gate: only fires when the customer *has* a plan with
+    // a frequency in force, so "cobrale el mes" is the wrong advice here.
+    if (message.includes("OVER_PLAN_QUOTA")) {
+      return {
+        error:
+          "Este cliente ya usa todos los horarios fijos que cubre su plan. Cambialo a un plan con más frecuencia, o quitale otro horario fijo.",
+        success: null,
+      };
     }
     return { error: "No se pudo crear el horario fijo", success: null };
   }

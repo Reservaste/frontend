@@ -5,14 +5,15 @@ import { getCustomers } from "@/app/actions/admin";
 import { getCustomerPaymentDetail, setPaymentStatus } from "@/app/actions/payments";
 import { monthRange } from "@/lib/billing-period";
 import { listServices } from "@/app/actions/services";
+import { listPaymentPlanOptions } from "@/app/actions/service-plans";
+import { formatMoney } from "@/lib/money";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { StatusBadge } from "@/components/status";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RegisterPaymentForm } from "../../customers/[customerId]/customer-forms";
 
 export const metadata = { title: "Pagos del cliente" };
-
-const money = (value: number) => `$${value.toLocaleString("es-UY")}`;
 
 const STATUS: Record<string, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
   PAID: { label: "Pagado", tone: "success" },
@@ -30,14 +31,19 @@ export default async function CustomerPaymentsPage({
 }) {
   const { slug, customerId } = await params;
   const { mes } = await searchParams;
-  await requireOrganizationMembership(slug);
+  const { organization } = await requireOrganizationMembership(slug);
 
   const range = monthRange(mes);
-  const [customers, rows, services] = await Promise.all([
+  const [customers, rows, services, planOptions] = await Promise.all([
     getCustomers(slug),
     getCustomerPaymentDetail(slug, customerId, range.month),
     listServices(slug),
+    listPaymentPlanOptions(slug),
   ]);
+
+  // Prices are quoted in the organization's currency (ADR-0024), not in a
+  // hardcoded "$".
+  const money = (value: number) => formatMoney(value, organization.currency);
 
   const customer = customers.find((c) => c.customerId === customerId);
   if (!customer) {
@@ -83,9 +89,7 @@ export default async function CustomerPaymentsPage({
           { label: "Pendiente", value: money(total - paid) },
         ].map((stat) => (
           <div key={stat.label} className="flex flex-col gap-1 rounded-xl border bg-card px-4 py-3 shadow-card">
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              {stat.label}
-            </span>
+            <span className="eyebrow text-muted-foreground">{stat.label}</span>
             <span className="tnum text-xl font-semibold leading-none">{stat.value}</span>
           </div>
         ))}
@@ -95,9 +99,7 @@ export default async function CustomerPaymentsPage({
         <h2 className="text-sm font-semibold">Servicios del período</h2>
 
         {rows.length === 0 ? (
-          <p className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
-            Sin pagos registrados para este mes.
-          </p>
+          <EmptyState size="sm" title="Sin pagos registrados para este mes." />
         ) : (
           <ul className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-card">
             {rows.map((row) => {
@@ -143,7 +145,13 @@ export default async function CustomerPaymentsPage({
 
       <section className="flex flex-col gap-2.5">
         <h2 className="text-sm font-semibold">Agregar pago</h2>
-        <RegisterPaymentForm organizationSlug={slug} customerId={customerId} services={services} />
+        <RegisterPaymentForm
+          organizationSlug={slug}
+          customerId={customerId}
+          services={services}
+          plans={planOptions}
+          currency={organization.currency}
+        />
       </section>
     </div>
   );

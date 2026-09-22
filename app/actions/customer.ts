@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { NotGeneratedReason } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKING_REASONS } from "@/lib/booking-reasons";
 
@@ -34,8 +35,13 @@ export interface MyBooking {
   occurrenceStatus: "ACTIVE" | "BLOCKED" | "CANCELLED";
   cancellationReason: string | null;
   isRecurring: boolean;
-  /** Why a recurring date didn't confirm. Null for every other status. */
-  notGeneratedReason: "SLOT_FULL" | "PAYMENT_REQUIRED" | "DUPLICATE" | null;
+  /**
+   * Why a recurring date didn't confirm. Null for every other status.
+   * `OVER_PLAN_QUOTA` arrived with ADR-0024: the month is paid and the
+   * class isn't full -- the series just exceeds the plan's frequency, so
+   * neither "falta el pago" nor "sin lugar" would be true.
+   */
+  notGeneratedReason: NotGeneratedReason | null;
 }
 
 export async function getMyBookings(includePast = false): Promise<MyBooking[]> {

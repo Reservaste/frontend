@@ -107,7 +107,12 @@ export default async function MyBookingsPage({
                       ? "Falta el pago"
                       : booking.notGeneratedReason === "DUPLICATE"
                         ? "Ya estás anotado"
-                        : "Sin lugar"}
+                        : // ADR-0024: the month *is* paid and the class is
+                          // not full -- saying "sin lugar" here would be
+                          // the same lie ADR-0018 removed once already.
+                          booking.notGeneratedReason === "OVER_PLAN_QUOTA"
+                          ? "Fuera de tu plan"
+                          : "Sin lugar"}
                   </StatusBadge>
                 ) : isUpcoming ? (
                   <form action={cancelMyBooking.bind(null, booking.bookingId)}>

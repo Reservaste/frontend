@@ -19,6 +19,7 @@ export function ServiceTabs({
       className="-mx-5 border-b"
       items={[
         { href: `${base}/schedule`, label: "Horarios", exact: true },
+        { href: `${base}/plans`, label: "Planes" },
         { href: `${base}/agenda`, label: "Agenda" },
         { href: `${base}/asistencia`, label: "Asistencia" },
       ]}

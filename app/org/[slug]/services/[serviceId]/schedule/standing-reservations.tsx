@@ -13,25 +13,16 @@ import {
 import { StatusBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-
-const selectClass =
-  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
+import { FieldHint, FormError, FormSuccess } from "@/components/ui/form";
+import { Select } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
+// One table, shared with the customer-facing flow: the desk wording of the
+// same reason codes (ADR-0018 -- the preview and the confirm must never
+// disagree, and neither must the two vocabularies).
+import { DESK_BOOKING_REASONS } from "@/lib/booking-reasons";
 
 const initialPreview: StandingPreviewState = { error: null, customerId: null, dates: [] };
 const initialAction: StandingActionState = { error: null, success: null };
-
-// The same reason codes the customer-facing flow uses, worded for whoever
-// is standing at the desk rather than for the customer.
-const DESK_REASONS: Record<string, string> = {
-  OK: "Se reserva",
-  PAYMENT_REQUIRED: "El pago no cubre esa fecha",
-  SLOT_FULL: "Completo",
-  ALREADY_BOOKED: "Ya está anotado",
-  NOT_A_CUSTOMER: "No es cliente",
-  OCCURRENCE_NOT_AVAILABLE: "Turno no disponible",
-  SERVICE_INACTIVE: "Servicio inactivo",
-  ORGANIZATION_INACTIVE: "Organización inactiva",
-};
 
 export function StandingReservations({
   organizationSlug,
@@ -77,9 +68,7 @@ export function StandingReservations({
   return (
     <div className="flex flex-col gap-3 border-t bg-muted/30 px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          Horario fijo ({active.length})
-        </span>
+        <span className="eyebrow text-muted-foreground">Horario fijo ({active.length})</span>
         {!open && available.length > 0 ? (
           <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
             + Asignar cliente
@@ -105,13 +94,30 @@ export function StandingReservations({
                     </>
                   ) : null}
                 </span>
+                {reservation.upcomingOverQuota > 0 ? (
+                  <span className="text-xs text-warning-foreground">
+                    <span className="tnum">{reservation.upcomingOverQuota}</span> de esas fechas
+                    exceden la frecuencia que compró. Cobrarle el mes no las destraba: hace falta
+                    un plan con más frecuencia, o quitarle otro horario fijo.
+                  </span>
+                ) : null}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {/* A series whose payment lapsed keeps existing but stops
                     confirming dates -- surfaced here so nobody has to
                     notice it from the agenda. */}
                 {reservation.upcomingUnpaid > 0 ? (
                   <StatusBadge tone="danger">Falta el pago</StatusBadge>
+                ) : null}
+                {/* Different problem, different fix (ADR-0024): these
+                    dates are not waiting on money. The business sold more
+                    fixed slots than the plan covers, and charging the
+                    month again would change nothing -- without this the
+                    owner never finds out. */}
+                {reservation.upcomingOverQuota > 0 ? (
+                  <StatusBadge tone="warning">
+                    <span className="tnum">{reservation.upcomingOverQuota}</span> fuera del plan
+                  </StatusBadge>
                 ) : null}
                 <form
                   action={cancelStandingReservation.bind(
@@ -134,9 +140,7 @@ export function StandingReservations({
       {open ? (
         <div className="flex flex-col gap-3 rounded-lg border bg-card p-3.5">
           {available.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Todos los clientes activos ya tienen este horario fijo.
-            </p>
+            <EmptyState size="sm" title="Todos los clientes activos ya tienen este horario fijo." />
           ) : (
             <>
               {/* Two steps on purpose (ADR-0012): pick the person, see the
@@ -144,11 +148,11 @@ export function StandingReservations({
               <form action={previewAction} className="flex flex-col gap-1.5">
                 <Label htmlFor={`customer-${scheduleRuleId}`}>Cliente</Label>
                 <div className="flex flex-wrap gap-2">
-                  <select
+                  <Select
                     id={`customer-${scheduleRuleId}`}
                     name="customerId"
                     required
-                    className={`${selectClass} flex-1 min-w-48`}
+                    className="min-w-48 flex-1"
                     defaultValue={preview.customerId ?? ""}
                   >
                     <option value="" disabled>
@@ -159,14 +163,14 @@ export function StandingReservations({
                         {c.fullName}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <Button type="submit" variant="outline" size="sm" disabled={previewPending}>
                     {previewPending ? "Buscando…" : "Ver fechas"}
                   </Button>
                 </div>
               </form>
 
-              {preview.error ? <p className="text-sm text-destructive">{preview.error}</p> : null}
+              <FormError>{preview.error}</FormError>
 
               {preview.dates.length > 0 ? (
                 <div className="flex flex-col gap-2">
@@ -189,7 +193,7 @@ export function StandingReservations({
                               : "text-xs font-medium text-destructive"
                           }
                         >
-                          {DESK_REASONS[date.canBook] ?? date.canBook}
+                          {DESK_BOOKING_REASONS[date.canBook] ?? date.canBook}
                         </span>
                       </li>
                     ))}
@@ -209,16 +213,16 @@ export function StandingReservations({
                       dates can't be reserved yet: those stay pending and
                       confirm on their own once the payment is registered. */}
                   {bookableDates < preview.dates.length ? (
-                    <p className="text-xs text-muted-foreground">
+                    <FieldHint>
                       Las fechas que no se reservan quedan pendientes y se confirman solas cuando el pago
                       esté al día.
-                    </p>
+                    </FieldHint>
                   ) : null}
                 </div>
               ) : null}
 
-              {created.error ? <p className="text-sm text-destructive">{created.error}</p> : null}
-              {created.success ? <p className="text-sm text-success">{created.success}</p> : null}
+              <FormError>{created.error}</FormError>
+              <FormSuccess>{created.success}</FormSuccess>
             </>
           )}
 

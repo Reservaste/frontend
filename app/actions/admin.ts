@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
+import { DESK_BOOKING_REASONS } from "@/lib/booking-reasons";
 
 // Every function here re-resolves the organization from its slug and
 // re-checks membership server-side (requireOrganizationMembership), so no
@@ -288,13 +289,25 @@ export async function bookCustomerIntoSlot(
 
   const status = (data as { status: string }).status;
   if (status !== "OK") {
+    // Built on the shared table so a reason code added in the database
+    // can never come out as "no se pudo anotar al cliente"; the overrides
+    // are the ones that read better as a full sentence in a form error.
     const reasons: Record<string, string> = {
+      ...DESK_BOOKING_REASONS,
       SLOT_FULL: "El horario está completo",
       ALREADY_BOOKED: "Ese cliente ya está anotado",
       PAYMENT_REQUIRED: "El pago del cliente no cubre esta fecha",
       NOT_A_CUSTOMER: "Esa persona no es cliente de esta organización",
       OCCURRENCE_NOT_AVAILABLE: "Ese horario ya no está disponible",
       DUPLICATE: "Ese cliente ya está anotado",
+      // ADR-0024: both mean the month is paid, so neither can say "falta
+      // el pago" -- and their remedies are different from each other's.
+      OUTSIDE_PLAN_QUOTA:
+        "Su mes está pago, pero este turno no es uno de sus horarios fijos. Cobrale el turno aparte o sumalo a su plan.",
+      OVER_PLAN_QUOTA:
+        "Su plan no cubre otro horario fijo por semana. Cambialo a un plan con más frecuencia, o quitale otro horario.",
+      SERVICE_HAS_NO_PLAN:
+        "Este servicio exige pago y no tiene ningún plan activo. Creá uno en la pestaña Planes del servicio.",
     };
     return { error: reasons[status] ?? "No se pudo anotar al cliente", success: null };
   }

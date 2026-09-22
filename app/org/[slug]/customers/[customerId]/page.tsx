@@ -3,6 +3,10 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
 import { getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
+import {
+  listOrganizationServicePlans,
+  listPaymentPlanOptions,
+} from "@/app/actions/service-plans";
 import { StatusBadge } from "@/components/status";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PaymentList, RegisterPaymentForm } from "./customer-forms";
@@ -13,12 +17,17 @@ export default async function CustomerDetailPage({
   params: Promise<{ slug: string; customerId: string }>;
 }) {
   const { slug, customerId } = await params;
-  await requireOrganizationMembership(slug);
+  const { organization } = await requireOrganizationMembership(slug);
 
-  const [customers, services, payments] = await Promise.all([
+  const [customers, services, payments, planOptions, allPlans] = await Promise.all([
     getCustomers(slug),
     listServices(slug),
     getCustomerPayments(slug, customerId),
+    // What can be charged today (ADR-0024), and every plan ever offered,
+    // so a payment for a plan that was since retired still says what it
+    // bought.
+    listPaymentPlanOptions(slug),
+    listOrganizationServicePlans(slug),
   ]);
 
   const customer = customers.find((c) => c.customerId === customerId);
@@ -61,8 +70,16 @@ export default async function CustomerDetailPage({
           customerId={customerId}
           payments={payments}
           services={services}
+          plans={allPlans}
+          currency={organization.currency}
         />
-        <RegisterPaymentForm organizationSlug={slug} customerId={customerId} services={services} />
+        <RegisterPaymentForm
+          organizationSlug={slug}
+          customerId={customerId}
+          services={services}
+          plans={planOptions}
+          currency={organization.currency}
+        />
       </section>
     </div>
   );

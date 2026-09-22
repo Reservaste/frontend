@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { timezoneSchema } from "@reservaste/domain";
+import { currencySchema, timezoneSchema } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import type { ActionState } from "@/app/actions/admin";
@@ -23,6 +23,18 @@ export async function updateOrganizationSettings(
     return { error: parsedTimezone.error.issues[0]?.message ?? "Zona horaria inválida", success: null };
   }
 
+  // The CHECK in the database only guarantees three uppercase letters, so
+  // this is where a typo gets caught with a readable message instead of a
+  // constraint violation. Every price of the organization is read in it.
+  const currency = String(formData.get("currency") ?? "").trim().toUpperCase();
+  const parsedCurrency = currencySchema.safeParse(currency);
+  if (!parsedCurrency.success) {
+    return {
+      error: "La moneda tiene que ser un código de tres letras, como UYU, ARS o USD",
+      success: null,
+    };
+  }
+
   const display = String(formData.get("publicAvailabilityDisplay") ?? "EXACT");
   const percentage = Number(formData.get("lowAvailabilityPercentage"));
   const fixedCapRaw = String(formData.get("lowAvailabilityFixedCap") ?? "").trim();
@@ -37,6 +49,7 @@ export async function updateOrganizationSettings(
     .update({
       name: String(formData.get("name") ?? organization.name),
       timezone: parsedTimezone.data,
+      currency: parsedCurrency.data,
       public_availability_display: display,
       low_availability_percentage: percentage,
       low_availability_fixed_cap: fixedCapRaw ? Number(fixedCapRaw) : null,

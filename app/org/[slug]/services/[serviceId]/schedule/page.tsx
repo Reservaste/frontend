@@ -11,7 +11,7 @@ import { StatusBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { WEEKDAY_SHORT } from "@/lib/calendar";
 import { ServiceTabs } from "../service-tabs";
-import { ServiceBillingForm } from "../billing-form";
+import { ServiceSettingsForm } from "../service-settings-form";
 import { ScheduleRuleForm } from "./schedule-rule-form";
 import { StandingReservations } from "./standing-reservations";
 
@@ -63,7 +63,7 @@ export default async function ServiceSchedulePage({
       <ServiceTabs organizationSlug={slug} serviceId={serviceId} />
 
       {service ? (
-        <ServiceBillingForm
+        <ServiceSettingsForm
           organizationSlug={slug}
           service={service}
           canEdit={membership.role === "OWNER"}

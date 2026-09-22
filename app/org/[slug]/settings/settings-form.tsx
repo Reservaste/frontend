@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TimezonePicker } from "@/components/timezone-picker";
+import { Field, FieldHint, FormError, FormSuccess } from "@/components/ui/form";
+import { Select } from "@/components/ui/select";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -28,38 +30,53 @@ export function SettingsForm({
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card">
       <fieldset disabled={!canEdit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
+        <Field>
           <Label htmlFor="name">Nombre</Label>
           <Input id="name" name="name" defaultValue={organization.name} required />
-        </div>
+        </Field>
 
-        <div className="flex flex-col gap-1.5">
+        <Field>
           <TimezonePicker defaultValue={organization.timezone} disabled={!canEdit} />
-          <p className="text-xs text-muted-foreground">
-            Define en qué horario se muestran y generan los turnos.
-          </p>
-        </div>
+          <FieldHint>Define en qué horario se muestran y generan los turnos.</FieldHint>
+        </Field>
 
-        <div className="flex flex-col gap-1.5">
+        <Field>
+          <Label htmlFor="currency">Moneda</Label>
+          <Input
+            id="currency"
+            name="currency"
+            defaultValue={organization.currency}
+            required
+            maxLength={3}
+            autoCapitalize="characters"
+            spellCheck={false}
+            className="uppercase sm:max-w-32"
+          />
+          <FieldHint>
+            Código de tres letras (UYU, ARS, USD). Es la moneda en la que se muestran
+            los precios de todos tus planes y pagos.
+          </FieldHint>
+        </Field>
+
+        <Field>
           <Label htmlFor="publicAvailabilityDisplay">Disponibilidad pública</Label>
-          <select
+          <Select
             id="publicAvailabilityDisplay"
             name="publicAvailabilityDisplay"
             defaultValue={organization.publicAvailabilityDisplay}
-            className="h-9 rounded-md border bg-background px-3 text-sm"
           >
             <option value="EXACT">Mostrar lugares exactos (4 de 12)</option>
             <option value="LIMITED">Mostrar solo si quedan pocos</option>
             <option value="BOOLEAN">Mostrar solo disponible / sin disponibilidad</option>
-          </select>
-          <p className="text-xs text-muted-foreground">
+          </Select>
+          <FieldHint>
             Cada servicio puede sobrescribir esto. En capacidades chicas, mostrar el número exacto revela
             cuánta gente hay anotada.
-          </p>
-        </div>
+          </FieldHint>
+        </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+          <Field>
             <Label htmlFor="lowAvailabilityPercentage">Umbral &quot;últimos lugares&quot; (%)</Label>
             <Input
               id="lowAvailabilityPercentage"
@@ -69,8 +86,8 @@ export function SettingsForm({
               max={100}
               defaultValue={organization.lowAvailabilityPercentage}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
+          </Field>
+          <Field>
             <Label htmlFor="lowAvailabilityFixedCap">Tope fijo (opcional)</Label>
             <Input
               id="lowAvailabilityFixedCap"
@@ -79,11 +96,11 @@ export function SettingsForm({
               min={1}
               defaultValue={organization.lowAvailabilityFixedCap ?? ""}
             />
-          </div>
+          </Field>
         </div>
 
-        {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
-        {state.success ? <p className="text-sm text-muted-foreground">{state.success}</p> : null}
+        <FormError>{state.error}</FormError>
+        <FormSuccess>{state.success}</FormSuccess>
 
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Guardando…" : "Guardar"}
