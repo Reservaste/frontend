@@ -26,12 +26,23 @@ export async function signUpWithPassword(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  const returnTo = safeReturnTo(String(formData.get("returnTo") ?? ""));
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
+      // Sin esto el link de confirmación cae en la Site URL del proyecto
+      // (la home) y la intención con la que la persona se registró se
+      // pierde justo ahí. Para la activación de ADR-0026 eso era fatal:
+      // el cliente gestionado se registra *para* activar, confirma por
+      // mail, y volvía a la home -- nunca a /activar/continuar, que es la
+      // única pantalla donde el link de WhatsApp se puede canjear. Misma
+      // forma que el `redirectTo` de Google acá abajo, así que la URL ya
+      // está en el allowlist de Supabase Auth.
+      emailRedirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(returnTo)}`,
     },
   });
 
@@ -51,9 +62,18 @@ export async function signUpWithPassword(
     };
   }
 
-  // Someone who signed up mid-booking goes back to finish it; someone who
-  // came to set up a business lands on onboarding (ADR-0015).
-  redirect(safeReturnTo(String(formData.get("returnTo") ?? ""), "/onboarding"));
+  // Someone who signed up mid-booking goes back to finish it (ADR-0015).
+  //
+  // Sin `returnTo` el default era `/onboarding`, o sea "creá tu negocio":
+  // la misma puerta equivocada que la Fase 9 ya había sacado de
+  // `/dashboard` ("mandaba a cualquiera sin organización a 'creá tu
+  // negocio' — la puerta equivocada para un cliente"), sobreviviendo acá.
+  // Hoy el formulario de /signup siempre manda un `returnTo`, así que esto
+  // es una trampa latente más que un bug en vivo, pero el default de
+  // "intención desconocida" tiene que ser el mismo en las dos puertas:
+  // `/dashboard`, que pregunta en vez de adivinar (y donde "Crear mi
+  // organización" sigue estando a un tap).
+  redirect(returnTo);
 }
 
 export async function signInWithPassword(

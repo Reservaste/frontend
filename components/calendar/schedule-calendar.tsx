@@ -43,6 +43,16 @@ export interface CalendarEvent {
   /** Where the title goes, when it differs from the block (ADR-0023). */
   titleHref?: string | null;
   muted?: boolean;
+  /**
+   * The occurrence already ended (`endAt` is in the past) -- rendered in a
+   * flat, desaturated tone regardless of `tone`, so a completed slot never
+   * reads as an error (danger) or a warning just because it happened to be
+   * full or low on capacity while it was still upcoming. One in progress
+   * right now (started, not yet ended) is *not* past: it is still the
+   * thing someone would act on. Only the admin agenda sets this today
+   * (public/portal calendars don't fetch past occurrences to begin with).
+   */
+  past?: boolean;
 }
 
 // Tone-tinted text (not a flat text-foreground on every tone) so a block's
@@ -397,12 +407,14 @@ function EventBlock({
 
   const className = cn(
     "absolute inset-x-1 flex flex-col gap-0.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left shadow-card transition-all",
-    TONE_BG[event.tone],
-    event.muted && "opacity-60 shadow-none",
+    // Past overrides tone entirely -- a completed slot doesn't stay "red"
+    // just because it happened to fill up before it started.
+    event.past ? "border-border/60 bg-muted text-muted-foreground" : TONE_BG[event.tone],
+    (event.muted || event.past) && "opacity-60 shadow-none",
     event.href && "hover:shadow-raised",
   );
 
-  const colored = event.color
+  const colored = event.color && !event.past
     ? ({ borderLeftWidth: 3, borderLeftColor: event.color } as React.CSSProperties)
     : undefined;
 
@@ -484,10 +496,14 @@ function MonthGrid({
                   key={event.id}
                   className={cn(
                     "flex items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
-                    TONE_BG[event.tone],
+                    event.past
+                      ? "border-border/60 bg-muted text-muted-foreground opacity-75"
+                      : TONE_BG[event.tone],
                   )}
                   style={
-                    event.color ? { borderLeftWidth: 2, borderLeftColor: event.color } : undefined
+                    event.color && !event.past
+                      ? { borderLeftWidth: 2, borderLeftColor: event.color }
+                      : undefined
                   }
                 >
                   <span className="truncate">{event.title}</span>

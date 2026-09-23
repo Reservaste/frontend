@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { getMyBookings, releaseMyBooking } from "@/app/actions/customer";
-import { Button } from "@/components/ui/button";
+import { getMyBookings, getMyCustomerOrganizations, releaseMyBooking } from "@/app/actions/customer";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
@@ -36,6 +36,17 @@ export default async function MyBookingsPage({
   const visible = includePast
     ? bookings
     : bookings.filter((b) => b.status !== "NOT_GENERATED" || b.isRecurring);
+
+  // Feedback de producción "no veo la agenda para reservar": alguien que ya
+  // es Customer de un negocio pero todavía no reservó nada (o cuyas
+  // reservas están todas en el pasado) caía en el estado vacío genérico sin
+  // ningún link a dónde ir. getMyCustomerOrganizations() no depende de
+  // servicios/reservas previas -- solo de que el Customer exista y esté
+  // activo -- así que cubre exactamente ese caso. Solo se consulta cuando
+  // hace falta: no tiene sentido en la vista de pasadas, donde "no tenés
+  // reservas" ya implica que nunca reservaste nada ahí.
+  const customerOrganizations =
+    visible.length === 0 && !includePast ? await getMyCustomerOrganizations() : [];
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
@@ -78,7 +89,30 @@ export default async function MyBookingsPage({
         </Alert>
       ) : null}
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && customerOrganizations.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          <EmptyState
+            title="No tenés reservas próximas"
+            description="Pero ya sos cliente de estos negocios -- elegí uno para ver su agenda y reservar."
+          />
+          <DataList>
+            {customerOrganizations.map((org) => (
+              <DataListRow
+                key={org.organizationSlug}
+                className="flex items-center justify-between gap-3 px-4 py-3"
+              >
+                <span className="truncate font-medium">{org.organizationName}</span>
+                <Link
+                  href={`/${org.organizationSlug}`}
+                  className={buttonVariants({ variant: "outline", size: "touch", className: "shrink-0" })}
+                >
+                  Ver agenda
+                </Link>
+              </DataListRow>
+            ))}
+          </DataList>
+        </div>
+      ) : visible.length === 0 ? (
         <EmptyState
           title={includePast ? "No tenés reservas" : "No tenés reservas próximas"}
           description="Cuando reserves un horario va a aparecer acá."

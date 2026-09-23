@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { cn } from "cn";
 import type { AgendaOccurrence } from "@/app/actions/admin";
 import { ScheduleCalendar, type CalendarEvent } from "./schedule-calendar";
-import type { CalendarView } from "@/lib/calendar";
+import { nowMs, type CalendarView } from "@/lib/calendar";
 
 export interface CalendarService {
   id: string;
@@ -72,9 +72,17 @@ export function AgendaCalendar({
       ? occurrences.filter((o) => o.serviceId === lockedServiceId)
       : occurrences.filter((o) => !hidden.has(o.serviceId));
 
+    // Computed once per render, not a ticking clock: an agenda that's been
+    // open on screen for an hour recomputing "past" every minute isn't
+    // worth the complexity this screen needs. A slot in progress right now
+    // (started, not yet ended) does not count as past -- it's still the
+    // thing staff would act on.
+    const now = nowMs();
+
     return source.map((o) => {
       const free = o.capacity - o.confirmedCount;
       const cancelled = o.status === "CANCELLED";
+      const past = new Date(o.endAt).getTime() <= now;
 
       return {
         id: o.id,
@@ -89,6 +97,7 @@ export function AgendaCalendar({
         href: `/org/${organizationSlug}/agenda/${o.id}`,
         titleHref: `/org/${organizationSlug}/services/${o.serviceId}/schedule`,
         muted: cancelled,
+        past,
       };
     });
   }, [occurrences, hidden, lockedServiceId, colorOf, organizationSlug]);

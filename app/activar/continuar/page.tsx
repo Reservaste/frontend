@@ -21,9 +21,8 @@ export default async function ActivationContinuePage() {
   if (!token) {
     return (
       <Shell>
-        <Alert tone="warning" title="Este link ya no es válido">
-          Puede haber vencido o ya haberse usado. Pedile al negocio que te reenvíe la invitación por
-          WhatsApp.
+        <Alert tone="warning" title="No encontramos la invitación en este navegador">
+          Volvé a abrir el link de WhatsApp desde este mismo teléfono/navegador para continuar.
         </Alert>
       </Shell>
     );
