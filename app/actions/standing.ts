@@ -46,6 +46,34 @@ export interface StandingReservation {
   upcomingBeyondPeriod: number;
 }
 
+interface StandingReservationRow {
+  recurring_booking_id: string;
+  customer_id: string;
+  customer_name: string;
+  status: StandingReservation["status"];
+  created_at: string;
+  upcoming_confirmed: number;
+  upcoming_not_generated: number;
+  upcoming_unpaid: number;
+  upcoming_over_quota: number;
+  upcoming_beyond_period: number;
+}
+
+function mapStandingReservation(row: StandingReservationRow): StandingReservation {
+  return {
+    recurringBookingId: row.recurring_booking_id,
+    customerId: row.customer_id,
+    customerName: row.customer_name,
+    status: row.status,
+    createdAt: row.created_at,
+    upcomingConfirmed: row.upcoming_confirmed,
+    upcomingNotGenerated: row.upcoming_not_generated,
+    upcomingUnpaid: row.upcoming_unpaid,
+    upcomingOverQuota: row.upcoming_over_quota,
+    upcomingBeyondPeriod: row.upcoming_beyond_period,
+  };
+}
+
 export async function listStandingReservations(
   organizationSlug: string,
   scheduleRuleId: string,
@@ -59,31 +87,7 @@ export async function listStandingReservations(
 
   if (error || !data) return [];
 
-  return data.map(
-    (row: {
-      recurring_booking_id: string;
-      customer_id: string;
-      customer_name: string;
-      status: StandingReservation["status"];
-      created_at: string;
-      upcoming_confirmed: number;
-      upcoming_not_generated: number;
-      upcoming_unpaid: number;
-      upcoming_over_quota: number;
-      upcoming_beyond_period: number;
-    }) => ({
-      recurringBookingId: row.recurring_booking_id,
-      customerId: row.customer_id,
-      customerName: row.customer_name,
-      status: row.status,
-      createdAt: row.created_at,
-      upcomingConfirmed: row.upcoming_confirmed,
-      upcomingNotGenerated: row.upcoming_not_generated,
-      upcomingUnpaid: row.upcoming_unpaid,
-      upcomingOverQuota: row.upcoming_over_quota,
-      upcomingBeyondPeriod: row.upcoming_beyond_period,
-    }),
-  );
+  return (data as StandingReservationRow[]).map(mapStandingReservation);
 }
 
 export interface StandingPreviewDate {
@@ -99,9 +103,18 @@ export interface StandingPreviewState {
 }
 
 /**
- * ADR-0012: never commit a series without showing what it will produce.
- * The front desk sees which of the upcoming dates would actually confirm
- * (and why the others wouldn't) before anything is written.
+ * El detalle fecha por fecha: cuáles de las próximas ocurrencias
+ * confirmarían y por qué las otras no.
+ *
+ * ADR-0012 pedía esto **antes** de cada confirmación. En el mostrador esa
+ * obligación resultó ser un peaje: asignar un cupo fijo es una decisión ya
+ * tomada ("este cliente tiene los lunes a las 9"), y la lista intermedia
+ * sólo agregaba un paso a la operación más repetida de la pantalla. Sigue
+ * disponible como camino secundario ("ver detalle antes de confirmar")
+ * para el caso en que el mostrador sí quiera revisar fecha por fecha, pero
+ * `createStandingReservation()` ya no depende de haber pasado por acá: el
+ * resumen que devuelve al confirmar cuenta la misma historia en agregado,
+ * y ninguna validación vivía en el preview (todas están en la RPC).
  */
 export async function previewStandingReservation(
   organizationSlug: string,
@@ -138,11 +151,84 @@ export async function previewStandingReservation(
   };
 }
 
+/**
+ * Qué produjo la serie recién creada, en agregado.
+ *
+ * Es lo que reemplaza al preview obligatorio en el camino rápido: sin
+ * esto, "Horario fijo asignado" a secas no distingue entre un cliente al
+ * que se le confirmaron las doce fechas y uno al que no se le confirmó
+ * ninguna porque debe el mes. Las cuatro categorías son disjuntas y suman
+ * `pending` (ver `schedule_rule_standing_reservations()`, Fase 25).
+ */
+export interface StandingCreateSummary {
+  /** Fechas futuras que quedaron CONFIRMED ya mismo. */
+  confirmed: number;
+  /** Fechas futuras en NOT_GENERATED: el lugar sigue guardado, pero todavía no es una reserva. */
+  pending: number;
+  /** De las pendientes, las que esperan un pago **cobrable hoy** (ADR-0019). */
+  unpaid: number;
+  /** De las pendientes, las que exceden la frecuencia que compró el plan (ADR-0024). */
+  overQuota: number;
+  /** De las pendientes, las que caen más allá del período vigente: no son deuda (Fase 25). */
+  beyondPeriod: number;
+  /** El resto de las pendientes: hoy, la clase llena o una reserva suelta duplicada. */
+  unavailable: number;
+}
+
 export interface StandingActionState {
   error: string | null;
   success: string | null;
+  /**
+   * Presente sólo cuando la serie se creó. Opcional a propósito: deja que
+   * un `initialState` viejo (`{ error: null, success: null }`) siga
+   * tipando.
+   */
+  summary?: StandingCreateSummary | null;
 }
 
+/**
+ * Una frase para el mostrador, construida desde el resumen. Vive acá y no
+ * en el componente porque es la traducción de los mismos códigos de
+ * `not_generated_reason` que ya traduce el resto de esta pantalla, y
+ * partirla en dos vocabularios es exactamente cómo empiezan a discrepar.
+ */
+function describeStandingOutcome(summary: StandingCreateSummary): string {
+  // Sin fecha de fin no es una opción que se elija: recurring_bookings
+  // nace con end_date null y la ventana rodante de ADR-0009 le va
+  // agregando fechas mientras la serie esté ACTIVE. Decirlo acá es la
+  // única forma que tiene el mostrador de saberlo.
+  const head =
+    summary.confirmed > 0
+      ? `Horario fijo asignado: ${summary.confirmed} ${summary.confirmed === 1 ? "fecha confirmada" : "fechas confirmadas"}. Se repite todas las semanas, sin fecha de fin, hasta que lo quites.`
+      : "Horario fijo asignado. Se repite todas las semanas, sin fecha de fin, hasta que lo quites.";
+
+  const pendientes: string[] = [];
+  if (summary.unpaid > 0) {
+    pendientes.push(`${summary.unpaid} esperan el pago y se confirman solas cuando lo registres`);
+  }
+  if (summary.overQuota > 0) {
+    pendientes.push(`${summary.overQuota} exceden la frecuencia que cubre su plan`);
+  }
+  if (summary.beyondPeriod > 0) {
+    pendientes.push(`${summary.beyondPeriod} caen más adelante que el período que ya pagó`);
+  }
+  if (summary.unavailable > 0) {
+    pendientes.push(`${summary.unavailable} no tienen lugar por ahora`);
+  }
+
+  if (pendientes.length === 0) return head;
+
+  return `${head} Quedan ${summary.pending} sin confirmar: ${pendientes.join("; ")}.`;
+}
+
+/**
+ * Asigna el cupo fijo. **No requiere haber pedido el preview**: sólo
+ * necesita el `customerId`, y todas las validaciones (membresía, cliente
+ * de la organización, serie duplicada, cupo del plan) viven dentro de
+ * `admin_create_recurring_booking()`, no en la pantalla previa. Lo que se
+ * perdía al saltear el detalle era información, no protección — por eso
+ * se devuelve el resumen de qué pasó con las fechas.
+ */
 export async function createStandingReservation(
   organizationSlug: string,
   serviceId: string,
@@ -154,11 +240,11 @@ export async function createStandingReservation(
   const customerId = String(formData.get("customerId") ?? "");
 
   if (!customerId) {
-    return { error: "Elegí un cliente", success: null };
+    return { error: "Elegí un cliente", success: null, summary: null };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.rpc("admin_create_recurring_booking", {
+  const { data, error } = await supabase.rpc("admin_create_recurring_booking", {
     p_schedule_rule_id: scheduleRuleId,
     p_customer_id: customerId,
   });
@@ -166,13 +252,13 @@ export async function createStandingReservation(
   if (error) {
     const message = error.message ?? "";
     if (message.includes("ALREADY_HAS_STANDING_RESERVATION")) {
-      return { error: "Ese cliente ya tiene este horario fijo", success: null };
+      return { error: "Ese cliente ya tiene este horario fijo", success: null, summary: null };
     }
     if (message.includes("NOT_A_CUSTOMER")) {
-      return { error: "Esa persona no es cliente de esta organización", success: null };
+      return { error: "Esa persona no es cliente de esta organización", success: null, summary: null };
     }
     if (message.includes("NOT_AUTHORIZED")) {
-      return { error: "No tenés permiso para hacer esto", success: null };
+      return { error: "No tenés permiso para hacer esto", success: null, summary: null };
     }
     // ADR-0024's soft gate: only fires when the customer *has* a plan with
     // a frequency in force, so "cobrale el mes" is the wrong advice here.
@@ -181,14 +267,73 @@ export async function createStandingReservation(
         error:
           "Este cliente ya usa todos los horarios fijos que cubre su plan. Cambialo a un plan con más frecuencia, o quitale otro horario fijo.",
         success: null,
+        summary: null,
       };
     }
-    return { error: "No se pudo crear el horario fijo", success: null };
+    return { error: "No se pudo crear el horario fijo", success: null, summary: null };
   }
 
   revalidatePath(`/org/${organizationSlug}/services/${serviceId}/schedule`);
   revalidatePath(`/org/${organizationSlug}/agenda`);
-  return { error: null, success: "Horario fijo asignado" };
+
+  const summary = await summarizeStandingReservation(
+    supabase,
+    scheduleRuleId,
+    (data as { id?: string } | null)?.id ?? null,
+    customerId,
+  );
+
+  // La serie ya existe: que el resumen no se pueda leer no la deshace.
+  if (!summary) return { error: null, success: "Horario fijo asignado", summary: null };
+
+  return { error: null, success: describeStandingOutcome(summary), summary };
+}
+
+/**
+ * Relee la serie recién creada para contar en qué quedó cada fecha. Es una
+ * segunda ida a la base a propósito: `admin_create_recurring_booking()`
+ * devuelve la fila de `recurring_bookings`, no el estado de los `Booking`
+ * que generó, y cambiarle la firma a la RPC rompería a todos sus llamadores
+ * para un dato que sólo necesita esta pantalla.
+ */
+async function summarizeStandingReservation(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  scheduleRuleId: string,
+  recurringBookingId: string | null,
+  customerId: string,
+): Promise<StandingCreateSummary | null> {
+  const { data, error } = await supabase.rpc("schedule_rule_standing_reservations", {
+    p_schedule_rule_id: scheduleRuleId,
+  });
+
+  if (error || !data) return null;
+
+  const row = (data as StandingReservationRow[]).find((r) =>
+    recurringBookingId
+      ? r.recurring_booking_id === recurringBookingId
+      : r.customer_id === customerId && r.status === "ACTIVE",
+  );
+
+  if (!row) return null;
+
+  const reservation = mapStandingReservation(row);
+  return {
+    confirmed: reservation.upcomingConfirmed,
+    pending: reservation.upcomingNotGenerated,
+    unpaid: reservation.upcomingUnpaid,
+    overQuota: reservation.upcomingOverQuota,
+    beyondPeriod: reservation.upcomingBeyondPeriod,
+    // Lo que queda después de las tres categorías explicadas: hoy es
+    // SLOT_FULL o DUPLICATE. Se calcula por resta para que un motivo nuevo
+    // en la base no desaparezca silenciosamente de la cuenta.
+    unavailable: Math.max(
+      0,
+      reservation.upcomingNotGenerated -
+        reservation.upcomingUnpaid -
+        reservation.upcomingOverQuota -
+        reservation.upcomingBeyondPeriod,
+    ),
+  };
 }
 
 /** <form action> target: React requires a void return. */

@@ -29,7 +29,11 @@ export interface MyBooking {
   organizationSlug: string;
   organizationName: string;
   organizationTimezone: string;
+  slotOccurrenceId: string;
+  serviceId: string;
   serviceName: string;
+  /** ADR-0008-adjacent presentation, not disclosure: same color get_public_availability() shows for this service. */
+  serviceColor: string | null;
   startAt: string;
   endAt: string;
   occurrenceStatus: "ACTIVE" | "BLOCKED" | "CANCELLED";
@@ -57,7 +61,10 @@ export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
       organization_slug: string;
       organization_name: string;
       organization_timezone: string;
+      slot_occurrence_id: string;
+      service_id: string;
       service_name: string;
+      service_color: string | null;
       start_at: string;
       end_at: string;
       occurrence_status: MyBooking["occurrenceStatus"];
@@ -70,7 +77,10 @@ export async function getMyBookings(includePast = false): Promise<MyBooking[]> {
       organizationSlug: row.organization_slug,
       organizationName: row.organization_name,
       organizationTimezone: row.organization_timezone,
+      slotOccurrenceId: row.slot_occurrence_id,
+      serviceId: row.service_id,
       serviceName: row.service_name,
+      serviceColor: row.service_color,
       startAt: row.start_at,
       endAt: row.end_at,
       occurrenceStatus: row.occurrence_status,
@@ -360,7 +370,19 @@ export async function confirmBooking(
   }
 
   revalidatePath("/me");
-  redirect("/me?reservado=1");
+
+  // Sin `org=`, /me elegía la organización con la próxima clase más
+  // cercana (pickCustomerOrganization) -- para alguien con reservas en
+  // varias organizaciones eso podía no ser la que acaba de reservar acá.
+  // public_slot_detail() ya resuelve organizationSlug para este mismo
+  // slotOccurrenceId (lo usa la pantalla de confirmación post-login,
+  // ADR-0015) -- se reusa en vez de armar una consulta nueva.
+  const slot = await getSlotDetail(slotOccurrenceId);
+  redirect(
+    slot
+      ? `/me?reservado=1&org=${encodeURIComponent(slot.organizationSlug)}`
+      : "/me?reservado=1",
+  );
 }
 
 export async function cancelMyBooking(bookingId: string): Promise<void> {
@@ -387,6 +409,19 @@ export async function cancelMyBooking(bookingId: string): Promise<void> {
  */
 export async function releaseMyBooking(bookingId: string): Promise<void> {
   const supabase = await createClient();
+
+  // Resuelta antes de cancelar (y no a partir de la respuesta de
+  // release_my_booking, que solo trae organization_id, no el slug): esta
+  // reserva liberada por sí sola desambigua a qué organización tiene que
+  // volver /me para alguien con reservas en varias -- my_bookings() ya
+  // arma organization_slug junto con organizationName, no hace falta una
+  // consulta nueva. Se guarda antes del RPC para que el redirect de error
+  // también pueda llevar `org=` (una reserva ajena o inexistente no
+  // aparece acá, así que ese caso simplemente cae al fallback sin org).
+  const bookings = await getMyBookings(true);
+  const orgSlug = bookings.find((booking) => booking.bookingId === bookingId)?.organizationSlug;
+  const orgParam = orgSlug ? `&org=${encodeURIComponent(orgSlug)}` : "";
+
   const { data, error } = await supabase.rpc("release_my_booking", { p_booking_id: bookingId });
   revalidatePath("/me");
 
@@ -404,11 +439,15 @@ export async function releaseMyBooking(bookingId: string): Promise<void> {
   // exacto no viaja: la RPC falla por reserva ajena o ya cancelada, y
   // ninguna de las dos es algo que el cliente pueda accionar desde acá.
   if (error) {
-    redirect("/me?liberar_error=1");
+    redirect(`/me?liberar_error=1${orgParam}`);
   }
 
   const credit = (data as { makeup_credit?: { id: string; expires_on: string } | null } | null)?.makeup_credit;
-  redirect(credit ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}` : "/me?liberado=1");
+  redirect(
+    credit
+      ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}${orgParam}`
+      : `/me?liberado=1${orgParam}`,
+  );
 }
 
 export interface MyMakeupCredit {

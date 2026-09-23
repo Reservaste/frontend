@@ -42,6 +42,11 @@ export function StandingReservations({
   timezone: string;
 }) {
   const [open, setOpen] = useState(false);
+  // Controlled on purpose: the select lives in the *create* form now, and
+  // both the quick path and the optional preview submit from there. An
+  // uncontrolled value would be wiped by React's post-action form reset
+  // between "ver detalle" and "confirmar".
+  const [customerId, setCustomerId] = useState("");
   const [preview, previewAction, previewPending] = useActionState(
     previewStandingReservation.bind(null, organizationSlug, scheduleRuleId),
     initialPreview,
@@ -64,6 +69,13 @@ export function StandingReservations({
   const alreadyStanding = new Set(active.map((r) => r.customerId));
   const available = customers.filter((c) => c.isActive && !alreadyStanding.has(c.customerId));
   const bookableDates = preview.dates.filter((d) => d.canBook === "OK").length;
+
+  // Derived, not stored: once the series exists the customer drops out of
+  // `available`, so the selection clears itself without an effect.
+  const selected = available.some((c) => c.customerId === customerId) ? customerId : "";
+  // The detail belongs to whoever was asked about. Showing A's dates under
+  // B's name is the exact discrepancy the preview exists to avoid.
+  const previewMatches = selected !== "" && preview.customerId === selected;
 
   return (
     <div className="flex flex-col gap-3 border-t bg-muted/30 px-4 py-3.5">
@@ -172,18 +184,26 @@ export function StandingReservations({
             <EmptyState size="sm" title="Todos los clientes activos ya tienen este horario fijo." />
           ) : (
             <>
-              {/* Two steps on purpose (ADR-0012): pick the person, see the
-                  dates that would actually be reserved, then confirm. */}
-              <form action={previewAction} className="flex flex-col gap-1.5">
-                <Label htmlFor={`customer-${scheduleRuleId}`}>Cliente</Label>
-                <div className="flex flex-wrap gap-2">
+              {/* Un solo form, dos submits. Asignar un cupo fijo es una
+                  decisión ya tomada en el mostrador ("este cliente tiene los
+                  lunes a las 9"), así que el camino corto es el botón
+                  primario y el detalle fecha por fecha de ADR-0012 quedó como
+                  segundo submit del mismo form. Saltearlo no relaja nada: el
+                  preview nunca validó (membresía, pertenencia, serie
+                  duplicada y cupo del plan se verifican dentro de
+                  `admin_create_recurring_booking`), sólo informaba — y esa
+                  información ahora vuelve en `created.success`. */}
+              <form action={createAction} className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor={`customer-${scheduleRuleId}`}>Cliente</Label>
                   <Select
                     id={`customer-${scheduleRuleId}`}
                     name="customerId"
                     required
                     touch
-                    className="min-w-48 flex-1"
-                    defaultValue={preview.customerId ?? ""}
+                    className="min-w-48"
+                    value={selected}
+                    onChange={(event) => setCustomerId(event.target.value)}
                   >
                     <option value="" disabled>
                       Elegí un cliente
@@ -194,69 +214,97 @@ export function StandingReservations({
                       </option>
                     ))}
                   </Select>
-                  <Button type="submit" variant="outline" size="touch" disabled={previewPending}>
-                    {previewPending ? "Buscando…" : "Ver fechas"}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="submit" size="touch" disabled={createPending || previewPending}>
+                    {createPending ? "Asignando…" : "Asignar horario fijo"}
+                  </Button>
+                  {/* Secundario y opcional: mismo form, otra acción. */}
+                  <Button
+                    type="submit"
+                    formAction={previewAction}
+                    variant="outline"
+                    size="touch"
+                    disabled={createPending || previewPending}
+                  >
+                    {previewPending ? "Buscando…" : "Ver detalle antes de confirmar"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="touch" onClick={() => setOpen(false)}>
+                    Cancelar
                   </Button>
                 </div>
-              </form>
 
-              <FormError>{preview.error}</FormError>
+                {/* `recurring_bookings.end_date` nace null y la ventana
+                    rodante de ADR-0009 le sigue agregando fechas mientras la
+                    serie esté ACTIVE. La pantalla nunca lo dijo, y es lo
+                    primero que el mostrador necesita saber antes de apretar. */}
+                <FieldHint>
+                  Se repite todas las semanas, sin fecha de fin, hasta que lo quites. Las fechas que
+                  hoy no se puedan reservar quedan pendientes y se confirman solas cuando el pago
+                  esté al día.
+                </FieldHint>
 
-              {preview.dates.length > 0 ? (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    Próximas fechas de {ruleLabel} ·{" "}
-                    <span className="tnum font-medium text-foreground">{bookableDates}</span> de{" "}
-                    <span className="tnum">{preview.dates.length}</span> se reservarían ahora
-                  </p>
-                  <ul className="grid gap-1.5 sm:grid-cols-2">
-                    {preview.dates.map((date) => (
-                      <li
-                        key={date.slotOccurrenceId}
-                        className="flex items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-sm"
+                <FormError>{preview.error}</FormError>
+
+                {previewMatches ? (
+                  preview.dates.length > 0 ? (
+                    <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        Próximas fechas de {ruleLabel} ·{" "}
+                        <span className="tnum font-medium text-foreground">{bookableDates}</span> de{" "}
+                        <span className="tnum">{preview.dates.length}</span> se reservarían ahora
+                      </p>
+                      <ul className="grid gap-1.5 sm:grid-cols-2">
+                        {preview.dates.map((date) => (
+                          <li
+                            key={date.slotOccurrenceId}
+                            className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm"
+                          >
+                            <span className="tnum">
+                              {dateFormatter.format(new Date(date.startAt))}
+                            </span>
+                            <span
+                              className={
+                                date.canBook === "OK"
+                                  ? "text-xs text-muted-foreground"
+                                  : "text-xs font-medium text-destructive"
+                              }
+                            >
+                              {DESK_BOOKING_REASONS[date.canBook] ?? date.canBook}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* Mismo form, misma acción que el botón de arriba:
+                          después de leer el detalle no hay que volver a
+                          subir para confirmar. */}
+                      <Button
+                        type="submit"
+                        size="touch"
+                        className="self-start"
+                        disabled={createPending || previewPending}
                       >
-                        <span className="tnum">{dateFormatter.format(new Date(date.startAt))}</span>
-                        <span
-                          className={
-                            date.canBook === "OK"
-                              ? "text-xs text-muted-foreground"
-                              : "text-xs font-medium text-destructive"
-                          }
-                        >
-                          {DESK_BOOKING_REASONS[date.canBook] ?? date.canBook}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                        {createPending ? "Asignando…" : "Confirmar horario fijo"}
+                      </Button>
+                    </div>
+                  ) : (
+                    <EmptyState
+                      size="sm"
+                      title="No hay próximas fechas publicadas para este horario."
+                      description="Podés asignar el horario fijo igual: las fechas se confirman solas a medida que se publiquen."
+                    />
+                  )
+                ) : null}
 
-                  <form action={createAction} className="flex flex-wrap items-center gap-2">
-                    <input type="hidden" name="customerId" value={preview.customerId ?? ""} />
-                    <Button type="submit" size="touch" disabled={createPending}>
-                      {createPending ? "Asignando…" : "Confirmar horario fijo"}
-                    </Button>
-                    <Button type="button" variant="ghost" size="touch" onClick={() => setOpen(false)}>
-                      Cancelar
-                    </Button>
-                  </form>
-
-                  {/* The series is intentionally created even when some
-                      dates can't be reserved yet: those stay pending and
-                      confirm on their own once the payment is registered. */}
-                  {bookableDates < preview.dates.length ? (
-                    <FieldHint>
-                      Las fechas que no se reservan quedan pendientes y se confirman solas cuando el pago
-                      esté al día.
-                    </FieldHint>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <FormError>{created.error}</FormError>
-              <FormSuccess>{created.success}</FormSuccess>
+                <FormError>{created.error}</FormError>
+                <FormSuccess>{created.success}</FormSuccess>
+              </form>
             </>
           )}
 
-          {available.length === 0 || preview.dates.length === 0 ? (
+          {available.length === 0 ? (
             <Button type="button" variant="ghost" size="touch" className="self-start" onClick={() => setOpen(false)}>
               Cerrar
             </Button>

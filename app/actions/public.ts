@@ -7,6 +7,7 @@
 // data (Customer, Booking, Payment, personal fields) these functions
 // could possibly return even by mistake.
 
+import type { ServicePlanKind } from "@reservaste/domain";
 import { mapPublicAvailabilitySlot, mapPublicOrganization, mapPublicService } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 
@@ -66,4 +67,91 @@ export async function getPublicAvailability(
     ...mapPublicAvailabilitySlot(row),
     recentlyReleased: row.recently_released ?? null,
   }));
+}
+
+/**
+ * The price list a business publishes: its active ServicePlans, with the
+ * services each one covers already resolved (ADR-0029's
+ * `applies_to_all_services` included).
+ *
+ * Public on purpose, and no new disclosure: `service_plans_select_public`
+ * (Phase 22) already lets anon read active plans straight off PostgREST.
+ * What `public_service_plans()` adds is doing the covered-set resolution
+ * in one place, against *active* services only -- the same union the
+ * admin screen needs two queries and a Map to assemble here
+ * (loadCoveredServiceIds in service-plans.ts), and which a client-side
+ * version would get subtly wrong for a plan whose explicit selection
+ * includes a service that was since deactivated.
+ *
+ * `serviceId` narrows it to the plans that cover that service: that's the
+ * shape the OVER_PLAN_QUOTA / OUTSIDE_PLAN_QUOTA screens need, where the
+ * person is standing in front of one service and wants to know what else
+ * is on offer for it.
+ *
+ * Defined here rather than in @reservaste/domain on purpose: the domain
+ * package is a separate repo consumed by git ref (CLAUDE.md), so adding a
+ * type there would block this screen behind a publish + bump. Same call
+ * PaymentPlanOption already made.
+ */
+export interface PublicServicePlan {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  /** ISO 4217 of the organization (ADR-0024) -- a plan has no currency. */
+  currency: string;
+  planKind: ServicePlanKind;
+  /** Only on WEEKLY_QUOTA; null on DROP_IN/UNLIMITED. */
+  weeklyQuota: number | null;
+  quotaScope: "PER_SERVICE" | "SHARED_ACROSS_SERVICES" | null;
+  billingType: "ONE_TIME" | "MONTHLY";
+  billingCycle: "CALENDAR_MONTH" | "ROLLING_MONTH" | null;
+  appliesToAllServices: boolean;
+  serviceIds: string[];
+  serviceNames: string[];
+}
+
+export async function listPublicServicePlans(
+  organizationSlug: string,
+  serviceId?: string | null,
+): Promise<PublicServicePlan[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("public_service_plans", {
+    p_organization_slug: organizationSlug,
+    p_service_id: serviceId ?? null,
+  });
+
+  if (error || !data) return [];
+
+  return data.map(
+    (row: {
+      plan_id: string;
+      name: string;
+      description: string | null;
+      price: string | number;
+      currency: string;
+      plan_kind: ServicePlanKind;
+      weekly_quota: number | null;
+      quota_scope: PublicServicePlan["quotaScope"];
+      billing_type: PublicServicePlan["billingType"];
+      billing_cycle: PublicServicePlan["billingCycle"];
+      applies_to_all_services: boolean;
+      service_ids: string[] | null;
+      service_names: string[] | null;
+    }) => ({
+      id: row.plan_id,
+      name: row.name,
+      description: row.description,
+      price: Number(row.price),
+      currency: row.currency,
+      planKind: row.plan_kind,
+      weeklyQuota: row.weekly_quota,
+      quotaScope: row.quota_scope,
+      billingType: row.billing_type,
+      billingCycle: row.billing_cycle,
+      appliesToAllServices: row.applies_to_all_services,
+      serviceIds: row.service_ids ?? [],
+      serviceNames: row.service_names ?? [],
+    }),
+  );
 }

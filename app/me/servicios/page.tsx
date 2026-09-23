@@ -1,21 +1,45 @@
 import Link from "next/link";
 import { getMyServices } from "@/app/actions/customer";
+import { getMyPlanChangeRequests } from "@/app/actions/plan-changes";
+import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { buttonVariants } from "@/components/ui/button";
+import { InfoIcon } from "@/components/icons";
 import { formatMoney } from "@/lib/money";
 import { PLAN_KIND_LABEL } from "@/lib/plan-labels";
 
 export const metadata = { title: "Mis servicios" };
 
 export default async function MyServicesPage() {
-  const services = await getMyServices();
+  const [services, planChangeRequests] = await Promise.all([
+    getMyServices(),
+    getMyPlanChangeRequests(),
+  ]);
+
+  // ADR-0035: un pedido pendiente no habilita ni bloquea nada, pero sin
+  // mostrarlo el botón del catálogo es un agujero negro -- y la persona
+  // vuelve a pedir lo mismo creyendo que no se envió.
+  const pending = planChangeRequests.filter((request) => request.resolution === null);
+  const organizationsWithPending = new Set(pending.map((request) => request.organizationSlug));
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
       <PageHeader title="Mis servicios" />
+
+      {pending.length > 0 ? (
+        <Alert tone="info" icon={<InfoIcon />} title="Pediste cambiar de plan">
+          {pending.map((request) => (
+            <p key={request.requestId}>
+              <span className="font-medium">{request.planName}</span> en {request.organizationName}.
+              El negocio te va a contactar para confirmarlo y cobrarlo — tu plan actual sigue
+              vigente hasta entonces.
+            </p>
+          ))}
+        </Alert>
+      ) : null}
 
       {services.length === 0 ? (
         <EmptyState
@@ -90,12 +114,28 @@ export default async function MyServicesPage() {
                 </p>
               ) : null}
 
-              <Link
-                href={`/${service.organizationSlug}`}
-                className={buttonVariants({ variant: "outline", size: "touch", className: "self-start" })}
-              >
-                Ver agenda
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <Link
+                  href={`/${service.organizationSlug}`}
+                  className={buttonVariants({ variant: "outline", size: "touch" })}
+                >
+                  Ver agenda
+                </Link>
+                {/* La única puerta del cliente al catálogo (ADR-0035):
+                    acotada a este servicio, que es lo que está mirando.
+                    Si ya pidió un cambio en este negocio, el botón lo
+                    dice en vez de invitar a pedir de nuevo. */}
+                <Link
+                  href={`/${service.organizationSlug}/planes?servicio=${encodeURIComponent(service.serviceId)}`}
+                  className={buttonVariants({ variant: "ghost", size: "touch" })}
+                >
+                  {organizationsWithPending.has(service.organizationSlug)
+                    ? "Ver planes (pedido enviado)"
+                    : service.planName
+                      ? "Cambiar de plan"
+                      : "Ver planes"}
+                </Link>
+              </div>
             </DataListRow>
           ))}
         </DataList>
