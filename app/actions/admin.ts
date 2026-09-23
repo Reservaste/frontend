@@ -368,6 +368,10 @@ function describeError(message: string | undefined): string {
   if (message.includes("RATE_LIMITED")) {
     return "Se emitieron demasiados links en poco tiempo. Esperá un momento y probá de nuevo.";
   }
+  if (message.includes("BOOKING_NOT_FOUND")) return "Esa reserva ya no existe";
+  if (message.includes("BOOKING_NOT_CONFIRMED")) {
+    return "No se puede marcar asistencia de una reserva cancelada";
+  }
   return "Algo salió mal";
 }
 
@@ -688,18 +692,24 @@ export async function getOccurrence(
   };
 }
 
-/** Roll call. <form action> target, so it resolves to void. */
+/** Roll call. */
 export async function markAttendance(
   organizationSlug: string,
   slotOccurrenceId: string,
   bookingId: string,
   status: "PENDING" | "PRESENT" | "ABSENT",
-): Promise<void> {
+): Promise<{ error: string | null }> {
   await requireOrganizationMembership(organizationSlug);
   const supabase = await createClient();
 
-  await supabase.rpc("mark_attendance", { p_booking_id: bookingId, p_status: status });
+  const { error } = await supabase.rpc("mark_attendance", { p_booking_id: bookingId, p_status: status });
+
+  if (error) {
+    return { error: describeError(error.message) };
+  }
+
   revalidatePath(`/org/${organizationSlug}/agenda/${slotOccurrenceId}`, "layout");
+  return { error: null };
 }
 
 

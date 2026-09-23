@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/status";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { DataList, DataListRow } from "@/components/ui/table";
-import { InviteForm } from "./invite-form";
+import { InviteForm, CopyCodeButton } from "./invite-form";
 import { SubscriptionControls } from "./subscription-controls";
 
 export const metadata = { title: "Plataforma" };
@@ -65,7 +65,7 @@ export default async function PlatformAdminPage() {
             <StatusBadge tone="primary">Plataforma</StatusBadge>
           </div>
           <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
+            <Button type="submit" variant="ghost" size="touch">
               Salir
             </Button>
           </form>
@@ -111,11 +111,14 @@ export default async function PlatformAdminPage() {
                       {invite.note ? ` · ${invite.note}` : ""}
                     </span>
                   </div>
-                  {invite.expiresAt ? (
-                    <span className="text-xs text-muted-foreground">
-                      vence {new Date(invite.expiresAt).toLocaleDateString("es-UY")}
-                    </span>
-                  ) : null}
+                  <div className="flex items-center gap-2">
+                    {invite.expiresAt ? (
+                      <span className="text-xs text-muted-foreground">
+                        vence {new Date(invite.expiresAt).toLocaleDateString("es-UY")}
+                      </span>
+                    ) : null}
+                    <CopyCodeButton code={invite.code} />
+                  </div>
                 </DataListRow>
               ))}
             </DataList>
@@ -130,7 +133,7 @@ export default async function PlatformAdminPage() {
               description="Generá un código y pasáselo a tu primer cliente."
             />
           ) : (
-            <ul className="flex flex-col gap-2">
+            <DataList>
               {organizations.map((org) => {
                 const status = STATUS[org.subscriptionStatus] ?? {
                   label: org.subscriptionStatus,
@@ -138,7 +141,7 @@ export default async function PlatformAdminPage() {
                 };
 
                 return (
-                  <li key={org.organizationId} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
+                  <DataListRow key={org.organizationId} className="flex flex-col gap-3 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="flex flex-col gap-0.5">
                         <Link href={`/${org.slug}`} className="font-medium hover:underline">
@@ -152,10 +155,10 @@ export default async function PlatformAdminPage() {
                       <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
                     </div>
                     <SubscriptionControls organization={org} plans={PLANS} />
-                  </li>
+                  </DataListRow>
                 );
               })}
-            </ul>
+            </DataList>
           )}
         </section>
       </div>

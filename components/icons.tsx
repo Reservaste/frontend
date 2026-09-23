@@ -4,6 +4,7 @@ import {
   Check,
   ChevronLeft as LucideChevronLeft,
   ChevronRight as LucideChevronRight,
+  Copy,
   Info,
   X,
   type LucideIcon,
@@ -48,3 +49,5 @@ export const AlertCircleIcon = withDefaultSize(AlertCircle);
 export const AlertTriangleIcon = withDefaultSize(AlertTriangle);
 /** "Nothing's wrong, just information" — pairs with `Alert tone="info"`. */
 export const InfoIcon = withDefaultSize(Info);
+/** Copy-to-clipboard affordance, next to a code meant to be pasted elsewhere. */
+export const CopyIcon = withDefaultSize(Copy);

@@ -1,9 +1,10 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { cn } from "cn";
 import type { OccurrenceAttendee } from "@/app/actions/admin";
 import { markAttendance } from "@/app/actions/admin";
+import { FormError } from "@/components/ui/form";
 
 type Status = "PENDING" | "PRESENT" | "ABSENT";
 
@@ -14,7 +15,22 @@ type Status = "PENDING" | "PRESENT" | "ABSENT";
  *
  * Optimistic because the person doing this is going down a list at
  * speed: waiting for a round trip between names would make it feel
- * broken even when it works.
+ * broken even when it works. But optimistic can't mean unconditional: if
+ * `markAttendance` comes back with an error, the mark needs to revert to
+ * what the server actually has and the owner needs to be told -- silently
+ * leaving the screen "present" while the database still says "pending" is
+ * exactly the failure mode this screen exists to prevent.
+ *
+ * `useOptimistic` (not local `useState`) is what makes both of those work
+ * for free: the parent doesn't pass a `key`, so it re-renders with a fresh
+ * `attendees` prop whenever someone else's mark (or a cancellation)
+ * revalidates -- `useOptimistic` re-bases on that prop on every render
+ * outside a transition, where a plain `useState(initialAttendees)` would
+ * never see it again after mount. And on failure there's no manual
+ * revert with a closure-captured `previous` to get clobbered by an
+ * out-of-order response to a second, faster mark of the same booking --
+ * `useOptimistic` just falls back to the real base value once the
+ * transition settles without updating it.
  */
 export function RollCall({
   organizationSlug,
@@ -25,41 +41,48 @@ export function RollCall({
   occurrenceId: string;
   attendees: OccurrenceAttendee[];
 }) {
-  const [, startTransition] = useTransition();
-  const [optimistic, setOptimistic] = useOptimistic(
+  const [isPending, startTransition] = useTransition();
+  const [optimisticAttendees, applyOptimistic] = useOptimistic(
     attendees,
-    (current: OccurrenceAttendee[], change: { bookingId: string; status: Status }) =>
+    (current: OccurrenceAttendee[], action: { bookingId: string; status: Status }) =>
       current.map((a) =>
-        a.bookingId === change.bookingId ? { ...a, attendanceStatus: change.status } : a,
+        a.bookingId === action.bookingId ? { ...a, attendanceStatus: action.status } : a,
       ),
   );
+  const [error, setError] = useState<string | null>(null);
 
   const mark = (bookingId: string, status: Status) => {
+    setError(null);
     startTransition(async () => {
-      setOptimistic({ bookingId, status });
-      await markAttendance(organizationSlug, occurrenceId, bookingId, status);
+      applyOptimistic({ bookingId, status });
+      const result = await markAttendance(organizationSlug, occurrenceId, bookingId, status);
+      if (result?.error) {
+        setError(result.error);
+      }
     });
   };
 
-  const present = optimistic.filter((a) => a.attendanceStatus === "PRESENT").length;
-  const absent = optimistic.filter((a) => a.attendanceStatus === "ABSENT").length;
-  const pending = optimistic.length - present - absent;
+  const present = optimisticAttendees.filter((a) => a.attendanceStatus === "PRESENT").length;
+  const absent = optimisticAttendees.filter((a) => a.attendanceStatus === "ABSENT").length;
+  const unmarked = optimisticAttendees.length - present - absent;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 rounded-xl border bg-card/95 px-4 py-3 shadow-card backdrop-blur">
         <span className="text-sm font-medium">
-          <span className="tnum">{optimistic.length}</span> reservados
+          <span className="tnum">{optimisticAttendees.length}</span> reservados
         </span>
         <div className="flex gap-3 text-sm">
           <span className="tnum text-success">{present} presentes</span>
           <span className="tnum text-destructive">{absent} ausentes</span>
-          {pending > 0 ? <span className="tnum text-muted-foreground">{pending} sin marcar</span> : null}
+          {unmarked > 0 ? <span className="tnum text-muted-foreground">{unmarked} sin marcar</span> : null}
         </div>
       </div>
 
+      <FormError>{error}</FormError>
+
       <ul className="flex flex-col gap-2">
-        {optimistic.map((attendee) => (
+        {optimisticAttendees.map((attendee) => (
           <li
             key={attendee.bookingId}
             className="flex flex-col gap-2.5 rounded-xl border bg-card p-3.5 shadow-card"
@@ -70,6 +93,7 @@ export function RollCall({
               <button
                 type="button"
                 aria-pressed={attendee.attendanceStatus === "PRESENT"}
+                disabled={isPending}
                 onClick={() =>
                   mark(
                     attendee.bookingId,
@@ -79,7 +103,7 @@ export function RollCall({
                 className={cn(
                   // 56px tall: a comfortable thumb target, not a desktop
                   // button that happens to also work on a phone.
-                  "flex h-14 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors",
+                  "flex h-14 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors disabled:opacity-60",
                   attendee.attendanceStatus === "PRESENT"
                     ? "border-success bg-success text-success-foreground"
                     : "bg-card hover:bg-success-subtle",
@@ -100,6 +124,7 @@ export function RollCall({
               <button
                 type="button"
                 aria-pressed={attendee.attendanceStatus === "ABSENT"}
+                disabled={isPending}
                 onClick={() =>
                   mark(
                     attendee.bookingId,
@@ -107,7 +132,7 @@ export function RollCall({
                   )
                 }
                 className={cn(
-                  "flex h-14 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors",
+                  "flex h-14 items-center justify-center gap-2 rounded-xl border text-sm font-semibold transition-colors disabled:opacity-60",
                   attendee.attendanceStatus === "ABSENT"
                     ? "border-destructive bg-destructive text-destructive-foreground"
                     : "bg-card hover:bg-destructive-subtle",

@@ -5,6 +5,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { CheckIcon } from "@/components/icons";
 
 export const metadata = { title: "Mis reservas" };
@@ -60,7 +61,7 @@ export default async function MyBookingsPage({
           description="Cuando reserves un horario va a aparecer acá."
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <DataList>
           {visible.map((booking) => {
             const start = new Date(booking.startAt);
             const dateLabel = new Intl.DateTimeFormat("es-UY", {
@@ -80,9 +81,9 @@ export default async function MyBookingsPage({
             const cancelled = booking.status === "CANCELLED";
 
             return (
-              <li
+              <DataListRow
                 key={booking.bookingId}
-                className={`flex items-center gap-3 rounded-xl border bg-card px-4 py-3 shadow-card ${
+                className={`flex items-center gap-3 px-4 py-3 ${
                   cancelled || booking.status === "NOT_GENERATED" ? "opacity-70" : ""
                 }`}
               >
@@ -146,10 +147,10 @@ export default async function MyBookingsPage({
                 ) : (
                   <StatusBadge tone="success">Asististe</StatusBadge>
                 )}
-              </li>
+              </DataListRow>
             );
           })}
-        </ul>
+        </DataList>
       )}
     </div>
   );

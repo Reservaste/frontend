@@ -25,6 +25,7 @@ export function OnboardingForm() {
           required
           autoCapitalize="characters"
           className="font-mono tracking-widest uppercase"
+          touch
         />
         <p className="text-xs text-muted-foreground">
           Te lo damos al contratar el plan. Si no tenés uno, escribinos.
@@ -32,13 +33,13 @@ export function OnboardingForm() {
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="name">Nombre del negocio</Label>
-        <Input id="name" name="name" type="text" placeholder="Iron Gym" required />
+        <Input id="name" name="name" type="text" placeholder="Iron Gym" required touch />
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="slug">URL pública</Label>
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <span>reservaste.app/</span>
-          <Input id="slug" name="slug" type="text" placeholder="iron-gym" required className="flex-1" />
+          <Input id="slug" name="slug" type="text" placeholder="iron-gym" required className="flex-1" touch />
         </div>
       </div>
       <TimezonePicker />
