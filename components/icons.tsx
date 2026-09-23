@@ -1,10 +1,22 @@
 import {
+  Activity,
   AlertCircle,
   AlertTriangle,
   Check,
   ChevronLeft as LucideChevronLeft,
   ChevronRight as LucideChevronRight,
+  Copy,
+  CreditCard,
+  Goal,
   Info,
+  Mail,
+  ListChecks,
+  Palette,
+  Phone,
+  Repeat,
+  RotateCcw,
+  Stethoscope,
+  Users,
   X,
   type LucideIcon,
   type LucideProps,
@@ -48,3 +60,31 @@ export const AlertCircleIcon = withDefaultSize(AlertCircle);
 export const AlertTriangleIcon = withDefaultSize(AlertTriangle);
 /** "Nothing's wrong, just information" — pairs with `Alert tone="info"`. */
 export const InfoIcon = withDefaultSize(Info);
+/** Copy-to-clipboard affordance, next to a code meant to be pasted elsewhere. */
+export const CopyIcon = withDefaultSize(Copy);
+
+// Landing (ADR-0030 §3.3/§3.4): rubric strip + feature grid. Added here
+// rather than imported ad hoc in `app/page.tsx`, same rule as every other
+// icon in this file.
+/** Consultorio / turnos de a uno. */
+export const StethoscopeIcon = withDefaultSize(Stethoscope);
+/** Estudio, clase grupal, cualquier servicio con capacidad > 1. */
+export const ActivityIcon = withDefaultSize(Activity);
+/** Cancha, recurso físico reservable. */
+export const GoalIcon = withDefaultSize(Goal);
+/** Cupo / capacidad de un horario. */
+export const UsersIcon = withDefaultSize(Users);
+/** Reserva recurrente / turno fijo. */
+export const RepeatIcon = withDefaultSize(Repeat);
+/** Plan de servicio, cuota semanal. */
+export const ListChecksIcon = withDefaultSize(ListChecks);
+/** Pago / estado de cuenta. */
+export const CreditCardIcon = withDefaultSize(CreditCard);
+/** Crédito de recupero. */
+export const RotateCcwIcon = withDefaultSize(RotateCcw);
+/** Marca/branding propio de la organización. */
+export const PaletteIcon = withDefaultSize(Palette);
+/** Canal de contacto: email. */
+export const MailIcon = withDefaultSize(Mail);
+/** Canal de contacto: teléfono. */
+export const PhoneIcon = withDefaultSize(Phone);

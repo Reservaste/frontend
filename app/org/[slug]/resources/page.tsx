@@ -1,7 +1,7 @@
 import { listResources } from "@/app/actions/resources";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { PageHeader } from "@/components/page-header";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { DataList } from "@/components/ui/table";
 import { ResourceForm } from "./resource-form";
 import { ResourceRow } from "./resource-row";

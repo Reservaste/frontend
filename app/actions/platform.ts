@@ -176,16 +176,93 @@ export async function createInvite(
   return { error: null, createdCode: (data as { code: string }).code };
 }
 
+export interface PlatformContactRequest {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  businessType: string | null;
+  message: string;
+  createdAt: string;
+  handledAt: string | null;
+  handledBy: string | null;
+}
+
+export async function getPlatformContactRequests(): Promise<PlatformContactRequest[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("platform_contact_requests");
+
+  if (error || !data) return [];
+
+  return data.map(
+    (row: {
+      id: string;
+      name: string;
+      email: string;
+      phone: string | null;
+      business_type: string | null;
+      message: string;
+      created_at: string;
+      handled_at: string | null;
+      handled_by: string | null;
+    }) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      phone: row.phone,
+      businessType: row.business_type,
+      message: row.message,
+      createdAt: row.created_at,
+      handledAt: row.handled_at,
+      handledBy: row.handled_by,
+    }),
+  );
+}
+
+export async function markContactRequestHandled(contactRequestId: string): Promise<{ error: string | null }> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("mark_contact_request_handled", {
+    p_id: contactRequestId,
+  });
+
+  if (error) {
+    if (error.message.includes("NOT_AUTHORIZED")) {
+      return { error: "No tenés permiso para hacer esto" };
+    }
+    if (error.message.includes("CONTACT_REQUEST_NOT_FOUND")) {
+      return { error: "No se encontró esa solicitud" };
+    }
+    return { error: "No se pudo marcar como atendida" };
+  }
+
+  revalidatePath("/admin");
+  return { error: null };
+}
+
 export async function setSubscription(
   organizationId: string,
   planCode: string,
   status: string,
-): Promise<void> {
+): Promise<{ error: string | null }> {
   const supabase = await createClient();
-  await supabase.rpc("set_organization_subscription", {
+  const { error } = await supabase.rpc("set_organization_subscription", {
     p_organization_id: organizationId,
     p_plan_code: planCode,
     p_status: status,
   });
+
+  if (error) {
+    if (error.message.includes("ORGANIZATION_NOT_FOUND")) {
+      return { error: "No se encontró esa organización" };
+    }
+    if (error.message.includes("NOT_AUTHORIZED")) {
+      return { error: "No tenés permiso para hacer esto" };
+    }
+    // Plan inexistente (FK a plans.code) o un status que no es un valor
+    // válido del enum llegan acá como error crudo de Postgres.
+    return { error: "No se pudo actualizar la suscripción. Revisá el plan y el estado elegidos." };
+  }
+
   revalidatePath("/admin");
+  return { error: null };
 }

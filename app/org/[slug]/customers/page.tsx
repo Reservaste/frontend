@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { ChevronRight } from "@/components/icons";

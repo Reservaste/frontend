@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getOccurrence, getOccurrenceAttendees } from "@/app/actions/admin";
 import { BackLink } from "@/components/back-link";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { RollCall } from "./roll-call";
 
 export const metadata = { title: "Pasar lista" };

@@ -89,16 +89,16 @@ export function ActivationPanel({
         <>
           <div className="flex flex-wrap gap-2">
             {canIssue ? (
-              <Button type="button" onClick={issue} disabled={pending}>
+              <Button type="button" size="touch" onClick={issue} disabled={pending}>
                 {pending ? "Generando…" : status ? "Reenviar link" : "Enviar link de activación"}
               </Button>
             ) : (
               <>
-                <Button type="button" variant="outline" onClick={issue} disabled={pending}>
+                <Button type="button" size="touch" variant="outline" onClick={issue} disabled={pending}>
                   {pending ? "Generando…" : "Reenviar (invalida el anterior)"}
                 </Button>
                 {status?.activationId ? (
-                  <Button type="button" variant="ghost" onClick={revoke} disabled={pending}>
+                  <Button type="button" size="touch" variant="ghost" onClick={revoke} disabled={pending}>
                     Revocar
                   </Button>
                 ) : null}
@@ -111,7 +111,7 @@ export function ActivationPanel({
               href={link}
               target="_blank"
               rel="noreferrer noopener"
-              className="focus-ring inline-flex w-fit items-center gap-2 rounded-md bg-success px-3 py-2 text-sm font-medium text-success-foreground"
+              className="focus-ring inline-flex h-11 w-fit items-center gap-2 rounded-md bg-success px-4 text-sm font-medium text-success-foreground sm:h-9 sm:px-3"
             >
               Abrir WhatsApp con el mensaje listo
             </a>

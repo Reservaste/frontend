@@ -150,6 +150,19 @@
   --shadow-overlay:
     0 4px 10px -2px oklch(0.19 0.025 258 / 0.14),
     0 28px 64px -16px oklch(0.19 0.025 258 / 0.28);
+
+  /* Marca Reservaste (ADR-0030, capa P). Fija: ningún [data-brand] la pisa.
+     Se escriben en hex y no en oklch porque son valores de marca literales,
+     citables en un manual y comparables contra un asset exportado; el resto
+     del sistema sigue en oklch, que es lo correcto para tokens derivados. */
+  --brand-violet:        #7c3aed;  /* acción de marca; blanco encima = 5.70:1 AA */
+  --brand-violet-strong: #6d28d9;  /* hover/pressed y texto violeta sobre blanco = 7.11:1 AAA */
+  --brand-violet-deep:   #4c1d95;  /* fondo de banda oscura; blanco encima = 10.96:1 */
+  --brand-cyan:          #22d3ee;  /* SOLO decorativo: 1.7:1 sobre blanco, nunca lleva texto */
+  --brand-cyan-deep:     #0e7490;  /* la versión del cian que sí puede ser texto: 5.36:1 AA */
+  --brand-ink:           #155e75;  /* stop frío de la banda oscura; blanco encima = 7.28:1 */
+
+  --brand-gradient: linear-gradient(135deg, var(--brand-violet), var(--brand-cyan));
 }
 
 .dark {
@@ -243,6 +256,44 @@
     color-mix(in oklab, var(--primary) 9%, transparent),
     transparent 60%
   );
+}
+
+/* Banda oscura de marca (ADR-0030 §1.6). NO es dark mode: no hay toggle,
+   no persiste, no cascadea fuera de su propio subárbol y sólo puede
+   contener texto, links y botones -- nunca un input, select o dialog, que
+   es donde el tema oscuro se vuelve un sistema de tokens propio en vez de
+   una sección con un fondo.
+   Uso permitido: app/page.tsx (hero opcional y CTA final). Nada más. */
+.brand-band {
+  background-image: linear-gradient(155deg, #2e1065 0%, var(--brand-violet-deep) 55%, var(--brand-ink) 100%);
+  color: #ffffff;
+  /* Los botones de adentro se invierten: superficie blanca, texto violeta.
+     Esto es un override local de dos tokens, no un tema. */
+  --primary: #ffffff;
+  --primary-foreground: var(--brand-violet-deep);  /* 10.96:1 */
+  --primary-hover: #f5f3ff;
+  --ring: var(--brand-cyan);                        /* el foco tiene que verse sobre violeta */
+}
+.brand-band :where(p, li) { color: rgb(255 255 255 / 0.82); }  /* ≥ 8:1 en todo el gradiente */
+
+/* Escala display (ADR-0030 §2). SOLO app/page.tsx y componentes de
+   components/marketing/. La escala de producto (text-2xl para títulos de
+   pantalla, text-sm de base) no se toca: son densidades distintas para
+   trabajos distintos, y mezclarlas es como se arruina un sistema. */
+.display-1 { font-size: clamp(2.25rem, 6.2vw, 3.75rem); line-height: 1.04; font-weight: 800; letter-spacing: -0.035em; text-wrap: balance; }
+.display-2 { font-size: clamp(1.75rem, 4vw, 2.5rem);    line-height: 1.12; font-weight: 700; letter-spacing: -0.03em;  text-wrap: balance; }
+.lead      { font-size: clamp(1.0625rem, 1.6vw, 1.25rem); line-height: 1.6; text-wrap: pretty; }
+
+/* ADR-0030 §3.1: the landing header's in-page anchors (#funciones,
+   #precios, #preguntas) need smooth scrolling to read as navigation
+   instead of a jump-cut. Sitewide on `html` because that's the only
+   element that actually scrolls (no other screen has in-page anchors
+   today, so this is inert everywhere else), wrapped in the
+   reduced-motion query so it never fights an explicit OS preference. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
 }
 
 /* ---------------------------------------------------------------------------

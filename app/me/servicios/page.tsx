@@ -1,7 +1,8 @@
 import { getMyServices } from "@/app/actions/customer";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
+import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import { PLAN_KIND_LABEL } from "@/lib/plan-labels";
 
@@ -20,11 +21,11 @@ export default async function MyServicesPage() {
           description="Cuando un negocio te dé de alta, sus servicios aparecen acá."
         />
       ) : (
-        <ul className="flex flex-col gap-2">
+        <DataList>
           {services.map((service) => (
-            <li
+            <DataListRow
               key={service.serviceId}
-              className="flex flex-col gap-2 rounded-xl border bg-card px-4 py-3.5 shadow-card"
+              className="flex flex-col gap-2 px-4 py-3.5"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex flex-col gap-0.5">
@@ -72,12 +73,13 @@ export default async function MyServicesPage() {
 
               {service.paymentRequired && !service.isCoveredToday ? (
                 <p className="text-xs text-muted-foreground">
-                  Regularizá con el negocio para poder reservar.
+                  Para volver a reservar, regularizá tu pago directamente con el negocio -- esto no
+                  se resuelve desde la app.
                 </p>
               ) : null}
-            </li>
+            </DataListRow>
           ))}
-        </ul>
+        </DataList>
       )}
     </div>
   );
