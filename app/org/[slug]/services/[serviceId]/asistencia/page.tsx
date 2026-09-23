@@ -4,7 +4,7 @@ import { getServiceAttendanceHistory } from "@/app/actions/admin";
 import { listServices } from "@/app/actions/services";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { ServiceTabs } from "../service-tabs";
 

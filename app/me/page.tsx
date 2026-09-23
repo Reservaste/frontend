@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getMyBookings, releaseMyBooking } from "@/app/actions/customer";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
 import { DataList, DataListRow } from "@/components/ui/table";

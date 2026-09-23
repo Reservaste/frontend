@@ -284,6 +284,18 @@
 .display-2 { font-size: clamp(1.75rem, 4vw, 2.5rem);    line-height: 1.12; font-weight: 700; letter-spacing: -0.03em;  text-wrap: balance; }
 .lead      { font-size: clamp(1.0625rem, 1.6vw, 1.25rem); line-height: 1.6; text-wrap: pretty; }
 
+/* ADR-0030 §3.1: the landing header's in-page anchors (#funciones,
+   #precios, #preguntas) need smooth scrolling to read as navigation
+   instead of a jump-cut. Sitewide on `html` because that's the only
+   element that actually scrolls (no other screen has in-page anchors
+   today, so this is inert everywhere else), wrapped in the
+   reduced-motion query so it never fights an explicit OS preference. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* ---------------------------------------------------------------------------
    The scale, written down once.
 

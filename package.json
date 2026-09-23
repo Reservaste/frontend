@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
-    "@reservaste/domain": "github:Reservaste/backend#main",
+    "@reservaste/domain": "github:Reservaste/backend#96d547d",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "class-variance-authority": "^0.7.1",

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getAgenda, getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { OccupancyBar } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { DataList, DataListRow } from "@/components/ui/table";

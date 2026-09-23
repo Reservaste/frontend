@@ -8,7 +8,7 @@ import { listStandingReservations } from "@/app/actions/standing";
 import { listOrganizationServicePlans } from "@/app/actions/service-plans";
 import { PageHeader } from "@/components/page-header";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { Button } from "@/components/ui/button";
 import { InfoIcon } from "@/components/icons";

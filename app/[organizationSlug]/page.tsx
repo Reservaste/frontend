@@ -9,7 +9,7 @@ import { BrandTheme } from "@/components/brand-theme";
 import { OrganizationLogo } from "@/components/organization-logo";
 import { PublicCalendar, type PublicSlot } from "@/components/calendar/public-calendar";
 import { buttonVariants } from "@/components/ui/button";
-import { EmptyState } from "@/components/empty-state";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export async function generateMetadata({ params }: { params: Promise<{ organizationSlug: string }> }) {
   const { organizationSlug } = await params;
