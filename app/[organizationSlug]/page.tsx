@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { PublicAvailabilitySlot } from "@reservaste/domain";
 import { getPublicAvailability, getPublicOrganization, listPublicServices } from "@/app/actions/public";
+import { getMyOrganizations } from "@/app/actions/organizations";
 import { availabilityLabel } from "./availability-label";
 import { createClient } from "@/lib/supabase/server";
 import { Brand } from "@/components/brand";
@@ -69,6 +70,13 @@ export default async function PublicOrganizationPage({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Not an authorization check (requireOrganizationMembership + RLS remain
+  // the real gate on /org/[slug]) -- this only decides whether to surface a
+  // shortcut for someone who's looking at their own org's public page.
+  const isStaffOfThisOrg = user
+    ? (await getMyOrganizations()).some((m) => m.organization.id === organization.id)
+    : false;
+
   return (
     <BrandTheme color={organization.brandColor} className="flex flex-1 flex-col">
       {/* brand-wash: the one place per page where the organization's own
@@ -76,14 +84,28 @@ export default async function PublicOrganizationPage({
           otherwise every unbranded surface and every branded one look the
           same except for the "Reservar" button. */}
       <header className="brand-wash border-b border-border/70 bg-card shadow-card">
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-2 px-5 py-3">
+        <div className="mx-auto flex w-full max-w-2xl flex-wrap items-center justify-between gap-2 px-5 py-3">
           <Brand href={user ? "/dashboard" : "/"} />
-          <Link
-            href={user ? "/me" : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`}
-            className={buttonVariants({ variant: "ghost", size: "touch" })}
-          >
-            {user ? "Mis reservas" : "Ingresar"}
-          </Link>
+          <div className="flex items-center gap-1">
+            {/* Owner/staff looking at their own org's public page (same as
+                a customer would see it) gets a shortcut back to the panel
+                -- flex-wrap on the row above keeps this from overflowing
+                next to Brand + "Mis reservas" on a narrow phone. */}
+            {isStaffOfThisOrg ? (
+              <Link
+                href={`/org/${organizationSlug}`}
+                className={buttonVariants({ variant: "outline", size: "touch" })}
+              >
+                Ir al panel
+              </Link>
+            ) : null}
+            <Link
+              href={user ? "/me" : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`}
+              className={buttonVariants({ variant: "ghost", size: "touch" })}
+            >
+              {user ? "Mis reservas" : "Ingresar"}
+            </Link>
+          </div>
         </div>
 
         {/* Compact on purpose: the identity has to be recognisable, but

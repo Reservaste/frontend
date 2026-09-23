@@ -107,6 +107,19 @@ export function StandingReservations({
                     un plan con más frecuencia, o quitarle otro horario fijo.
                   </span>
                 ) : null}
+                {/* Fase 25: la agenda mira 90 días y ningún pago mensual
+                    cubre 90 días, así que estas fechas existen siempre y
+                    hasta ahora quedaban contadas como "sin confirmar", sin
+                    explicación -- que es como se leía el "Falta el pago"
+                    que no se apagaba nunca. No son deuda: todavía no se
+                    facturan. */}
+                {reservation.upcomingBeyondPeriod > 0 ? (
+                  <span className="text-xs text-muted-foreground">
+                    <span className="tnum">{reservation.upcomingBeyondPeriod}</span> caen más
+                    adelante que el período que ya pagó. No hay nada para cobrar todavía: se
+                    confirman solas cuando pague ese período.
+                  </span>
+                ) : null}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {/* A series whose payment lapsed keeps existing but stops
@@ -123,6 +136,16 @@ export function StandingReservations({
                 {reservation.upcomingOverQuota > 0 ? (
                   <StatusBadge tone="warning">
                     <span className="tnum">{reservation.upcomingOverQuota}</span> fuera del plan
+                  </StatusBadge>
+                ) : null}
+                {/* Neutral a propósito: no es un problema de nadie ni algo
+                    que haya que resolver hoy, es el horizonte de cobro. Un
+                    tono de alerta acá es exactamente el bug que se
+                    corrigió. */}
+                {reservation.upcomingBeyondPeriod > 0 ? (
+                  <StatusBadge tone="neutral">
+                    <span className="tnum">{reservation.upcomingBeyondPeriod}</span> fuera del
+                    período
                   </StatusBadge>
                 ) : null}
                 <form

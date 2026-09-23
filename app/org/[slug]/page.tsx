@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
-import { getAgenda, getCustomers } from "@/app/actions/admin";
+import { getAgendaWithAttendance, getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { OccupancyBar } from "@/components/status";
+import { OccupancyBar, StatusBadge } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { cityForTimezone } from "@/lib/timezones";
@@ -26,7 +26,10 @@ export default async function OrganizationHomePage({ params }: { params: Promise
 
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const [upcoming, customers] = await Promise.all([getAgenda(slug, now, in24h), getCustomers(slug)]);
+  const [upcoming, customers] = await Promise.all([
+    getAgendaWithAttendance(slug, now, in24h),
+    getCustomers(slug),
+  ]);
 
   const timeFormatter = new Intl.DateTimeFormat("es-UY", {
     timeZone: organization.timezone,
@@ -87,20 +90,49 @@ export default async function OrganizationHomePage({ params }: { params: Promise
           />
         ) : (
           <DataList>
-            {upcoming.slice(0, 8).map((occ) => (
-              <DataListRow key={occ.id} className="flex items-center gap-4 px-4 py-3">
-                <span className="tnum min-w-12 text-base font-semibold">
-                  {timeFormatter.format(new Date(occ.startAt))}
-                </span>
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className="truncate text-sm font-medium">{occ.serviceName}</span>
-                  <OccupancyBar confirmed={occ.confirmedCount} capacity={occ.capacity} className="max-w-40" />
+            {upcoming.slice(0, 8).map((occ) => {
+              // Nothing to take attendance for without confirmed bookings --
+              // the badge would just be noise on an empty turno.
+              const hasAttendees = occ.confirmedCount > 0;
+              const attendancePending = hasAttendees && occ.pendingCount > 0;
+
+              const row = (
+                <div className="flex items-center gap-4 px-4 py-3">
+                  <span className="tnum min-w-12 text-base font-semibold">
+                    {timeFormatter.format(new Date(occ.startAt))}
+                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate text-sm font-medium">{occ.serviceName}</span>
+                    <OccupancyBar confirmed={occ.confirmedCount} capacity={occ.capacity} className="max-w-40" />
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="tnum text-sm text-muted-foreground">
+                      {occ.confirmedCount}/{occ.capacity}
+                    </span>
+                    {hasAttendees ? (
+                      <StatusBadge tone={attendancePending ? "warning" : "success"}>
+                        {attendancePending ? "Asistencia pendiente" : "Asistencia tomada"}
+                      </StatusBadge>
+                    ) : null}
+                  </div>
                 </div>
-                <span className="tnum text-sm text-muted-foreground">
-                  {occ.confirmedCount}/{occ.capacity}
-                </span>
-              </DataListRow>
-            ))}
+              );
+
+              return (
+                <DataListRow key={occ.id}>
+                  {attendancePending ? (
+                    <Link
+                      href={`/org/${slug}/agenda/${occ.id}/asistencia`}
+                      className="block touch-manipulation transition-colors hover:bg-muted/40"
+                    >
+                      {row}
+                    </Link>
+                  ) : (
+                    row
+                  )}
+                </DataListRow>
+              );
+            })}
           </DataList>
         )}
       </section>

@@ -159,6 +159,17 @@ export async function listOrganizationServicePlans(organizationSlug: string): Pr
  * `p_from` is the organization's local date, never the server's UTC one
  * (ADR-0013/ADR-0014): at 22:00 in Montevideo it is already tomorrow in
  * UTC, and at the end of a month that buys the wrong month.
+ *
+ * Fase 25 -- `month` ("YYYY-MM"): the payments screen is a screen *about a
+ * month* (`?mes=`), and the "Agregar pago" form that lives at the bottom of
+ * it used to resolve the period from today no matter which month was on
+ * screen. Standing on October and registering a payment silently filed it
+ * under September: with the month already PAID the EXCLUDE rejected it
+ * ("ya hay un pago que cubre ese período" -- for a month the desk was not
+ * even looking at), and with PENDING it was accepted into a month the
+ * screen does not list, so it looked like it had been refused. The anchor
+ * is the 1st of the requested month, so `billing_period_for()` answers for
+ * that month instead of for today. Omitted, it behaves exactly as before.
  */
 export interface PaymentPlanOption {
   id: string;
@@ -175,7 +186,10 @@ export interface PaymentPlanOption {
   periodEnd: string | null;
 }
 
-export async function listPaymentPlanOptions(organizationSlug: string): Promise<PaymentPlanOption[]> {
+export async function listPaymentPlanOptions(
+  organizationSlug: string,
+  month?: string,
+): Promise<PaymentPlanOption[]> {
   const { organization } = await requireOrganizationMembership(organizationSlug);
   const supabase = await createClient();
 
@@ -189,7 +203,10 @@ export async function listPaymentPlanOptions(organizationSlug: string): Promise<
   if (error || !data) return [];
 
   const coveredByPlan = await loadCoveredServiceIds(supabase, organization.id, data as never[]);
-  const today = localDayKey(new Date(), organization.timezone);
+  // The month being looked at wins over today; both are dates in the
+  // organization's timezone, never the server's.
+  const anchor =
+    month && /^\d{4}-\d{2}$/.test(month) ? `${month}-01` : localDayKey(new Date(), organization.timezone);
 
   return Promise.all(
     data
@@ -197,7 +214,7 @@ export async function listPaymentPlanOptions(organizationSlug: string): Promise<
       .map(async (plan) => {
         const { data: period } = await supabase.rpc("billing_period_for", {
           p_service_plan_id: plan.id,
-          p_from: today,
+          p_from: anchor,
         });
 
         const row = Array.isArray(period) ? period[0] : period;

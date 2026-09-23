@@ -124,6 +124,25 @@ export async function registerPayment(
     if (error.message.includes("payments_one_paid_per_occurrence_idx")) {
       return { error: "Ese turno ya está pago por este cliente", success: null };
     }
+    // Fase 25: el mismo invariante que el EXCLUDE, para los pagos que
+    // todavía no están cobrados. Dos pendientes idénticos son una carga
+    // repetida en el mostrador, no dos deudas.
+    if (error.message.includes("PAYMENT_DUPLICATE_PERIOD")) {
+      return {
+        error:
+          "Ya hay un pago de este cliente para ese servicio que cubre parte de ese período. Anulá el anterior si lo estás corrigiendo.",
+        success: null,
+      };
+    }
+    if (error.message.includes("PAYMENT_DUPLICATE_OCCURRENCE")) {
+      return { error: "Ese turno ya tiene un pago registrado para este cliente", success: null };
+    }
+    if (error.message.includes("SERVICE_PLAN_SCOPE_EMPTY")) {
+      return {
+        error: "Ese plan no cubre ningún servicio. Revisalo en la pantalla de planes antes de cobrarlo.",
+        success: null,
+      };
+    }
     return { error: "No se pudo registrar el pago", success: null };
   }
 

@@ -17,6 +17,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
+import { monthRange } from "@/lib/billing-period";
 import { planSummary } from "@/lib/plan-labels";
 
 const initialState: ActionState = { error: null, success: null };
@@ -46,6 +47,7 @@ export function RegisterPaymentForm({
   services,
   plans,
   currency,
+  month,
 }: {
   organizationSlug: string;
   customerId: string;
@@ -53,6 +55,14 @@ export function RegisterPaymentForm({
   /** Active plans of the whole organization, with their period resolved. */
   plans: PaymentPlanOption[];
   currency: string;
+  /**
+   * Fase 25: el mes que la pantalla está mostrando ("YYYY-MM"), cuando la
+   * pantalla es sobre un mes (`/payments/[customerId]?mes=`). Es el mismo
+   * mes con el que se resolvió `plans`, y el que manda si un plan no trae
+   * período propio. Sin él se cae a hoy, que es lo correcto en la ficha
+   * del cliente: esa pantalla no habla de ningún mes en particular.
+   */
+  month?: string;
 }) {
   const [state, formAction, pending] = useActionState(
     registerPayment.bind(null, organizationSlug, customerId),
@@ -79,13 +89,10 @@ export function RegisterPaymentForm({
   const [serviceId, setServiceId] = useState(eligible[0]?.id ?? "");
   const [planId, setPlanId] = useState(eligible[0] ? (plansFor(eligible[0].id)[0]?.id ?? "") : "");
 
-  const today = new Date();
-  const firstOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1))
-    .toISOString()
-    .slice(0, 10);
-  const lastOfMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0))
-    .toISOString()
-    .slice(0, 10);
+  // El mes que se está mirando gana sobre el del navegador. Es sólo el
+  // respaldo para un plan sin período resuelto: el período real lo sigue
+  // dando `billing_period_for()` en el servidor, anclado al mismo mes.
+  const { from: firstOfMonth, to: lastOfMonth } = monthRange(month);
 
   const servicePlans = plansFor(serviceId);
   const selectedPlan = servicePlans.find((plan) => plan.id === planId) ?? servicePlans[0];
@@ -170,8 +177,11 @@ export function RegisterPaymentForm({
 
           {/* Keyed on the plan so picking another one refreshes the
               prefilled values, while leaving them editable: registering
-              last month's payment is a real thing that happens. */}
-          <Field key={`period-${selectedPlan.id}`}>
+              last month's payment is a real thing that happens. El mes
+              entra en la key porque cambiar `?mes=` no remonta el
+              formulario: sin eso, la fecha prellenada seguiría siendo la
+              del mes anterior después de navegar. */}
+          <Field key={`period-${selectedPlan.id}-${firstOfMonth}`}>
             <Label htmlFor="periodStart">Período desde</Label>
             <Input
               id="periodStart"
@@ -181,7 +191,7 @@ export function RegisterPaymentForm({
               required
             />
           </Field>
-          <Field key={`period-end-${selectedPlan.id}`}>
+          <Field key={`period-end-${selectedPlan.id}-${lastOfMonth}`}>
             <Label htmlFor="periodEnd">Período hasta</Label>
             <Input
               id="periodEnd"

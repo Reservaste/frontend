@@ -71,6 +71,48 @@ export async function getAgenda(
   );
 }
 
+export interface AgendaOccurrenceWithAttendance extends AgendaOccurrence {
+  presentCount: number;
+  absentCount: number;
+  pendingCount: number;
+}
+
+/**
+ * Same window/rows as getAgenda(), plus roll-call totals per occurrence --
+ * built for the organization home page ("próximas 24 horas"), which needs
+ * to say at a glance which occurrences still have attendance pending
+ * without duplicating the agenda_occurrences query or the
+ * occurrence_attendance_summary call that getOccurrence() already does for
+ * the single-occurrence case.
+ */
+export async function getAgendaWithAttendance(
+  organizationSlug: string,
+  from: Date,
+  to: Date,
+): Promise<AgendaOccurrenceWithAttendance[]> {
+  const occurrences = await getAgenda(organizationSlug, from, to);
+  if (occurrences.length === 0) return [];
+
+  const supabase = await createClient();
+  const summaries = await Promise.all(
+    occurrences.map((occurrence) =>
+      supabase.rpc("occurrence_attendance_summary", { p_slot_occurrence_id: occurrence.id }),
+    ),
+  );
+
+  return occurrences.map((occurrence, i) => {
+    const totals = summaries[i].data?.[0] as
+      | { present: number; absent: number; pending: number }
+      | undefined;
+    return {
+      ...occurrence,
+      presentCount: totals?.present ?? 0,
+      absentCount: totals?.absent ?? 0,
+      pendingCount: totals?.pending ?? 0,
+    };
+  });
+}
+
 export interface OccurrenceAttendee {
   bookingId: string;
   customerId: string;

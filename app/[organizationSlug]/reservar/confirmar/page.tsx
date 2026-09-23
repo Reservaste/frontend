@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { checkCanBook, getSlotDetail } from "@/app/actions/customer";
+import { checkCanBookDetail, getSlotDetail } from "@/app/actions/customer";
 import { getPublicOrganization } from "@/app/actions/public";
 import { BOOKING_REASONS, bookingReasonTone } from "@/lib/booking-reasons";
 import { availabilityLabel } from "../../availability-label";
@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 import { StatusBadge, availabilityTone } from "@/components/status";
 import { BackLink } from "@/components/back-link";
 import { BrandTheme } from "@/components/brand-theme";
+import { buttonVariants } from "@/components/ui/button";
 import { Alert, type AlertTone } from "@/components/ui/alert";
 import { AlertCircleIcon, AlertTriangleIcon, InfoIcon } from "@/components/icons";
 import { ConfirmForm } from "./confirm-form";
@@ -27,6 +28,18 @@ const REASON_ALERT: Record<
   customer: { tone: "warning", icon: <AlertTriangleIcon /> },
   owner: { tone: "danger", icon: <AlertCircleIcon /> },
 };
+
+/**
+ * `expires_on` es una `date` congelada al emitir (ADR-0025), no un
+ * instante: se formatea a mediodía UTC para que no se corra un día al
+ * leerla desde cualquier huso.
+ */
+function creditExpiryLabel(expiresOn: string): string {
+  return new Date(`${expiresOn}T12:00:00Z`).toLocaleDateString("es-UY", {
+    day: "2-digit",
+    month: "2-digit",
+  });
+}
 
 export const metadata = { title: "Confirmar reserva" };
 
@@ -73,7 +86,13 @@ export default async function ConfirmarPage({
     redirect(`/login?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
-  const canBook = await checkCanBook(slot);
+  // Fase 25: la versión `_detail` del mismo chequeo. No es una regla nueva
+  // ni una segunda opinión -- es la misma RPC devolviendo, además del
+  // motivo, con qué entra la reserva. ADR-0025 nunca gasta un crédito si
+  // otra cobertura alcanzaba, así que un `OK` que además trae crédito
+  // significa "esto lo habilita tu crédito", y eso hay que decirlo antes
+  // del botón: hasta acá se gastaba en silencio.
+  const { reason: canBook, makeupCreditExpiresOn } = await checkCanBookDetail(slot);
   // public_slot_detail() carries the slot, not the business's branding --
   // this page still has to look like the page the visitor came from.
   const organization = await getPublicOrganization(organizationSlug);
@@ -130,12 +149,37 @@ export default async function ConfirmarPage({
           </div>
 
           {canBook === "OK" ? (
-            <ConfirmForm slotOccurrenceId={slot} />
+            <div className="flex flex-col gap-3">
+              {/* Sólo cuando el crédito es lo que habilita la reserva: un
+                  OK común no trae ninguno, así que esto no aparece en el
+                  camino normal. */}
+              {makeupCreditExpiresOn ? (
+                <Alert tone="info" icon={<InfoIcon />} size="sm">
+                  Esta reserva usa tu crédito de recupero, que vence el{" "}
+                  <span className="tnum font-medium">{creditExpiryLabel(makeupCreditExpiresOn)}</span>.
+                </Alert>
+              ) : null}
+              <ConfirmForm slotOccurrenceId={slot} />
+            </div>
           ) : (
             <div className="flex flex-col gap-3">
               <Alert {...REASON_ALERT[bookingReasonTone(canBook)]}>
                 {BOOKING_REASONS[canBook] ?? "No podés reservar este horario"}
               </Alert>
+              {/* Pedido del cliente: los dos motivos de cuota no se
+                  resuelven pagando otra vez ni eligiendo otro horario, se
+                  resuelven cambiando de plan. El texto ya lo dice; esto es
+                  la puerta para hacerlo. `/me/servicios` es hoy la única
+                  pantalla del cliente que muestra su plan y qué cubre --
+                  no existe todavía un catálogo público de planes. */}
+              {canBook === "OVER_PLAN_QUOTA" || canBook === "OUTSIDE_PLAN_QUOTA" ? (
+                <Link
+                  href="/me/servicios"
+                  className={buttonVariants({ variant: "outline", size: "touch", className: "w-full" })}
+                >
+                  Ver mi plan
+                </Link>
+              ) : null}
               <Link
                 href={`/${organizationSlug}`}
                 className="text-center text-sm font-medium text-primary underline-offset-4 hover:underline"
