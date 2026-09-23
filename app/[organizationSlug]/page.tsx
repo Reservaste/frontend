@@ -95,7 +95,7 @@ export default async function PublicOrganizationPage({
             {/* Owner/staff looking at their own org's public page (same as
                 a customer would see it) gets a shortcut back to the panel
                 -- flex-wrap on the row above keeps this from overflowing
-                next to Brand + "Mis reservas" on a narrow phone. */}
+                next to Brand + "Mi agenda" on a narrow phone. */}
             {isStaffOfThisOrg ? (
               <Link
                 href={`/org/${organizationSlug}`}
@@ -104,11 +104,18 @@ export default async function PublicOrganizationPage({
                 Ir al panel
               </Link>
             ) : null}
+            {/* ?org=: el portal muestra una organización por vez, y si
+                llegaste desde la página de este negocio, esa es la que
+                querés ver -- no la del próximo turno que tengas en otra. */}
             <Link
-              href={user ? "/me" : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`}
+              href={
+                user
+                  ? `/me?org=${encodeURIComponent(organizationSlug)}`
+                  : `/login?returnTo=${encodeURIComponent(`/${organizationSlug}`)}`
+              }
               className={buttonVariants({ variant: "ghost", size: "touch" })}
             >
-              {user ? "Mis reservas" : "Ingresar"}
+              {user ? "Mi agenda" : "Ingresar"}
             </Link>
           </div>
         </div>

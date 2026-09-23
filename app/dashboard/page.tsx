@@ -57,7 +57,7 @@ export default async function DashboardPage() {
               href="/me"
               className={buttonVariants({ variant: "outline", size: "touch", className: "self-start" })}
             >
-              Ver mis reservas
+              Ver mi agenda
             </Link>
           </div>
 
@@ -119,7 +119,7 @@ export default async function DashboardPage() {
           href="/me"
           className="text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
         >
-          Ver mis reservas como cliente
+          Ver mi agenda como cliente
         </Link>
       </div>
     </div>

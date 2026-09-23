@@ -1,10 +1,12 @@
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listServices } from "@/app/actions/services";
 import { listServicePlans } from "@/app/actions/service-plans";
+import { listPlanChangeRequests } from "@/app/actions/plan-changes";
 import { PageHeader } from "@/components/page-header";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { NewPlanDialog } from "./plan-forms";
+import { PlanChangeRequests } from "./plan-change-requests";
 import { PlansList } from "./plans-list";
 
 export const metadata = { title: "Planes" };
@@ -38,7 +40,13 @@ export default async function PlansPage({
   const { serviceId } = await searchParams;
   const { organization, membership } = await requireOrganizationMembership(slug);
 
-  const [services, result] = await Promise.all([listServices(slug), listServicePlans(slug)]);
+  const [services, result, planChangeRequests] = await Promise.all([
+    listServices(slug),
+    listServicePlans(slug),
+    // Sólo los pendientes: un pedido cobrado se cierra solo por trigger
+    // (ADR-0035), así que esta lista es trabajo real, no historial.
+    listPlanChangeRequests(slug),
+  ]);
 
   // Same rule the service's payment configuration already had: staff run
   // the desk, the owner sets the prices. Note that RLS on service_plans
@@ -60,6 +68,14 @@ export default async function PlansPage({
           configuración.
         </Alert>
       ) : null}
+
+      {/* Arriba de la lista a propósito: es lo único de esta pantalla que
+          espera una respuesta de alguien. */}
+      <PlanChangeRequests
+        organizationSlug={slug}
+        requests={planChangeRequests}
+        timezone={organization.timezone}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">

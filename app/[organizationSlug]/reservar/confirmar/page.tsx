@@ -169,15 +169,19 @@ export default async function ConfirmarPage({
               {/* Pedido del cliente: los dos motivos de cuota no se
                   resuelven pagando otra vez ni eligiendo otro horario, se
                   resuelven cambiando de plan. El texto ya lo dice; esto es
-                  la puerta para hacerlo. `/me/servicios` es hoy la única
-                  pantalla del cliente que muestra su plan y qué cubre --
-                  no existe todavía un catálogo público de planes. */}
+                  la puerta para hacerlo.
+                  Iba a `/me/servicios`, que muestra el plan que la persona
+                  **ya** tiene -- justamente el que no le alcanza. Desde
+                  Fase 28 hay catálogo público (ADR-0035), acotado al
+                  servicio de este slot: quien se choca con la cuota está
+                  parado frente a un servicio concreto, no frente a la
+                  lista de precios entera. */}
               {canBook === "OVER_PLAN_QUOTA" || canBook === "OUTSIDE_PLAN_QUOTA" ? (
                 <Link
-                  href="/me/servicios"
+                  href={`/${organizationSlug}/planes?servicio=${encodeURIComponent(detail.serviceId)}`}
                   className={buttonVariants({ variant: "outline", size: "touch", className: "w-full" })}
                 >
-                  Ver mi plan
+                  Ver planes de {detail.serviceName}
                 </Link>
               ) : null}
               <Link
