@@ -1,8 +1,10 @@
+import Link from "next/link";
 import { getMyServices } from "@/app/actions/customer";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
 import { DataList, DataListRow } from "@/components/ui/table";
+import { buttonVariants } from "@/components/ui/button";
 import { formatMoney } from "@/lib/money";
 import { PLAN_KIND_LABEL } from "@/lib/plan-labels";
 
@@ -30,7 +32,17 @@ export default async function MyServicesPage() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="flex flex-col gap-0.5">
                   <span className="font-medium">{service.serviceName}</span>
-                  <span className="text-xs text-muted-foreground">{service.organizationName}</span>
+                  {/* The business name used to be plain text here -- a dead
+                      end for someone who came to this list precisely
+                      because they didn't know where to go reserve
+                      (feedback de producción "no veo la agenda para
+                      reservar"). Its public page is the agenda (ADR-0023). */}
+                  <Link
+                    href={`/${service.organizationSlug}`}
+                    className="text-xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                  >
+                    {service.organizationName}
+                  </Link>
                 </div>
 
                 {/* Nobody enables a service for a person any more
@@ -77,6 +89,13 @@ export default async function MyServicesPage() {
                   se resuelve desde la app.
                 </p>
               ) : null}
+
+              <Link
+                href={`/${service.organizationSlug}`}
+                className={buttonVariants({ variant: "outline", size: "touch", className: "self-start" })}
+              >
+                Ver agenda
+              </Link>
             </DataListRow>
           ))}
         </DataList>

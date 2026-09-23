@@ -11,7 +11,13 @@
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "SAMEORIGIN"
-		Referrer-Policy "strict-origin-when-cross-origin"
+		# `?` = set only if the app didn't already send one. Sin el `?`,
+		# Caddy reemplaza el header y pisa el `Referrer-Policy: no-referrer`
+		# que `GET /activar/[token]` manda a propósito: ahí la URL misma es
+		# el secreto (ADR-0026), así que el default global es más flojo que
+		# lo que esa ruta necesita. El resto del sitio no manda este header,
+		# así que sigue recibiendo el valor de abajo.
+		?Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}
 

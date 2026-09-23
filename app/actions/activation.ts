@@ -3,8 +3,11 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-
-const COOKIE_NAME = "activation_token";
+import { organizationPath } from "@/lib/organization-path";
+import {
+  ACTIVATION_COOKIE_NAME as COOKIE_NAME,
+  activationCookieClearOptions,
+} from "@/lib/activation-cookie";
 
 /** Server component helper: is there a live activation token in flight? */
 export async function readActivationToken(): Promise<string | null> {
@@ -40,7 +43,14 @@ export async function claimActivation(): Promise<ClaimActivationState> {
   const token = jar.get(COOKIE_NAME)?.value;
 
   if (!token) {
-    return { error: "Este link ya no es válido. Pedile al negocio que te lo reenvíe." };
+    // No es que el link haya vencido: es que este navegador no tiene el
+    // token (lo abrió en otro, o limpió sus cookies). El link de WhatsApp
+    // sigue sirviendo -- decirle "venció" lo manda a pedir uno nuevo que
+    // tampoco va a hacer falta.
+    return {
+      error:
+        "No encontramos la invitación en este navegador. Volvé a abrir el link de WhatsApp desde este mismo teléfono y seguí desde ahí.",
+    };
   }
 
   const supabase = await createClient();
@@ -64,8 +74,28 @@ export async function claimActivation(): Promise<ClaimActivationState> {
     return { error: "No se pudo completar la activación." };
   }
 
-  jar.delete(COOKIE_NAME);
-  redirect("/me?activado=1");
+  // Con el path explícito: `jar.delete(name)` borra la cookie de path "/",
+  // que es otra cookie distinta de ésta -- el token sobrevivía a su propia
+  // activación en vez de desaparecer.
+  jar.set(COOKIE_NAME, "", activationCookieClearOptions());
+
+  // Feedback de producción ("cuando me invitan como usuario no veo la
+  // agenda como para comprar o reservar"): esto mandaba a /me, que para
+  // alguien recién activado está necesariamente vacío -- todavía no tiene
+  // ninguna reserva -- y no tiene un solo link a la agenda del negocio que
+  // lo acaba de invitar. El nombre de la organización aparece en /me
+  // recién cuando ya existe una reserva, así que el flujo terminaba en un
+  // callejón sin salida: la persona hizo todo bien y quedó mirando "no
+  // tenés reservas".
+  //
+  // La activación ES la invitación de un negocio puntual, y la RPC
+  // devuelve exactamente cuál (`organization_slug`, resuelto adentro desde
+  // el token -- el caller nunca lo elige). Esa página pública es su agenda
+  // (ADR-0023), o sea el lugar donde la persona puede hacer lo único que
+  // vino a hacer. Perder ese contexto para caer en un portal genérico era
+  // tirar el único dato que hacía falta.
+  const destination = organizationPath(result.organization_slug);
+  redirect(destination ? `${destination}?activado=1` : "/me");
 }
 
 /**

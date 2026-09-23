@@ -11,6 +11,8 @@ import { OrganizationLogo } from "@/components/organization-logo";
 import { PublicCalendar, type PublicSlot } from "@/components/calendar/public-calendar";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Alert } from "@/components/ui/alert";
+import { CheckIcon } from "@/components/icons";
 
 export async function generateMetadata({ params }: { params: Promise<{ organizationSlug: string }> }) {
   const { organizationSlug } = await params;
@@ -28,10 +30,13 @@ export async function generateMetadata({ params }: { params: Promise<{ organizat
  */
 export default async function PublicOrganizationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ organizationSlug: string }>;
+  searchParams: Promise<{ activado?: string }>;
 }) {
   const { organizationSlug } = await params;
+  const { activado } = await searchParams;
   const organization = await getPublicOrganization(organizationSlug);
 
   if (!organization) {
@@ -121,6 +126,18 @@ export default async function PublicOrganizationPage({
       </header>
 
       <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-5 py-5">
+        {/* Lands here straight from WhatsApp activation (ADR-0026): the
+            only confirmation that the flow actually worked, since this
+            page never says "you're a customer" anywhere else. Read from
+            the query string only -- no sessionStorage -- so it shows up
+            exactly once, on this landing, and never again on the next
+            navigation. */}
+        {activado === "1" ? (
+          <Alert tone="success" icon={<CheckIcon />}>
+            Listo, ya podés reservar en {organization.name}.
+          </Alert>
+        ) : null}
+
         {services.length === 0 ? (
           <EmptyState
             title="Todavía no hay servicios publicados"

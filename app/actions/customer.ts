@@ -149,6 +149,33 @@ export async function getMyServices(): Promise<MyService[]> {
   );
 }
 
+export interface MyCustomerOrganization {
+  organizationSlug: string;
+  organizationName: string;
+}
+
+/**
+ * The businesses where this person is already an active Customer, whether
+ * or not there is anything to show about them yet. `getMyServices()`
+ * deliberately doesn't cover this: it joins `services ... where is_active`,
+ * so someone just activated (WhatsApp, ADR-0026) or enrolled by email
+ * (managed customers, ADR-0021) with no published/active service yet drops
+ * out of that list even though the Customer link is real. Used by /me's
+ * empty state so that person still gets a link to the business' agenda
+ * instead of a dead end.
+ */
+export async function getMyCustomerOrganizations(): Promise<MyCustomerOrganization[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("my_customer_organizations");
+
+  if (error || !data) return [];
+
+  return data.map((row: { organization_slug: string; organization_name: string }) => ({
+    organizationSlug: row.organization_slug,
+    organizationName: row.organization_name,
+  }));
+}
+
 export interface MyPayment {
   paymentId: string;
   organizationName: string;
