@@ -236,7 +236,12 @@ export type CanBookResult =
   | "OCCURRENCE_NOT_AVAILABLE"
   | "PAYMENT_REQUIRED"
   | "SLOT_FULL"
-  | "ALREADY_BOOKED";
+  | "ALREADY_BOOKED"
+  // ADR-0024. Faltaban acá aunque `BOOKING_REASONS` ya los sabía decir:
+  // el tipo prometía menos motivos de los que la RPC devuelve.
+  | "OUTSIDE_PLAN_QUOTA"
+  | "OVER_PLAN_QUOTA"
+  | "SERVICE_HAS_NO_PLAN";
 
 /**
  * ADR-0015's read-only check. Purely so the confirmation screen can say
@@ -252,6 +257,52 @@ export async function checkCanBook(slotOccurrenceId: string): Promise<CanBookRes
 
   if (error) return "OCCURRENCE_NOT_AVAILABLE";
   return (data as CanBookResult) ?? "OCCURRENCE_NOT_AVAILABLE";
+}
+
+export interface CanBookDetail {
+  reason: CanBookResult;
+  /**
+   * ADR-0025: cuando la cobertura por sí sola no alcanzaba y lo que
+   * habilita la reserva es un crédito de recupero, viene acá con su fecha
+   * de vencimiento. `null` en el caso normal -- nunca se gasta un crédito
+   * si otra cobertura alcanzaba, así que un OK "común" no informa ninguno.
+   */
+  makeupCreditId: string | null;
+  makeupCreditExpiresOn: string | null;
+}
+
+/**
+ * Lo mismo que `checkCanBook`, con el crédito que hace posible la reserva.
+ *
+ * ADR-0025 ya permite usar un crédito en **cualquier** turno del mismo
+ * servicio dentro de su vigencia, no sólo en el que se liberó -- está
+ * verificado contra la base. Lo que faltaba es decirlo: `can_customer_book()`
+ * devuelve sólo el enum, así que el portal mostraba "Reservar" y gastaba el
+ * crédito en silencio, y el cliente no tenía forma de saber que ese turno
+ * entraba con su crédito hasta después. No duplica ninguna regla: la RPC
+ * llama a las mismas funciones que `book_slot()`.
+ */
+export async function checkCanBookDetail(slotOccurrenceId: string): Promise<CanBookDetail> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("can_customer_book_detail", {
+    p_slot_occurrence_id: slotOccurrenceId,
+  });
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) {
+    return { reason: "OCCURRENCE_NOT_AVAILABLE", makeupCreditId: null, makeupCreditExpiresOn: null };
+  }
+
+  const typed = row as {
+    reason: CanBookResult;
+    makeup_credit_id: string | null;
+    makeup_credit_expires_on: string | null;
+  };
+  return {
+    reason: typed.reason,
+    makeupCreditId: typed.makeup_credit_id,
+    makeupCreditExpiresOn: typed.makeup_credit_expires_on,
+  };
 }
 
 export interface BookingActionState {
@@ -309,8 +360,25 @@ export async function cancelMyBooking(bookingId: string): Promise<void> {
  */
 export async function releaseMyBooking(bookingId: string): Promise<void> {
   const supabase = await createClient();
-  const { data } = await supabase.rpc("release_my_booking", { p_booking_id: bookingId });
+  const { data, error } = await supabase.rpc("release_my_booking", { p_booking_id: bookingId });
   revalidatePath("/me");
+
+  // Fase 25: antes esta llamada ignoraba el error y redirigía igual con
+  // `liberado=1`. Una RPC que falla (reserva ajena, ya cancelada) le
+  // decía al cliente que había liberado su cupo cuando no había pasado
+  // nada -- el peor resultado posible para la acción que ADR-0025 hace
+  // depender de haber avisado a tiempo. No se inventa un parámetro de
+  // error nuevo (la pantalla es de frontend-engineer): simplemente se
+  // deja de afirmar un éxito que no ocurrió.
+  //
+  // Fase 25 (frontend): `liberar_error=1` es ese parámetro. Sin él, "no
+  // pasó nada" y "salió todo bien" se ven igual en /me -- la lista vuelve
+  // a renderizar con la reserva intacta y sin una sola palabra. El motivo
+  // exacto no viaja: la RPC falla por reserva ajena o ya cancelada, y
+  // ninguna de las dos es algo que el cliente pueda accionar desde acá.
+  if (error) {
+    redirect("/me?liberar_error=1");
+  }
 
   const credit = (data as { makeup_credit?: { id: string; expires_on: string } | null } | null)?.makeup_credit;
   redirect(credit ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}` : "/me?liberado=1");

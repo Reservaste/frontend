@@ -6,16 +6,28 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { PageHeader } from "@/components/page-header";
 import { DataList, DataListRow } from "@/components/ui/table";
-import { CheckIcon } from "@/components/icons";
+import { AlertCircleIcon, CheckIcon } from "@/components/icons";
 
 export const metadata = { title: "Mis reservas" };
 
 export default async function MyBookingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pasadas?: string; reservado?: string; liberado?: string; credito_hasta?: string }>;
+  searchParams: Promise<{
+    pasadas?: string;
+    reservado?: string;
+    liberado?: string;
+    credito_hasta?: string;
+    liberar_error?: string;
+  }>;
 }) {
-  const { pasadas, reservado, liberado, credito_hasta: creditoHasta } = await searchParams;
+  const {
+    pasadas,
+    reservado,
+    liberado,
+    credito_hasta: creditoHasta,
+    liberar_error: liberarError,
+  } = await searchParams;
   const includePast = pasadas === "1";
   const bookings = await getMyBookings(includePast);
   // A date from a standing reservation that didn't confirm stays visible:
@@ -52,6 +64,17 @@ export default async function MyBookingsPage({
                 `${creditoHasta}T00:00:00`,
               ).toLocaleDateString("es-UY", { day: "2-digit", month: "2-digit", year: "numeric" })}.`
             : "Liberaste tu cupo."}
+        </Alert>
+      ) : null}
+
+      {/* Fase 25: hasta acá una liberación que fallaba redirigía igual con
+          `liberado=1` y decía "liberaste tu cupo" sobre una reserva que
+          seguía en pie -- el peor resultado posible justo en la acción que
+          ADR-0025 hace depender de haber avisado a tiempo. */}
+      {liberarError === "1" ? (
+        <Alert tone="danger" icon={<AlertCircleIcon />}>
+          No pudimos liberar tu cupo. Volvé a intentar; si sigue igual, avisale al negocio para
+          que no te cuenten la falta.
         </Alert>
       ) : null}
 

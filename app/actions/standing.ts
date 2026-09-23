@@ -18,7 +18,17 @@ export interface StandingReservation {
   createdAt: string;
   upcomingConfirmed: number;
   upcomingNotGenerated: number;
-  /** Of the dates that didn't confirm, how many are waiting on a payment. */
+  /**
+   * Of the dates that didn't confirm, how many are waiting on a payment
+   * **that can be charged today**.
+   *
+   * Fase 25: esto contaba todas las fechas impagas de la ventana rodante
+   * de 90 días (ADR-0009). Un pago mensual nunca cubre noventa días, así
+   * que el contador quedaba > 0 para todo cliente y la etiqueta "Falta el
+   * pago" no se apagaba nunca, ni para alguien con el mes al día. Ahora se
+   * corta en el período vigente; lo de más adelante va en
+   * `upcomingBeyondPeriod`.
+   */
   upcomingUnpaid: number;
   /**
    * How many of the upcoming dates fall outside the frequency the
@@ -27,6 +37,13 @@ export interface StandingReservation {
    * which is exactly why they are counted apart from `upcomingUnpaid`.
    */
   upcomingOverQuota: number;
+  /**
+   * Fechas del horario fijo que caen más allá del período que el cliente
+   * ya compró. No son una deuda: el lugar le sigue quedando reservado y
+   * se confirman solas cuando pague ese mes (ADR-0019). Se cuentan aparte
+   * justamente para que no se lean como "falta el pago".
+   */
+  upcomingBeyondPeriod: number;
 }
 
 export async function listStandingReservations(
@@ -53,6 +70,7 @@ export async function listStandingReservations(
       upcoming_not_generated: number;
       upcoming_unpaid: number;
       upcoming_over_quota: number;
+      upcoming_beyond_period: number;
     }) => ({
       recurringBookingId: row.recurring_booking_id,
       customerId: row.customer_id,
@@ -63,6 +81,7 @@ export async function listStandingReservations(
       upcomingNotGenerated: row.upcoming_not_generated,
       upcomingUnpaid: row.upcoming_unpaid,
       upcomingOverQuota: row.upcoming_over_quota,
+      upcomingBeyondPeriod: row.upcoming_beyond_period,
     }),
   );
 }

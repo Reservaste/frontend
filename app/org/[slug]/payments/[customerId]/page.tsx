@@ -40,7 +40,12 @@ export default async function CustomerPaymentsPage({
     getCustomers(slug),
     getCustomerPaymentDetail(slug, customerId, range.month),
     listServices(slug),
-    listPaymentPlanOptions(slug),
+    // Fase 25: esta pantalla es una pantalla *sobre un mes*. Sin pasarle
+    // `range.month`, `billing_period_for()` resolvía el período desde hoy
+    // y "Agregar pago" cargaba el mes equivocado estando parado en otro
+    // (rechazado por el EXCLUDE si ese mes ya estaba pago, o invisible si
+    // quedaba PENDING en un mes que esta pantalla no lista).
+    listPaymentPlanOptions(slug, range.month),
   ]);
 
   // Prices are quoted in the organization's currency (ADR-0024), not in a
@@ -157,6 +162,7 @@ export default async function CustomerPaymentsPage({
           services={services}
           plans={planOptions}
           currency={organization.currency}
+          month={range.month}
         />
       </section>
     </div>
