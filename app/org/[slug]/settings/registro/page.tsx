@@ -94,12 +94,6 @@ export default async function AuditLogPage({
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
       {header}
 
-      <Alert tone="info" size="sm" title={`Registro desde el ${auditLogStartedLabel()}`}>
-        Lo anterior a esa fecha no quedó registrado. No incluye asistencia, créditos de recupero (tienen su propio
-        detalle en la ficha de cada cliente) ni lo que cada cliente hace por su cuenta, como reservar o cancelar
-        sus propios turnos.
-      </Alert>
-
       {result.error ? (
         <Alert tone="danger" title="No pudimos cargar el registro">
           {result.error}
