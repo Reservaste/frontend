@@ -5,6 +5,8 @@ import { mapPayment } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import type { ActionState } from "@/app/actions/admin";
+import { monthRange } from "@/lib/billing-period";
+import { formatPeriodRange, overlaps } from "@/lib/billing-blocks";
 
 // Payments are plain table writes (RLS gates them to org members) rather
 // than RPCs: unlike booking, there is no concurrency requirement -- this
@@ -152,13 +154,28 @@ export async function registerPayment(
   // reservations, pick up the newly confirmed dates too.
   revalidatePath(`/org/${organizationSlug}`, "layout");
 
-  return {
-    error: null,
-    success:
-      confirmed > 0
-        ? `Pago registrado · se confirmaron ${confirmed} ${confirmed === 1 ? "fecha" : "fechas"} del horario fijo`
-        : "Pago registrado",
-  };
+  const base =
+    confirmed > 0
+      ? `Pago registrado · se confirmaron ${confirmed} ${confirmed === 1 ? "fecha" : "fechas"} del horario fijo`
+      : "Pago registrado";
+
+  // Fase 25: esta pantalla lista pagos de *un* mes. Un pago que cae fuera
+  // de ese mes (por ejemplo, un plan trimestral cargado desde la pantalla
+  // de setiembre) se guarda bien pero no aparece abajo -- sin avisarlo acá,
+  // parece que no se guardó nada. `viewedMonth` solo llega cuando el
+  // formulario está parado sobre un mes (ver customer-forms.tsx).
+  const viewedMonth = String(formData.get("viewedMonth") ?? "");
+  if (/^\d{4}-\d{2}$/.test(viewedMonth)) {
+    const viewed = monthRange(viewedMonth);
+    if (!overlaps(periodStart, periodEnd, viewed.from, viewed.to)) {
+      return {
+        error: null,
+        success: `${base} · no vas a verlo en este mes: cubre ${formatPeriodRange(periodStart, periodEnd)}`,
+      };
+    }
+  }
+
+  return { error: null, success: base };
 }
 
 export async function voidPayment(
