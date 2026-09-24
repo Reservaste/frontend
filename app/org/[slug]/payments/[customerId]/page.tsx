@@ -1,4 +1,6 @@
 import { notFound } from "next/navigation";
+import { hasOrgPermission } from "@reservaste/domain";
+import { NoPermission } from "@/components/no-permission";
 import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
@@ -33,7 +35,18 @@ export default async function CustomerPaymentsPage({
 }) {
   const { slug, customerId } = await params;
   const { mes } = await searchParams;
-  const { organization } = await requireOrganizationMembership(slug);
+  const { organization, permissions } = await requireOrganizationMembership(slug);
+
+  if (!hasOrgPermission(permissions, "VIEW_PAYMENTS")) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-6">
+        <PageHeader title="Pagos del cliente" />
+        <NoPermission title="Tu rol no incluye ver pagos" />
+      </div>
+    );
+  }
+  // ADR-0033: marking paid/correcting and adding a payment need MANAGE_PAYMENTS.
+  const canManagePayments = hasOrgPermission(permissions, "MANAGE_PAYMENTS");
 
   const range = monthRange(mes);
   const [customers, rows, services, planOptions] = await Promise.all([
@@ -132,14 +145,14 @@ export default async function CustomerPaymentsPage({
 
                     {/* Marking a month paid here can confirm pending dates
                         of a standing reservation (ADR-0019). */}
-                    {row.status !== "PAID" && row.status !== "VOID" ? (
+                    {canManagePayments && row.status !== "PAID" && row.status !== "VOID" ? (
                       <form action={setPaymentStatus.bind(null, slug, { paymentId: row.paymentId, status: "PAID" })}>
                         <Button type="submit" size="xs">
                           Marcar pagado
                         </Button>
                       </form>
                     ) : null}
-                    {row.status === "PAID" ? (
+                    {canManagePayments && row.status === "PAID" ? (
                       <form action={setPaymentStatus.bind(null, slug, { paymentId: row.paymentId, status: "PENDING" })}>
                         <Button type="submit" variant="ghost" size="xs">
                           Corregir
@@ -154,17 +167,24 @@ export default async function CustomerPaymentsPage({
         )}
       </section>
 
-      <section className="flex flex-col gap-2.5">
-        <h2 className="text-sm font-semibold">Agregar pago</h2>
-        <RegisterPaymentForm
-          organizationSlug={slug}
-          customerId={customerId}
-          services={services}
-          plans={planOptions}
-          currency={organization.currency}
-          month={range.month}
-        />
-      </section>
+      {canManagePayments ? (
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-sm font-semibold">Agregar pago</h2>
+          <RegisterPaymentForm
+            organizationSlug={slug}
+            customerId={customerId}
+            services={services}
+            plans={planOptions}
+            currency={organization.currency}
+            month={range.month}
+            livePayments={live.map((r) => ({
+              serviceId: r.serviceId,
+              periodStart: r.periodStart,
+              periodEnd: r.periodEnd,
+            }))}
+          />
+        </section>
+      ) : null}
     </div>
   );
 }

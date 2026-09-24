@@ -149,12 +149,17 @@ export async function listOrganizationServicePlans(organizationSlug: string): Pr
  * What the front desk can charge today, with the period each plan buys
  * already resolved.
  *
- * The period comes from `billing_period_for(plan, date)` -- the same
- * function the rest of the system uses -- and not from arithmetic in the
- * browser: "paying on the 15th covers from the 1st" is a business rule, and
- * a second implementation of it in the client would drift (CLAUDE.md).
- * Resolving it here, once per plan, also means picking a plan prefills the
- * form with no round trip.
+ * The period comes from `quote_service_plan_period(plan, date)` -- which
+ * wraps `billing_period_for()`, the same function the rest of the system
+ * uses -- and not from arithmetic in the browser: "paying on the 15th
+ * covers from the 1st" is a business rule, and a second implementation of
+ * it in the client would drift (CLAUDE.md). Resolving it here, once per
+ * plan, also means picking a plan prefills the form with no round trip.
+ *
+ * ADR-0031 adds the money to that same answer: for a plan with a billing
+ * period longer than a month, the quote also carries the suggested
+ * (possibly prorated) amount. Suggested, never applied: the amount field
+ * stays editable.
  *
  * `p_from` is the organization's local date, never the server's UTC one
  * (ADR-0013/ADR-0014): at 22:00 in Montevideo it is already tomorrow in
@@ -180,10 +185,30 @@ export interface PaymentPlanOption {
   weeklyQuota: number | null;
   billingType: ServicePlan["billingType"];
   billingCycle: ServicePlan["billingCycle"];
+  /** ADR-0031: null means 1 -- "cada cuántos meses se cobra". */
+  billingPeriodMonths: number | null;
+  billingAnchorMonth: number | null;
   price: number;
-  /** Period this plan buys if it is paid today, per billing_period_for(). */
+  /**
+   * Period this plan buys if it is paid on the anchor date, per
+   * `billing_period_for()`. **Never trimmed** to the sign-up date: someone
+   * joining on the 15th of September on a quarterly Jul-Sep plan buys the
+   * whole quarter (ADR-0031 resolución 2).
+   */
   periodStart: string | null;
   periodEnd: string | null;
+  /**
+   * ADR-0031: what `quote_service_plan_period()` suggests charging for that
+   * period. `proratedPrice` differs from `price` only when entering a long
+   * *calendar* cycle mid-way -- a rolling cycle starts on the day of the
+   * purchase and never prorates. It is a suggestion: the amount field stays
+   * editable and `Payment.amount` stays free (ADR-0024 resolución 5).
+   */
+  proratedPrice: number;
+  prorated: boolean;
+  /** "1 de 3 meses del trimestre jul-sep" -- the arithmetic, in the open. */
+  unitsCharged: number;
+  unitsTotal: number;
 }
 
 export async function listPaymentPlanOptions(
@@ -212,12 +237,28 @@ export async function listPaymentPlanOptions(
     data
       .map((row) => mapServicePlan(row as never, coveredByPlan.get((row as { id: string }).id) ?? []))
       .map(async (plan) => {
-        const { data: period } = await supabase.rpc("billing_period_for", {
+        // ADR-0031: `quote_service_plan_period()` wraps `billing_period_for()`
+        // and adds the money, so this asks once instead of twice. The
+        // proration is *computed in SQL*, like the period itself: "one month
+        // of a quarter, counting the sign-up month as complete, rounded to
+        // the whole currency unit" is a business rule, and a second
+        // implementation of it in the browser would drift (CLAUDE.md).
+        const { data: quote } = await supabase.rpc("quote_service_plan_period", {
           p_service_plan_id: plan.id,
           p_from: anchor,
         });
 
-        const row = Array.isArray(period) ? period[0] : period;
+        const row = (Array.isArray(quote) ? quote[0] : quote) as
+          | {
+              period_start: string;
+              period_end: string;
+              full_price: string | number;
+              prorated_price: string | number;
+              prorated: boolean;
+              units_charged: number;
+              units_total: number;
+            }
+          | undefined;
 
         return {
           id: plan.id,
@@ -227,9 +268,16 @@ export async function listPaymentPlanOptions(
           weeklyQuota: plan.weeklyQuota,
           billingType: plan.billingType,
           billingCycle: plan.billingCycle,
+          billingPeriodMonths: plan.billingPeriodMonths,
+          billingAnchorMonth: plan.billingAnchorMonth,
           price: plan.price,
           periodStart: row?.period_start ?? null,
           periodEnd: row?.period_end ?? null,
+          // numeric arrives as a string through PostgREST.
+          proratedPrice: row ? Number(row.prorated_price) : plan.price,
+          prorated: row?.prorated ?? false,
+          unitsCharged: row?.units_charged ?? 1,
+          unitsTotal: row?.units_total ?? 1,
         };
       }),
   );
@@ -301,6 +349,16 @@ function describePlanError(message: string | undefined): string {
   if (text.includes("service_plans_billing_matches_kind")) {
     return "Esa combinación de tipo de plan y forma de cobro no está permitida.";
   }
+  // ADR-0031: los tres CHECK de los ciclos largos.
+  if (text.includes("service_plans_billing_period_months_matches_cycle")) {
+    return "Decí cada cuántos meses se cobra este plan (o elegí un cobro mensual).";
+  }
+  if (text.includes("service_plans_billing_period_months_range")) {
+    return "El ciclo tiene que ser de 1 a 12 meses y, si arranca en un mes fijo del año, dividir el año entero: 1, 2, 3, 4, 6 o 12.";
+  }
+  if (text.includes("service_plans_billing_anchor_month_matches_cycle")) {
+    return "El mes de inicio del ciclo sólo se elige cuando el plan se cobra en bloques fijos del año.";
+  }
   if (text.includes("NOT_AUTHORIZED")) {
     return OWNER_ONLY;
   }
@@ -356,6 +414,10 @@ export async function createServicePlan(
     billingCycle: formData.get("billingCycle") || undefined,
     sortOrder: formData.get("sortOrder") || 0,
     quotaScope: formData.get("quotaScope") || undefined,
+    // ADR-0031. Only meaningful for the two long cycles; dropped below
+    // otherwise, and the database's biconditional CHECK is the real defence.
+    billingPeriodMonths: formData.get("billingPeriodMonths") || undefined,
+    billingAnchorMonth: formData.get("billingAnchorMonth") || undefined,
   });
 
   if (!parsed.success) {
@@ -381,6 +443,16 @@ export async function createServicePlan(
     return { error: "Elegí cómo se reparte la cuota entre los servicios de este plan.", success: null };
   }
 
+  // ADR-0031: los dos parámetros del ciclo largo existen exactamente para
+  // CALENDAR_PERIOD/ROLLING_PERIOD, y el anclaje sólo para el calendario.
+  // Mandar cualquiera de los dos fuera de ese caso lo rechaza la base (es
+  // un CHECK, no una convención), así que se limpian acá en vez de
+  // confiar en que el formulario no los mande.
+  const isLongCycle = billingCycle === "CALENDAR_PERIOD" || billingCycle === "ROLLING_PERIOD";
+  const billingPeriodMonths = !isOneTime && isLongCycle ? (parsed.data.billingPeriodMonths ?? 1) : null;
+  const billingAnchorMonth =
+    !isOneTime && billingCycle === "CALENDAR_PERIOD" ? (parsed.data.billingAnchorMonth ?? null) : null;
+
   const supabase = await createClient();
 
   const { error } = await supabase.rpc("create_service_plan", {
@@ -396,6 +468,8 @@ export async function createServicePlan(
     p_applies_to_all_services: appliesToAllServices,
     p_service_ids: appliesToAllServices ? null : serviceIds,
     p_quota_scope: quotaScope,
+    p_billing_period_months: billingPeriodMonths,
+    p_billing_anchor_month: billingAnchorMonth,
   });
 
   if (error) {
@@ -407,9 +481,10 @@ export async function createServicePlan(
 }
 
 /**
- * Editing a plan. `plan_kind`, `weekly_quota` and the scope fields are
- * absent on purpose -- they are frozen in edit always (same pattern as
- * ADR-0024 resolution 5, extended by ADR-0029 §8 to the scope selection),
+ * Editing a plan. `plan_kind`, `weekly_quota`, the scope fields and (since
+ * ADR-0031) `billing_period_months`/`billing_anchor_month` are absent on
+ * purpose -- they are frozen in edit always (same pattern as ADR-0024
+ * resolution 5, extended by ADR-0029 §8 to the scope selection),
  * and immutable once the plan has non-VOID payments regardless. The price
  * *is* free to change: it only affects future charges, and every Payment
  * records the amount it was charged.
