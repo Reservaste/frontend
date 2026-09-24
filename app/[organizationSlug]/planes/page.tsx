@@ -232,7 +232,7 @@ function PlanCard({
           <span className="tnum text-lg font-semibold">
             {formatMoney(plan.price, plan.currency)}
             <span className="text-sm font-normal text-muted-foreground">
-              {planPriceSuffix(plan.billingType)}
+              {planPriceSuffix(plan.billingType, undefined, plan.billingCycle)}
             </span>
           </span>
           <span className="text-xs text-muted-foreground">

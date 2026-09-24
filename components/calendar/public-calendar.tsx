@@ -15,6 +15,13 @@ export interface PublicSlot {
   availability: string;
   full: boolean;
   /**
+   * Last few seats, per `availabilityTone` (`components/status.tsx`) --
+   * the same LOW/FULL vocabulary the database's `LIMITED` disclosure mode
+   * already uses, never a raw count. False (not just falsy/absent) so a
+   * caller can't confuse "definitely not low" with "mode doesn't say".
+   */
+  low: boolean;
+  /**
    * ADR-0025: a seat freed by someone's own on-time release, in the last
    * 72h. Already null (not false) where ADR-0008 suppresses it (BOOLEAN
    * mode, capacity 1) -- this component only renders what it is given.
@@ -70,7 +77,11 @@ export function PublicCalendar({
           // marker next to the availability text, the same one anyone
           // polling the page would already be able to infer.
           meta: slot.recentlyReleased ? `${slot.availability} · Cupo liberado` : slot.availability,
-          tone: slot.full ? "neutral" : "success",
+          // Full stays neutral rather than a "danger" red: a slot filling
+          // up is nobody's fault, and booking-reasons.ts already treats
+          // SLOT_FULL as a neutral outcome for the same reason -- a red
+          // block here would read as an error the visitor caused.
+          tone: slot.full ? "neutral" : slot.low ? "warning" : "success",
           // A full slot is not a dead link, it is simply not a link.
           href: slot.full
             ? null

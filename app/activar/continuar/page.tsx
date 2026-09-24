@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { readActivationToken } from "@/app/actions/activation";
+import { readActivationToken } from "@/lib/server-cookies";
 import { createClient } from "@/lib/supabase/server";
 import { safeReturnTo } from "@/lib/return-to";
 import { Brand } from "@/components/brand";

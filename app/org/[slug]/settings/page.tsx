@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
+import { ChevronRight } from "@/components/icons";
 import { PageHeader } from "@/components/page-header";
 import { getPlanUsage } from "@/app/actions/platform";
 import { PlanUsageCard } from "@/components/plan-usage";
@@ -43,6 +45,23 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         description={`Tu página pública es reservaste.app/${organization.slug}`}
       />
       {usage ? <PlanUsageCard usage={usage} /> : null}
+
+      {/* ADR-0032: OWNER-only. STAFF does not see the entry at all -- the
+          RPC answers NOT_AUTHORIZED, so a visible link would always fail. */}
+      {membership.role === "OWNER" ? (
+        <Link
+          href={`/org/${slug}/settings/registro`}
+          className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 shadow-card transition-colors hover:bg-muted/40"
+        >
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span className="font-medium">Registro de actividad</span>
+            <span className="text-sm text-muted-foreground">
+              Quién registró o anuló pagos, anotó o canceló clientes y cambió precios
+            </span>
+          </span>
+          <ChevronRight className="shrink-0 text-muted-foreground" />
+        </Link>
+      ) : null}
 
       <BrandingForm
         organizationSlug={slug}

@@ -5,6 +5,20 @@ import { cn } from "cn";
 import type { AgendaOccurrence } from "@/app/actions/admin";
 import { ScheduleCalendar, type CalendarEvent } from "./schedule-calendar";
 import { nowMs, type CalendarView } from "@/lib/calendar";
+import { occupancyTone } from "@/components/status";
+
+/**
+ * `occupancyTone`'s vocabulary mapped onto the calendar's own tone set.
+ * "Available" stays `primary` here rather than becoming `success` --
+ * that's the tone this calendar already used for every open slot, and
+ * `success` is reserved for the public/customer-facing calendars where a
+ * green block means "you can book this".
+ */
+const OCCUPANCY_CALENDAR_TONE: Record<ReturnType<typeof occupancyTone>, CalendarEvent["tone"]> = {
+  success: "primary",
+  warning: "warning",
+  danger: "danger",
+};
 
 export interface CalendarService {
   id: string;
@@ -80,7 +94,6 @@ export function AgendaCalendar({
     const now = nowMs();
 
     return source.map((o) => {
-      const free = o.capacity - o.confirmedCount;
       const cancelled = o.status === "CANCELLED";
       const past = new Date(o.endAt).getTime() <= now;
 
@@ -93,7 +106,12 @@ export function AgendaCalendar({
         // Occupancy at a glance is what an agenda is for; the long form
         // only appears where there is room for it.
         meta: cancelled ? "Cancelado" : `${o.confirmedCount} / ${o.capacity}`,
-        tone: cancelled ? "neutral" : free === 0 ? "danger" : free <= 2 ? "warning" : "primary",
+        // Same 80%-of-capacity cutoff as the occurrence detail page's
+        // OccupancyBar (`components/status.tsx`), not a new threshold.
+        // A fixed "2 seats left" used to mean something very different for
+        // a 3-seat class (already nearly full) than a 30-seat one (barely
+        // touched) -- a share of capacity reads the same at any size.
+        tone: cancelled ? "neutral" : OCCUPANCY_CALENDAR_TONE[occupancyTone(o.confirmedCount, o.capacity)],
         href: `/org/${organizationSlug}/agenda/${o.id}`,
         titleHref: `/org/${organizationSlug}/services/${o.serviceId}/schedule`,
         muted: cancelled,

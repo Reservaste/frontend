@@ -36,10 +36,16 @@ export function RollCall({
   organizationSlug,
   occurrenceId,
   attendees,
+  readOnly = false,
 }: {
   organizationSlug: string;
   occurrenceId: string;
   attendees: OccurrenceAttendee[];
+  /**
+   * ADR-0033: without `MANAGE_ATTENDANCE` the roll is shown as it stands
+   * (the summary stays visible to every member) but cannot be marked.
+   */
+  readOnly?: boolean;
 }) {
   const [isPending, startTransition] = useTransition();
   const [optimisticAttendees, applyOptimistic] = useOptimistic(
@@ -93,7 +99,7 @@ export function RollCall({
               <button
                 type="button"
                 aria-pressed={attendee.attendanceStatus === "PRESENT"}
-                disabled={isPending}
+                disabled={isPending || readOnly}
                 onClick={() =>
                   mark(
                     attendee.bookingId,
@@ -124,7 +130,7 @@ export function RollCall({
               <button
                 type="button"
                 aria-pressed={attendee.attendanceStatus === "ABSENT"}
-                disabled={isPending}
+                disabled={isPending || readOnly}
                 onClick={() =>
                   mark(
                     attendee.bookingId,
@@ -154,7 +160,9 @@ export function RollCall({
       </ul>
 
       <p className="text-center text-xs text-muted-foreground">
-        Tocá de nuevo el botón marcado para volver a dejarlo sin marcar.
+        {readOnly
+          ? "Tu rol no incluye tomar asistencia: podés ver cómo quedó, pero no marcarla."
+          : "Tocá de nuevo el botón marcado para volver a dejarlo sin marcar."}
       </p>
     </div>
   );

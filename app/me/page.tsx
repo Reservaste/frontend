@@ -7,6 +7,7 @@ import {
 } from "@/app/actions/customer";
 import { getPublicAvailability, getPublicOrganization } from "@/app/actions/public";
 import { availabilityLabel } from "@/app/[organizationSlug]/availability-label";
+import { availabilityTone } from "@/components/status";
 import { buttonVariants } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -111,6 +112,7 @@ export default async function MyAgendaPage({
     // computes a capacity, it renders the label the database chose.
     availability: availabilityLabel(slot),
     full: slot.status === "FULL" || slot.remaining === 0,
+    low: availabilityTone(slot.status, slot.remaining) === "warning",
     recentlyReleased: Boolean(slot.recentlyReleased),
   }));
 

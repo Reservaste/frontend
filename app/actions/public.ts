@@ -7,7 +7,7 @@
 // data (Customer, Booking, Payment, personal fields) these functions
 // could possibly return even by mistake.
 
-import type { ServicePlanKind } from "@reservaste/domain";
+import type { BillingCycle, ServicePlanKind } from "@reservaste/domain";
 import { mapPublicAvailabilitySlot, mapPublicOrganization, mapPublicService } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 
@@ -105,7 +105,14 @@ export interface PublicServicePlan {
   weeklyQuota: number | null;
   quotaScope: "PER_SERVICE" | "SHARED_ACROSS_SERVICES" | null;
   billingType: "ONE_TIME" | "MONTHLY";
-  billingCycle: "CALENDAR_MONTH" | "ROLLING_MONTH" | null;
+  /**
+   * ADR-0031: cuatro valores posibles, no dos -- un plan puede cobrarse por
+   * bloques de varios meses. Cuántos meses dura el bloque todavía no viaja
+   * por `public_service_plans()` (el catálogo público no lo muestra), así
+   * que un plan trimestral se ve acá con su precio de lista y sin el
+   * "cada N meses": pendiente de un corte futuro.
+   */
+  billingCycle: BillingCycle | null;
   appliesToAllServices: boolean;
   serviceIds: string[];
   serviceNames: string[];

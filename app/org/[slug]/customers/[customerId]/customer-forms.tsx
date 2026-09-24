@@ -19,6 +19,7 @@ import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import { monthRange } from "@/lib/billing-period";
 import { planSummary } from "@/lib/plan-labels";
+import { formatPeriodRange, periodNoun, suggestedAmount } from "@/lib/billing-blocks";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -48,6 +49,7 @@ export function RegisterPaymentForm({
   plans,
   currency,
   month,
+  livePayments,
 }: {
   organizationSlug: string;
   customerId: string;
@@ -63,6 +65,12 @@ export function RegisterPaymentForm({
    * del cliente: esa pantalla no habla de ningún mes en particular.
    */
   month?: string;
+  /**
+   * ADR-0031: the customer's non-VOID payments, so a plan change (the
+   * period is already paid for that service) is suggested at full price
+   * instead of prorated -- see `suggestedAmount()`.
+   */
+  livePayments?: { serviceId: string | null; periodStart: string; periodEnd: string }[];
 }) {
   const [state, formAction, pending] = useActionState(
     registerPayment.bind(null, organizationSlug, customerId),
@@ -106,6 +114,23 @@ export function RegisterPaymentForm({
     setServiceId(fallbackService.id);
     setPlanId(plansFor(fallbackService.id)[0]?.id ?? "");
   }
+
+  // ADR-0031: which of the server's two prices to prefill. The proration
+  // itself is computed in SQL (`quote_service_plan_period()`); this only
+  // picks between the full price and the prorated one, and falls back to
+  // the full price when the service is already paid for that period (a
+  // plan change is never prorated -- ADR-0031 resolución 3).
+  const suggestion = selectedPlan
+    ? suggestedAmount(
+        selectedPlan,
+        // A payment with no service of its own (anchored to a multi-service
+        // plan) counts too: when unsure, suggest the full price rather than
+        // under-charge.
+        (livePayments ?? []).filter((p) => p.serviceId === null || selectedPlan.serviceIds.includes(p.serviceId)),
+      )
+    : { amount: 0, mode: "full" as const };
+  const longCycle =
+    selectedPlan && (selectedPlan.billingPeriodMonths ?? 1) > 1 ? (selectedPlan.billingPeriodMonths as number) : null;
 
   const missingPlans = blocked.length > 0 ? <MissingPlans organizationSlug={organizationSlug} services={blocked} /> : null;
 
@@ -201,7 +226,7 @@ export function RegisterPaymentForm({
               required
             />
           </Field>
-          <Field key={`amount-${selectedPlan.id}`}>
+          <Field key={`amount-${selectedPlan.id}-${suggestion.amount}`}>
             <Label htmlFor="amount">Monto</Label>
             <Input
               id="amount"
@@ -209,8 +234,11 @@ export function RegisterPaymentForm({
               type="number"
               min={0}
               step="0.01"
-              defaultValue={selectedPlan.price}
+              defaultValue={suggestion.amount}
             />
+            {suggestion.mode !== "full" ? (
+              <FieldHint>Sugerido. Podés escribir otro monto.</FieldHint>
+            ) : null}
           </Field>
           <Field>
             <Label htmlFor="status">Estado</Label>
@@ -222,6 +250,20 @@ export function RegisterPaymentForm({
           </Field>
         </div>
 
+        {longCycle && selectedPlan.periodStart && selectedPlan.periodEnd ? (
+          <LongPeriodQuote
+            months={longCycle}
+            periodStart={selectedPlan.periodStart}
+            periodEnd={selectedPlan.periodEnd}
+            price={selectedPlan.price}
+            proratedPrice={selectedPlan.proratedPrice}
+            unitsCharged={selectedPlan.unitsCharged}
+            unitsTotal={selectedPlan.unitsTotal}
+            mode={suggestion.mode}
+            currency={currency}
+          />
+        ) : null}
+
         <FormError>{state.error}</FormError>
         <FormSuccess>{state.success}</FormSuccess>
 
@@ -232,6 +274,63 @@ export function RegisterPaymentForm({
 
       {missingPlans}
     </div>
+  );
+}
+
+/**
+ * ADR-0031: what a long-cycle plan charges, with the arithmetic in the open
+ * -- full period, full price and, when it applies, the prorated suggestion
+ * ("1 de 3 meses del trimestre jul–sep"). Every number here comes from
+ * `quote_service_plan_period()`; this only words it.
+ */
+function LongPeriodQuote({
+  months,
+  periodStart,
+  periodEnd,
+  price,
+  proratedPrice,
+  unitsCharged,
+  unitsTotal,
+  mode,
+  currency,
+}: {
+  months: number;
+  periodStart: string;
+  periodEnd: string;
+  price: number;
+  proratedPrice: number;
+  unitsCharged: number;
+  unitsTotal: number;
+  mode: "full" | "prorated" | "plan-change";
+  currency: string;
+}) {
+  const noun = periodNoun(months);
+  const range = formatPeriodRange(periodStart, periodEnd);
+
+  return (
+    <Alert tone="info" size="sm" title={`Plan de ${months} meses`}>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        <li>
+          Período completo: {noun} {range}
+        </li>
+        <li>
+          Precio completo: <span className="tnum">{formatMoney(price, currency)}</span>
+        </li>
+        {mode === "prorated" ? (
+          <li className="font-medium">
+            Sugerido: <span className="tnum">{formatMoney(proratedPrice, currency)}</span> — {unitsCharged} de{" "}
+            {unitsTotal} {unitsTotal === 1 ? "mes" : "meses"} del {noun} {range}, porque entra con el {noun} ya
+            empezado. La cobertura igual es el {noun} entero.
+          </li>
+        ) : null}
+        {mode === "plan-change" ? (
+          <li>
+            Ya tiene un pago en este período para este servicio: un cambio de plan se cobra completo, no se
+            prorratea. Si querés reconocerle algo, cambiá el monto a mano.
+          </li>
+        ) : null}
+      </ul>
+    </Alert>
   );
 }
 
@@ -252,11 +351,14 @@ export function MakeupCreditsPanel({
   customerId,
   services,
   credits,
+  canGrant,
 }: {
   organizationSlug: string;
   customerId: string;
   services: Service[];
   credits: CustomerMakeupCredit[];
+  /** OWNER-only (ADR-0025, reaffirmed by ADR-0033): not offered to anyone else. */
+  canGrant: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     grantManualMakeupCredit.bind(null, organizationSlug, customerId),
@@ -290,6 +392,7 @@ export function MakeupCreditsPanel({
         </DataList>
       )}
 
+      {canGrant ? (
       <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
         <p className="text-xs text-muted-foreground">
           Crédito de cortesía: sólo el dueño de la organización puede otorgarlo, y queda auditado con un
@@ -323,6 +426,7 @@ export function MakeupCreditsPanel({
           {pending ? "Otorgando…" : "Otorgar crédito"}
         </Button>
       </form>
+      ) : null}
     </div>
   );
 }
@@ -360,6 +464,7 @@ export function PaymentList({
   services,
   plans,
   currency,
+  canManage,
 }: {
   organizationSlug: string;
   customerId: string;
@@ -368,6 +473,8 @@ export function PaymentList({
   /** Every plan of the organization, active or not: a payment outlives the plan's listing. */
   plans: ServicePlan[];
   currency: string;
+  /** ADR-0033 `MANAGE_PAYMENTS`: without it the list is read-only (no "Anular"). */
+  canManage: boolean;
 }) {
   if (payments.length === 0) {
     return <EmptyState size="sm" title="Sin pagos registrados." />;
@@ -412,7 +519,7 @@ export function PaymentList({
                 ) : null}
               </div>
             </div>
-            {p.status !== "VOID" ? (
+            {canManage && p.status !== "VOID" ? (
               <form action={voidPayment.bind(null, organizationSlug, customerId, p.id)}>
                 <Button type="submit" variant="ghost" size="xs">
                   Anular

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import type { Service, ServicePlanKind } from "@reservaste/domain";
+import type { BillingCycle, Service, ServicePlanKind } from "@reservaste/domain";
 import type { ActionState } from "@/app/actions/admin";
 import {
   createServicePlan,
@@ -37,6 +37,13 @@ import {
   planScopeLabel,
   planSummary,
 } from "@/lib/plan-labels";
+import {
+  CALENDAR_PERIOD_MONTHS,
+  MONTH_NAMES,
+  calendarBlocks,
+  periodChoiceLabel,
+  periodNoun,
+} from "@/lib/billing-blocks";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -73,6 +80,8 @@ function PlanKindFields({
   onPlanKindChange,
   weeklyQuota,
   billingCycle,
+  billingPeriodMonths = null,
+  billingAnchorMonth = null,
   disabled,
   idPrefix,
 }: {
@@ -80,6 +89,9 @@ function PlanKindFields({
   onPlanKindChange?: (value: ServicePlanKind) => void;
   weeklyQuota: number | null;
   billingCycle: string | null;
+  /** ADR-0031, read-only in edit: frozen once created. */
+  billingPeriodMonths?: number | null;
+  billingAnchorMonth?: number | null;
   /** Terms are frozen: editing an existing plan, always. */
   disabled: boolean;
   idPrefix: string;
@@ -130,18 +142,132 @@ function PlanKindFields({
       ) : null}
 
       {planKind !== "DROP_IN" ? (
+        disabled ? (
+          <Field>
+            <Label>Cómo se cobra</Label>
+            <p className="text-sm text-muted-foreground">
+              {planBillingLabel("MONTHLY", billingCycle as BillingCycle | null, billingPeriodMonths)}
+              {billingCycle === "CALENDAR_PERIOD" && billingPeriodMonths && billingAnchorMonth
+                ? ` · ${calendarBlocks(billingPeriodMonths, billingAnchorMonth).join(", ")}`
+                : ""}
+            </p>
+          </Field>
+        ) : (
+          <BillingPeriodFields idPrefix={idPrefix} />
+        )
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * ADR-0031: "cada cuántos meses se cobra" and, for a fixed-calendar block,
+ * the month it starts on -- with the resulting blocks shown *before*
+ * saving. That preview is the mitigation for ADR-0031 riesgo 2: a wrong
+ * anchor misaligns every customer of the plan at once, and it cannot be
+ * changed afterwards.
+ *
+ * What travels is exactly what `createServicePlan` reads: `billingCycle`
+ * (one of the four values, derived here from "how many months" + "fixed
+ * or from the payment"), `billingPeriodMonths` and `billingAnchorMonth`
+ * only when they apply. The action drops them otherwise and the database
+ * CHECKs are the real defence.
+ */
+function BillingPeriodFields({ idPrefix }: { idPrefix: string }) {
+  const [months, setMonths] = useState(1);
+  const [mode, setMode] = useState<"CALENDAR" | "ROLLING">("CALENDAR");
+  // 1 = January. "" = the block starts on the month of each purchase.
+  const [anchor, setAnchor] = useState<string>("1");
+
+  const long = months > 1;
+  const billingCycle: BillingCycle = long
+    ? mode === "CALENDAR"
+      ? "CALENDAR_PERIOD"
+      : "ROLLING_PERIOD"
+    : mode === "CALENDAR"
+      ? "CALENDAR_MONTH"
+      : "ROLLING_MONTH";
+  const noun = periodNoun(months);
+  const blocks = long && mode === "CALENDAR" && anchor ? calendarBlocks(months, Number(anchor)) : [];
+
+  return (
+    <>
+      <input type="hidden" name="billingCycle" value={billingCycle} />
+      {long ? <input type="hidden" name="billingPeriodMonths" value={months} /> : null}
+      {long && mode === "CALENDAR" && anchor ? (
+        <input type="hidden" name="billingAnchorMonth" value={anchor} />
+      ) : null}
+
+      <Field>
+        <Label htmlFor={`${idPrefix}-billingPeriodMonths`}>Cada cuántos meses se cobra</Label>
+        <Select
+          id={`${idPrefix}-billingPeriodMonths`}
+          touch
+          value={months}
+          onChange={(event) => setMonths(Number(event.target.value))}
+        >
+          {CALENDAR_PERIOD_MONTHS.map((value) => (
+            <option key={value} value={value}>
+              {periodChoiceLabel(value)}
+            </option>
+          ))}
+        </Select>
+        {long ? (
+          <FieldHint>El precio que cargues abajo es por el {noun} entero, no por mes.</FieldHint>
+        ) : null}
+      </Field>
+
+      <Field>
+        <Label htmlFor={`${idPrefix}-billingMode`}>{long ? `Cómo se cuenta el ${noun}` : "Cómo se cuenta el mes"}</Label>
+        <Select
+          id={`${idPrefix}-billingMode`}
+          touch
+          value={mode}
+          onChange={(event) => setMode(event.target.value as "CALENDAR" | "ROLLING")}
+        >
+          <option value="CALENDAR">
+            {long ? BILLING_CYCLE_LABEL.CALENDAR_PERIOD : BILLING_CYCLE_LABEL.CALENDAR_MONTH}
+          </option>
+          <option value="ROLLING">
+            {long ? BILLING_CYCLE_LABEL.ROLLING_PERIOD : BILLING_CYCLE_LABEL.ROLLING_MONTH}
+          </option>
+        </Select>
+        {long && mode === "ROLLING" ? (
+          <FieldHint>
+            Cada cliente arranca su {noun} el día que paga y le dura {months} meses. Nunca se prorratea.
+          </FieldHint>
+        ) : null}
+      </Field>
+
+      {long && mode === "CALENDAR" ? (
         <Field>
-          <Label htmlFor={`${idPrefix}-billingCycle`}>Cómo se cuenta el mes</Label>
+          <Label htmlFor={`${idPrefix}-billingAnchorMonth`}>En qué mes arranca el {noun}</Label>
           <Select
-            id={`${idPrefix}-billingCycle`}
-            name="billingCycle"
+            id={`${idPrefix}-billingAnchorMonth`}
             touch
-            defaultValue={billingCycle ?? "CALENDAR_MONTH"}
-            disabled={disabled}
+            value={anchor}
+            onChange={(event) => setAnchor(event.target.value)}
           >
-            <option value="CALENDAR_MONTH">{BILLING_CYCLE_LABEL.CALENDAR_MONTH}</option>
-            <option value="ROLLING_MONTH">{BILLING_CYCLE_LABEL.ROLLING_MONTH}</option>
+            {MONTH_NAMES.map((name, index) => (
+              <option key={name} value={String(index + 1)}>
+                {name}
+              </option>
+            ))}
+            <option value="">El mes en que paga cada cliente</option>
           </Select>
+          {blocks.length > 0 ? (
+            <Alert tone="info" size="sm" title={`Así quedan los ${noun === "año" ? "años" : `${noun}s`}`}>
+              <span className="tnum">{blocks.join(" · ")}</span>
+              <span className="mt-1 block text-xs">
+                Es igual para todos los clientes del plan y no se puede cambiar después. Quien entra con el{" "}
+                {noun} empezado paga la parte que le toca (se sugiere al cobrar) y queda cubierto el {noun} entero.
+              </span>
+            </Alert>
+          ) : (
+            <FieldHint>
+              Cada {noun} arranca el mes en que paga el cliente. Así nunca hay nada que prorratear.
+            </FieldHint>
+          )}
         </Field>
       ) : null}
     </>
@@ -489,6 +615,8 @@ function EditPlanDialog({
               planKind={plan.planKind}
               weeklyQuota={plan.weeklyQuota}
               billingCycle={plan.billingCycle}
+              billingPeriodMonths={plan.billingPeriodMonths}
+              billingAnchorMonth={plan.billingAnchorMonth}
               disabled
             />
             <Field>
@@ -507,7 +635,7 @@ function EditPlanDialog({
                   seguir resolviendo sus términos.{" "}
                 </>
               ) : (
-                <>Qué da un plan, con qué frecuencia y qué servicios cubre no se editan. </>
+                <>Qué da un plan, con qué frecuencia, cada cuánto se cobra y qué servicios cubre no se editan. </>
               )}
               Si te equivocaste, desactivá este plan y creá otro: desactivar no le corta la
               cobertura a nadie que ya haya pagado.
@@ -570,7 +698,10 @@ export function PlanRow({
               {plan.quotaScope ? ` · ${QUOTA_SCOPE_LABEL[plan.quotaScope]}` : ""}
             </span>
             <span className="text-xs text-muted-foreground">
-              {planBillingLabel(plan.billingType, plan.billingCycle)}
+              {planBillingLabel(plan.billingType, plan.billingCycle, plan.billingPeriodMonths)}
+              {plan.billingCycle === "CALENDAR_PERIOD" && plan.billingPeriodMonths && plan.billingAnchorMonth
+                ? ` (${calendarBlocks(plan.billingPeriodMonths, plan.billingAnchorMonth).join(", ")})`
+                : ""}
               {plan.paymentCount > 0 ? (
                 <>
                   {" · "}
@@ -587,7 +718,7 @@ export function PlanRow({
           <span className="tnum text-base font-semibold whitespace-nowrap">
             {formatMoney(plan.price, currency)}
             <span className="text-xs font-normal text-muted-foreground">
-              {planPriceSuffix(plan.billingType)}
+              {planPriceSuffix(plan.billingType, plan.billingPeriodMonths)}
             </span>
           </span>
         </div>

@@ -36,6 +36,14 @@ describe("planBillingLabel", () => {
     expect(planBillingLabel("MONTHLY", "ROLLING_MONTH")).toBe("Mensual · mes desde el pago");
   });
 
+  it("never presents a long-cycle price as monthly when the length is unknown", () => {
+    // ADR-0031: the public catalog does not carry billing_period_months yet.
+    expect(planBillingLabel("MONTHLY", "CALENDAR_PERIOD")).toBe("Se cobra por período de varios meses");
+    expect(planPriceSuffix("MONTHLY", undefined, "ROLLING_PERIOD")).toBe(" / período");
+    expect(planBillingLabel("MONTHLY", "CALENDAR_PERIOD", 3)).toBe("Cada 3 meses · bloque fijo del año");
+    expect(planPriceSuffix("MONTHLY", 3, "CALENDAR_PERIOD")).toBe(" / 3 meses");
+  });
+
   it("does not hang a monthly suffix on a one-off price", () => {
     expect(planPriceSuffix("ONE_TIME")).toBe("");
     expect(planPriceSuffix("MONTHLY")).toBe(" / mes");

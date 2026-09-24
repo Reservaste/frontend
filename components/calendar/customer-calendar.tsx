@@ -137,7 +137,10 @@ export function CustomerCalendar({
         color: slot.serviceColor,
         // ADR-0008: whatever the database chose to disclose, verbatim.
         meta: slot.recentlyReleased ? `${slot.availability} · Cupo liberado` : slot.availability,
-        tone: slot.full ? "neutral" : "success",
+        // Same neutral-not-danger choice as the public calendar for a full
+        // slot (nobody's fault), plus a warning tone for the last few
+        // seats (`availabilityTone`, components/status.tsx).
+        tone: slot.full ? "neutral" : slot.low ? "warning" : "success",
         // A full slot is not a dead link, it is simply not a link.
         href: slot.full
           ? null
@@ -170,6 +173,10 @@ export function CustomerCalendar({
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-success" />
             Con lugar
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full bg-warning" />
+            Últimos lugares
           </span>
           <span className="flex items-center gap-1.5">
             <span className="size-2 rounded-full bg-muted-foreground/40" />
