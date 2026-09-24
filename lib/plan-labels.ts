@@ -41,13 +41,35 @@ export function planSummary(planKind: ServicePlanKind, weeklyQuota: number | nul
   return "Turnos sin límite en el período";
 }
 
-/** How the period a payment buys is counted. */
+/**
+ * How the period a payment buys is counted.
+ *
+ * ADR-0031: `billingPeriodMonths` is optional and defaults to 1, so every
+ * existing call site keeps saying exactly what it said before. `null` and
+ * `1` mean the same thing here, as in the database.
+ */
 export function planBillingLabel(
   billingType: BillingType,
   billingCycle: BillingCycle | null,
+  billingPeriodMonths?: number | null,
 ): string {
   if (billingType === "MONTHLY") {
-    return billingCycle === "ROLLING_MONTH"
+    // A long cycle whose length the caller does not know (the public
+    // catalog does not carry it yet): never call it "Mensual" -- that
+    // would present a quarterly price as a monthly one.
+    if (isLongCycle(billingCycle) && (billingPeriodMonths === null || billingPeriodMonths === undefined)) {
+      return "Se cobra por período de varios meses";
+    }
+
+    const months = billingPeriodMonths ?? 1;
+
+    if (months > 1) {
+      return billingCycle === "ROLLING_PERIOD"
+        ? `Cada ${months} meses · desde el pago`
+        : `Cada ${months} meses · bloque fijo del año`;
+    }
+
+    return billingCycle === "ROLLING_MONTH" || billingCycle === "ROLLING_PERIOD"
       ? "Mensual · mes desde el pago"
       : "Mensual · mes calendario";
   }
@@ -59,14 +81,37 @@ export function planBillingLabel(
   return "Sin cobro";
 }
 
-/** Suffix next to a price, so "2.500 / mes" doesn't read as a one-off. */
-export function planPriceSuffix(billingType: BillingType): string {
-  return billingType === "MONTHLY" ? " / mes" : "";
+/**
+ * Suffix next to a price, so "2.500 / mes" doesn't read as a one-off.
+ *
+ * `billingCycle` is optional: pass it where the months may be unknown (the
+ * public catalog), so a long-cycle price is never suffixed " / mes".
+ */
+export function planPriceSuffix(
+  billingType: BillingType,
+  billingPeriodMonths?: number | null,
+  billingCycle?: BillingCycle | null,
+): string {
+  if (billingType !== "MONTHLY") return "";
+  if (isLongCycle(billingCycle ?? null) && (billingPeriodMonths === null || billingPeriodMonths === undefined)) {
+    return " / período";
+  }
+  const months = billingPeriodMonths ?? 1;
+  return months > 1 ? ` / ${months} meses` : " / mes";
+}
+
+/** ADR-0031: the two cycles that span `billingPeriodMonths` months. */
+function isLongCycle(billingCycle: BillingCycle | null): boolean {
+  return billingCycle === "CALENDAR_PERIOD" || billingCycle === "ROLLING_PERIOD";
 }
 
 export const BILLING_CYCLE_LABEL: Record<BillingCycle, string> = {
   CALENDAR_MONTH: "Mes calendario (del 1 al último día)",
   ROLLING_MONTH: "Mes desde el pago (30 días corridos)",
+  // ADR-0031: los dos ciclos largos. Cuántos meses dura el bloque lo dice
+  // billingPeriodMonths, no la etiqueta del ciclo.
+  CALENDAR_PERIOD: "Bloque fijo del año (arranca siempre el mismo mes)",
+  ROLLING_PERIOD: "Bloque desde el pago (arranca el día que paga)",
 };
 
 /**
