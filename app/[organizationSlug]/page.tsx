@@ -4,6 +4,7 @@ import type { PublicAvailabilitySlot } from "@reservaste/domain";
 import { getPublicAvailability, getPublicOrganization, listPublicServices } from "@/app/actions/public";
 import { getMyOrganizations } from "@/app/actions/organizations";
 import { availabilityLabel } from "./availability-label";
+import { availabilityTone } from "@/components/status";
 import { createClient } from "@/lib/supabase/server";
 import { Brand } from "@/components/brand";
 import { BrandTheme } from "@/components/brand-theme";
@@ -65,6 +66,7 @@ export default async function PublicOrganizationPage({
     // Already respects the disclosure mode of ADR-0008.
     availability: availabilityLabel(slot),
     full: slot.status === "FULL" || slot.remaining === 0,
+    low: availabilityTone(slot.status, slot.remaining) === "warning",
     // ADR-0025: boolean-only, already suppressed by the database in
     // BOOLEAN mode and at capacity 1 -- this page just renders it.
     recentlyReleased: Boolean((slot as { recentlyReleased?: boolean | null }).recentlyReleased),
