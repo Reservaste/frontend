@@ -17,7 +17,7 @@ import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
-import { monthRange } from "@/lib/billing-period";
+import { inclusiveDays, monthRange, round2 } from "@/lib/billing-period";
 import { planSummary } from "@/lib/plan-labels";
 import { formatPeriodRange, periodNoun, suggestedAmount } from "@/lib/billing-blocks";
 
@@ -41,6 +41,13 @@ const initialState: ActionState = { error: null, success: null };
  * raises `PAYMENT_REQUIRES_PLAN` rather than record a payment nobody can
  * interpret, and a raw error code at a front desk is useless -- so this
  * screen shows the way out instead of letting anyone reach it.
+ *
+ * ADR-0038: for a one-month plan (outside `LongPeriodQuote`'s territory),
+ * editing "Período desde/hasta" by hand re-suggests the amount prorated by
+ * days -- shortening a $1.700 month to ten days used to keep showing
+ * $1.700, which reads as a bug at a front desk. The full period the plan
+ * suggested when it was picked is the fixed denominator; the amount stays
+ * a suggestion the admin can still overwrite, same as before.
  */
 export function RegisterPaymentForm({
   organizationSlug,
@@ -132,6 +139,53 @@ export function RegisterPaymentForm({
   const longCycle =
     selectedPlan && (selectedPlan.billingPeriodMonths ?? 1) > 1 ? (selectedPlan.billingPeriodMonths as number) : null;
 
+  // ADR-0038: el período completo que el plan sugiere al elegirlo -- lo
+  // mismo que antes se volcaba directo al `defaultValue` de los inputs --
+  // es también el denominador fijo del prorrateo por días. Tiene que salir
+  // de las *props* del plan elegido, nunca de lo que el admin tenga
+  // tipeado en ese momento, o el denominador se movería con cada tecla.
+  const fullPeriodStart = selectedPlan?.periodStart ?? firstOfMonth;
+  const fullPeriodEnd = selectedPlan?.periodEnd ?? lastOfMonth;
+  // Cambia con el plan (o con el mes, cuando el plan no trae período
+  // propio y cae al mes que se está mirando) -- es la clave que dispara el
+  // reset de abajo, con el mismo patrón "adjust state during render" que
+  // serviceId/planId más arriba.
+  const fullPeriodKey = `${selectedPlan?.id ?? ""}:${fullPeriodStart}:${fullPeriodEnd}`;
+
+  // Los inputs de período pasan de "uncontrolled + key que remonta" a
+  // controlados: hace falta leer lo que el admin va tipeando en cada
+  // render para recalcular el monto, y un input sin controlar no expone
+  // ese valor hasta el submit.
+  const [periodStart, setPeriodStart] = useState(fullPeriodStart);
+  const [periodEnd, setPeriodEnd] = useState(fullPeriodEnd);
+  const [loadedPeriodKey, setLoadedPeriodKey] = useState(fullPeriodKey);
+  if (loadedPeriodKey !== fullPeriodKey) {
+    setPeriodStart(fullPeriodStart);
+    setPeriodEnd(fullPeriodEnd);
+    setLoadedPeriodKey(fullPeriodKey);
+  }
+
+  // Sólo para un plan de un mes: el de ciclo largo tiene su propio
+  // prorrateo por meses enteros (ADR-0031, `LongPeriodQuote` más abajo) y
+  // este no se mezcla con ése. `inclusiveDays` da `null` con una fecha a
+  // medio tipear o con "hasta" antes que "desde" -- en ese caso no hay
+  // nada que recalcular todavía y se muestra el precio completo, nunca
+  // NaN/Infinity.
+  const editedPeriodDays = inclusiveDays(periodStart, periodEnd);
+  const fullPeriodDays = inclusiveDays(fullPeriodStart, fullPeriodEnd);
+  const proratedByDaysAmount =
+    !longCycle && selectedPlan && fullPeriodDays && editedPeriodDays
+      ? round2((selectedPlan.price / fullPeriodDays) * editedPeriodDays)
+      : null;
+  const amountToSuggest = proratedByDaysAmount ?? suggestion.amount;
+  const periodEdited = periodStart !== fullPeriodStart || periodEnd !== fullPeriodEnd;
+  // El hint de "es una sugerencia" ya aparecía para el prorrateo por meses
+  // de ADR-0031; ahora también cuando el admin tocó el período de un plan
+  // de un mes, aunque el resultado en pesos coincida con el precio
+  // completo (dos semanas de un plan que da igual redondeado también es
+  // una sugerencia, no el precio de lista).
+  const showAmountHint = suggestion.mode !== "full" || (!longCycle && periodEdited);
+
   const missingPlans = blocked.length > 0 ? <MissingPlans organizationSlug={organizationSlug} services={blocked} /> : null;
 
   if (payable.length === 0) {
@@ -154,6 +208,12 @@ export function RegisterPaymentForm({
   return (
     <div className="flex flex-col gap-3">
       <form action={formAction} className="flex flex-col gap-3 rounded-xl border bg-card p-4 shadow-card">
+        {/* Solo va cuando esta pantalla está parada sobre un mes
+            (`/payments/[customerId]?mes=`): es lo que le permite al action
+            avisar si el pago que se acaba de cargar no va a aparecer en la
+            lista de abajo (paga otro período) en vez de dejar que parezca
+            que no se guardó. */}
+        {month ? <input type="hidden" name="viewedMonth" value={month} /> : null}
         <div className="grid gap-3 sm:grid-cols-2">
           <Field className="sm:col-span-2">
             <Label htmlFor="serviceId">Servicio</Label>
@@ -200,33 +260,42 @@ export function RegisterPaymentForm({
             </FieldHint>
           </Field>
 
-          {/* Keyed on the plan so picking another one refreshes the
-              prefilled values, while leaving them editable: registering
-              last month's payment is a real thing that happens. El mes
-              entra en la key porque cambiar `?mes=` no remonta el
-              formulario: sin eso, la fecha prellenada seguiría siendo la
-              del mes anterior después de navegar. */}
-          <Field key={`period-${selectedPlan.id}-${firstOfMonth}`}>
+          {/* Precargados con el período que sugiere el plan, y controlados
+              a partir de ahí: se resetean solos al cambiar de plan o de mes
+              (ver `fullPeriodKey` arriba) pero mientras tanto quedan
+              editables, registrar el pago de otro período es algo que pasa
+              de verdad -- y para un plan de un mes, cada edición
+              recalcula el monto sugerido (ADR-0038). */}
+          <Field>
             <Label htmlFor="periodStart">Período desde</Label>
             <Input
               id="periodStart"
               name="periodStart"
               type="date"
-              defaultValue={selectedPlan.periodStart ?? firstOfMonth}
+              value={periodStart}
+              onChange={(event) => setPeriodStart(event.target.value)}
               required
             />
           </Field>
-          <Field key={`period-end-${selectedPlan.id}-${lastOfMonth}`}>
+          <Field>
             <Label htmlFor="periodEnd">Período hasta</Label>
             <Input
               id="periodEnd"
               name="periodEnd"
               type="date"
-              defaultValue={selectedPlan.periodEnd ?? lastOfMonth}
+              value={periodEnd}
+              onChange={(event) => setPeriodEnd(event.target.value)}
               required
             />
           </Field>
-          <Field key={`amount-${selectedPlan.id}-${suggestion.amount}`}>
+          {/* Sin controlar a propósito: sigue siendo una sugerencia que el
+              admin puede pisar a mano. La key es lo que la vuelve a
+              recalcular -- remonta el input con un nuevo `defaultValue`
+              cada vez que cambia el plan o (para uno de un mes) el período
+              editado, así que un cambio de fecha gana por encima de
+              cualquier monto tipeado a mano antes, que es justamente lo
+              que ADR-0038 pidió: "automático, no sólo la primera vez". */}
+          <Field key={`amount-${selectedPlan.id}-${amountToSuggest}`}>
             <Label htmlFor="amount">Monto</Label>
             <Input
               id="amount"
@@ -234,9 +303,9 @@ export function RegisterPaymentForm({
               type="number"
               min={0}
               step="0.01"
-              defaultValue={suggestion.amount}
+              defaultValue={amountToSuggest}
             />
-            {suggestion.mode !== "full" ? (
+            {showAmountHint ? (
               <FieldHint>Sugerido. Podés escribir otro monto.</FieldHint>
             ) : null}
           </Field>

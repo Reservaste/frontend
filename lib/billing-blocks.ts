@@ -104,7 +104,7 @@ export function formatPeriodRange(periodStart: string, periodEnd: string): strin
 }
 
 /** Whether two ISO date ranges (inclusive) overlap. */
-function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+export function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart <= bEnd && bStart <= aEnd;
 }
 
