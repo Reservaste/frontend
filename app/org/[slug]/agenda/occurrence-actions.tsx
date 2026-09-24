@@ -32,6 +32,7 @@ export function OccurrenceActions({
   attendees,
   customers,
   isCancelled,
+  canManageBookings,
 }: {
   organizationSlug: string;
   occurrenceId: string;
@@ -39,6 +40,12 @@ export function OccurrenceActions({
   attendees: OccurrenceAttendee[];
   customers: OrganizationCustomer[];
   isCancelled: boolean;
+  /**
+   * ADR-0033 `MANAGE_BOOKINGS`: "Anotar", removing someone else's booking
+   * and cancelling the turno. Without it the attendee list stays visible
+   * (a role that cannot see who is booked cannot run the turno).
+   */
+  canManageBookings: boolean;
 }) {
   const [bookState, bookAction, booking] = useActionState(
     bookCustomerIntoSlot.bind(null, organizationSlug, occurrenceId),
@@ -62,7 +69,7 @@ export function OccurrenceActions({
             {confirmed.map((attendee) => (
               <li key={attendee.bookingId} className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="text-sm">{attendee.customerName}</span>
-                {!isCancelled ? (
+                {!isCancelled && canManageBookings ? (
                   <form action={cancelBookingAsStaff.bind(null, organizationSlug, attendee.bookingId)}>
                     <Button type="submit" variant="ghost" size="touch">
                       Quitar
@@ -77,6 +84,7 @@ export function OccurrenceActions({
 
       {!isCancelled ? (
         <>
+          {canManageBookings ? (
           <section className="flex flex-col gap-2">
             <h4 className="eyebrow text-muted-foreground">Anotar cliente</h4>
             <form action={bookAction} className="flex flex-wrap items-center gap-2">
@@ -97,6 +105,7 @@ export function OccurrenceActions({
             <FormError>{bookState.error}</FormError>
             <FormSuccess>{bookState.success}</FormSuccess>
           </section>
+          ) : null}
 
           <div className="flex flex-wrap items-end justify-between gap-3 border-t pt-4">
             <form action={capacityAction} className="flex items-end gap-2">
@@ -119,11 +128,13 @@ export function OccurrenceActions({
               </Button>
             </form>
 
-            <form action={cancelOccurrence.bind(null, organizationSlug, occurrenceId)}>
-              <Button type="submit" variant="destructive" size="touch">
-                Cancelar horario
-              </Button>
-            </form>
+            {canManageBookings ? (
+              <form action={cancelOccurrence.bind(null, organizationSlug, occurrenceId)}>
+                <Button type="submit" variant="destructive" size="touch">
+                  Cancelar horario
+                </Button>
+              </form>
+            ) : null}
           </div>
           <FormError>{capacityState.error}</FormError>
           <FormSuccess>{capacityState.success}</FormSuccess>

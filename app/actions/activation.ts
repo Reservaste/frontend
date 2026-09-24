@@ -9,11 +9,10 @@ import {
   activationCookieClearOptions,
 } from "@/lib/activation-cookie";
 
-/** Server component helper: is there a live activation token in flight? */
-export async function readActivationToken(): Promise<string | null> {
-  const jar = await cookies();
-  return jar.get(COOKIE_NAME)?.value ?? null;
-}
+// The server-component reader of this cookie lives in `@/lib/server-cookies`,
+// NOT here: every export of a "use server" module is an invocable action,
+// and one that returns the token would hand an httpOnly secret to any
+// same-origin script.
 
 const ERROR_MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: "Iniciá sesión para continuar.",

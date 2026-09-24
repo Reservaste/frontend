@@ -32,6 +32,7 @@ export function StandingReservations({
   customers,
   reservations,
   timezone,
+  canManage,
 }: {
   organizationSlug: string;
   serviceId: string;
@@ -40,6 +41,12 @@ export function StandingReservations({
   customers: OrganizationCustomer[];
   reservations: StandingReservation[];
   timezone: string;
+  /**
+   * ADR-0033 `MANAGE_BOOKINGS`: assigning or removing a standing
+   * reservation. Without it the list is read-only (the payment/quota
+   * signals stay visible on purpose -- ADR-0033 resolución 2).
+   */
+  canManage: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Controlled on purpose: the select lives in the *create* form now, and
@@ -87,7 +94,7 @@ export function StandingReservations({
         <span className="eyebrow text-muted-foreground">
           {ruleLabel} · fijo ({active.length})
         </span>
-        {!open && available.length > 0 ? (
+        {canManage && !open && available.length > 0 ? (
           <Button variant="outline" size="touch" onClick={() => setOpen(true)}>
             + Asignar cliente
           </Button>
@@ -160,25 +167,27 @@ export function StandingReservations({
                     período
                   </StatusBadge>
                 ) : null}
-                <form
-                  action={cancelStandingReservation.bind(
-                    null,
-                    organizationSlug,
-                    serviceId,
-                    reservation.recurringBookingId,
-                  )}
-                >
-                  <Button type="submit" variant="ghost" size="sm">
-                    Quitar
-                  </Button>
-                </form>
+                {canManage ? (
+                  <form
+                    action={cancelStandingReservation.bind(
+                      null,
+                      organizationSlug,
+                      serviceId,
+                      reservation.recurringBookingId,
+                    )}
+                  >
+                    <Button type="submit" variant="ghost" size="sm">
+                      Quitar
+                    </Button>
+                  </form>
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {open ? (
+      {canManage && open ? (
         <div className="flex flex-col gap-3 rounded-lg border bg-card p-3.5">
           {available.length === 0 ? (
             <EmptyState size="sm" title="Todos los clientes activos ya tienen este horario fijo." />

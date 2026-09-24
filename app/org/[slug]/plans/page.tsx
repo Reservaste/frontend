@@ -1,3 +1,4 @@
+import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listServices } from "@/app/actions/services";
 import { listServicePlans } from "@/app/actions/service-plans";
@@ -38,14 +39,19 @@ export default async function PlansPage({
 }) {
   const { slug } = await params;
   const { serviceId } = await searchParams;
-  const { organization, membership } = await requireOrganizationMembership(slug);
+  const { organization, membership, permissions } = await requireOrganizationMembership(slug);
+  // ADR-0033: the price list is for everyone (it is public anyway), but the
+  // plan-change queue is payment work -- VIEW_PAYMENTS to see it,
+  // MANAGE_PAYMENTS to resolve it (docs/api.md, Fase 32).
+  const canViewPayments = hasOrgPermission(permissions, "VIEW_PAYMENTS");
+  const canManagePayments = hasOrgPermission(permissions, "MANAGE_PAYMENTS");
 
   const [services, result, planChangeRequests] = await Promise.all([
     listServices(slug),
     listServicePlans(slug),
     // Sólo los pendientes: un pedido cobrado se cierra solo por trigger
     // (ADR-0035), así que esta lista es trabajo real, no historial.
-    listPlanChangeRequests(slug),
+    canViewPayments ? listPlanChangeRequests(slug) : Promise.resolve([]),
   ]);
 
   // Same rule the service's payment configuration already had: staff run
@@ -75,6 +81,7 @@ export default async function PlansPage({
         organizationSlug={slug}
         requests={planChangeRequests}
         timezone={organization.timezone}
+        canResolve={canManagePayments}
       />
 
       <div className="flex flex-wrap items-center justify-between gap-2">

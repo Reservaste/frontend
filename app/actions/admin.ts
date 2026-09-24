@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import {
+  mapOrganizationTeamMember,
+  type OrganizationTeamMemberRow,
+} from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { DESK_BOOKING_REASONS } from "@/lib/booking-reasons";
@@ -355,6 +359,13 @@ export interface TeamMember {
   fullName: string;
   role: "OWNER" | "STAFF";
   isActive: boolean;
+  /**
+   * ADR-0033: el rol configurable EFECTIVO del miembro -- el asignado, o el
+   * rol por defecto de la organización cuando no tiene uno. Null para un
+   * OWNER, que no lleva rol configurable.
+   */
+  roleId: string | null;
+  roleName: string | null;
 }
 
 export async function getTeam(organizationSlug: string): Promise<TeamMember[]> {
@@ -369,15 +380,7 @@ export async function getTeam(organizationSlug: string): Promise<TeamMember[]> {
     return [];
   }
 
-  return data.map(
-    (row: { member_id: string; profile_id: string; full_name: string; role: TeamMember["role"]; is_active: boolean }) => ({
-      memberId: row.member_id,
-      profileId: row.profile_id,
-      fullName: row.full_name,
-      role: row.role,
-      isActive: row.is_active,
-    }),
-  );
+  return (data as OrganizationTeamMemberRow[]).map(mapOrganizationTeamMember);
 }
 
 export interface ActionState {
@@ -414,6 +417,26 @@ function describeError(message: string | undefined): string {
   if (message.includes("BOOKING_NOT_CONFIRMED")) {
     return "No se puede marcar asistencia de una reserva cancelada";
   }
+  // ADR-0033
+  if (message.includes("ROLE_NAME_TAKEN")) return "Ya existe un rol con ese nombre";
+  if (message.includes("ROLE_NAME_TOO_LONG")) return "El nombre del rol es demasiado largo";
+  if (message.includes("ROLE_NAME_REQUIRED")) return "El nombre del rol es obligatorio";
+  if (message.includes("MANAGE_PAYMENTS_REQUIRES_VIEW")) {
+    return "Un rol que registra pagos tiene que poder verlos";
+  }
+  if (message.includes("ROLE_IN_USE")) {
+    return "Ese rol todavía lo tiene alguien del equipo. Cambiale el rol primero.";
+  }
+  if (message.includes("DEFAULT_ROLE_REQUIRED")) {
+    return "Tiene que haber siempre un rol por defecto. Elegí otro antes de sacar éste.";
+  }
+  if (message.includes("ROLE_INACTIVE")) return "Ese rol está desactivado";
+  if (message.includes("ROLE_OTHER_ORGANIZATION")) return "Ese rol es de otra organización";
+  if (message.includes("OWNER_HAS_NO_ROLE")) {
+    return "El dueño no lleva rol: siempre puede todo";
+  }
+  if (message.includes("ROLE_NOT_FOUND")) return "Ese rol ya no existe";
+  if (message.includes("MEMBER_NOT_FOUND")) return "Esa persona ya no está en el equipo";
   return "Algo salió mal";
 }
 
@@ -451,6 +474,10 @@ export async function inviteMember(
   const { organization } = await requireOrganizationMembership(organizationSlug);
   const email = String(formData.get("email") ?? "").trim();
   const role = String(formData.get("role") ?? "STAFF");
+  // ADR-0033: rol configurable del invitado. Vacío = el rol por defecto de
+  // la organización (que es lo que hacía esta invitación antes). Un OWNER
+  // nunca lleva rol: la RPC lo ignora aunque llegue.
+  const roleId = String(formData.get("roleId") ?? "").trim() || null;
 
   if (!email) {
     return { error: "El email es obligatorio", success: null };
@@ -461,9 +488,20 @@ export async function inviteMember(
     p_organization_id: organization.id,
     p_email: email,
     p_role: role,
+    p_role_id: role === "OWNER" ? null : roleId,
   });
 
   if (error) {
+    // The shared PROFILE_NOT_FOUND text points at "Cliente sin cuenta",
+    // which is the customer flow. For the team the way out is ADR-0034's
+    // invitation link.
+    if (error.message.includes("PROFILE_NOT_FOUND")) {
+      return {
+        error:
+          "No encontramos una cuenta con ese email. Si todavía no se registró, cerrá esto y usá “Invitar al equipo”: le llega un link por WhatsApp.",
+        success: null,
+      };
+    }
     return { error: describeError(error.message), success: null };
   }
 

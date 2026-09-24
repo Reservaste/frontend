@@ -1,7 +1,14 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createOrganizationSchema, mapOrganization, mapOrganizationMember } from "@reservaste/domain";
+import {
+  createOrganizationSchema,
+  mapMyOrganizationPermissions,
+  mapOrganization,
+  mapOrganizationMember,
+  NO_ORG_PERMISSIONS,
+  type MyOrganizationPermissionsRow,
+} from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 
 export interface CreateOrganizationState {
@@ -59,6 +66,15 @@ export async function createOrganization(
     // The invite failures are the ones a buyer can actually act on, so
     // each gets its own wording instead of a generic failure.
     const message = error.message ?? "";
+    // Phase 27/27b: the CHECKs on organizations.slug are the real boundary;
+    // Zod normally catches both first, but a stale @reservaste/domain (or a
+    // new reserved route added in SQL before the package bump) lands here.
+    if (message.includes("SLUG_RESERVED")) {
+      return { error: "Ese nombre está reservado, elegí otro" };
+    }
+    if (message.includes("INVALID_SLUG")) {
+      return { error: "Solo minúsculas, números y guiones (ej: iron-gym)" };
+    }
     if (message.includes("INVITE_NOT_FOUND")) {
       return { error: "Ese código no existe. Revisá que esté bien escrito." };
     }
@@ -85,6 +101,17 @@ export async function createOrganization(
  * organizationId, so membership is always re-checked server-side (RLS is
  * the real enforcement, this is what turns a blocked query into a clean
  * redirect instead of a confusing empty page).
+ *
+ * ADR-0033: devuelve además `permissions`, los cinco permisos del rol
+ * configurable ya resueltos (rol propio, o el rol por defecto de la
+ * organización; un OWNER siempre los tiene todos). Es el único punto por
+ * donde pasan todas las pantallas del panel, así que es el lugar natural
+ * para que cada una decida qué esconder. Esconder NO es autorizar: la
+ * autorización está en RLS y en cada RPC, y esto sirve para no
+ * mostrar-todo-y-fallar-al-guardar.
+ *
+ * Si la RPC fallara, se devuelve NO_ORG_PERMISSIONS: se falla cerrado, y la
+ * pantalla queda vacía en vez de ofrecer botones que la base va a rechazar.
  */
 export async function requireOrganizationMembership(slug: string) {
   const supabase = await createClient();
@@ -111,10 +138,29 @@ export async function requireOrganizationMembership(slug: string) {
 
   const { organization_members, ...organizationRow } = orgRow;
   const membershipRow = Array.isArray(organization_members) ? organization_members[0] : organization_members;
+  const membership = mapOrganizationMember(membershipRow);
+
+  const { data: permissionRows } = await supabase.rpc("my_organization_permissions", {
+    p_organization_id: organizationRow.id,
+  });
+
+  const permissionRow = (permissionRows as MyOrganizationPermissionsRow[] | null)?.[0];
+  const resolved = permissionRow ? mapMyOrganizationPermissions(permissionRow) : null;
 
   return {
     organization: mapOrganization(organizationRow),
-    membership: mapOrganizationMember(membershipRow),
+    membership,
+    /** ADR-0033. Nombre del rol efectivo, null para un OWNER. */
+    roleName: resolved?.roleName ?? null,
+    permissions: resolved
+      ? {
+          canViewPayments: resolved.canViewPayments,
+          canManagePayments: resolved.canManagePayments,
+          canManageBookings: resolved.canManageBookings,
+          canManageCustomers: resolved.canManageCustomers,
+          canManageAttendance: resolved.canManageAttendance,
+        }
+      : NO_ORG_PERMISSIONS,
   };
 }
 

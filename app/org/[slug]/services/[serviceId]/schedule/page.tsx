@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { listResources } from "@/app/actions/resources";
 import { listServices } from "@/app/actions/services";
@@ -29,7 +30,12 @@ export default async function ServiceSchedulePage({
   params: Promise<{ slug: string; serviceId: string }>;
 }) {
   const { slug, serviceId } = await params;
-  const { organization, membership } = await requireOrganizationMembership(slug);
+  const { organization, membership, permissions } = await requireOrganizationMembership(slug);
+  // ADR-0033 + Fase 34 fix 2: taking a whole schedule down cancels
+  // everyone's bookings on it, so `discontinue_schedule_rule*()` requires
+  // MANAGE_BOOKINGS -- as do creating/cancelling a standing reservation.
+  // Creating or editing a schedule stays open to any member.
+  const canManageBookings = hasOrgPermission(permissions, "MANAGE_BOOKINGS");
   const [resources, services, groups, customers, plans] = await Promise.all([
     listResources(slug),
     listServices(slug),
@@ -151,11 +157,13 @@ export default async function ServiceSchedulePage({
 
                   <div className="flex items-center justify-between gap-2 sm:justify-end">
                     <StatusBadge tone="primary">{group.capacity} lugares</StatusBadge>
-                    <form action={discontinueScheduleRuleGroup.bind(null, slug, serviceId, group.groupId)}>
-                      <Button type="submit" variant="ghost" size="sm">
-                        Quitar
-                      </Button>
-                    </form>
+                    {canManageBookings ? (
+                      <form action={discontinueScheduleRuleGroup.bind(null, slug, serviceId, group.groupId)}>
+                        <Button type="submit" variant="ghost" size="sm">
+                          Quitar
+                        </Button>
+                      </form>
+                    ) : null}
                   </div>
                 </div>
 
@@ -169,6 +177,7 @@ export default async function ServiceSchedulePage({
                     customers={customers}
                     reservations={standingByRule[ruleId] ?? []}
                     timezone={organization.timezone}
+                    canManage={canManageBookings}
                   />
                 ))}
 

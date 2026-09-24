@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getOccurrence, getOccurrenceAttendees } from "@/app/actions/admin";
 import { BackLink } from "@/components/back-link";
@@ -13,7 +14,7 @@ export default async function AttendancePage({
   params: Promise<{ slug: string; occurrenceId: string }>;
 }) {
   const { slug, occurrenceId } = await params;
-  const { organization } = await requireOrganizationMembership(slug);
+  const { organization, permissions } = await requireOrganizationMembership(slug);
 
   const [occurrence, attendees] = await Promise.all([
     getOccurrence(slug, occurrenceId),
@@ -63,7 +64,12 @@ export default async function AttendancePage({
           description="Cuando haya reservas confirmadas vas a poder pasar lista acá."
         />
       ) : (
-        <RollCall organizationSlug={slug} occurrenceId={occurrenceId} attendees={confirmed} />
+        <RollCall
+          organizationSlug={slug}
+          occurrenceId={occurrenceId}
+          attendees={confirmed}
+          readOnly={!hasOrgPermission(permissions, "MANAGE_ATTENDANCE")}
+        />
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers } from "@/app/actions/admin";
 import { PageHeader } from "@/components/page-header";
@@ -13,8 +14,11 @@ export const metadata = { title: "Clientes" };
 
 export default async function CustomersPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  await requireOrganizationMembership(slug);
+  const { permissions } = await requireOrganizationMembership(slug);
   const customers = await getCustomers(slug);
+  // ADR-0033 `MANAGE_CUSTOMERS`: signing customers up. The list itself is
+  // for every member (a role that cannot see customers cannot take roll).
+  const canManageCustomers = hasOrgPermission(permissions, "MANAGE_CUSTOMERS");
 
   const initials = (name: string) =>
     name
@@ -41,15 +45,21 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
         para leerse como "la forma normal" -- llevaba al dueño derecho al
         único camino que sí exige registro previo.
       */}
-      <div className="flex flex-wrap gap-2">
-        <ManagedCustomerForm organizationSlug={slug} />
-        <EnrollForm organizationSlug={slug} />
-      </div>
+      {canManageCustomers ? (
+        <div className="flex flex-wrap gap-2">
+          <ManagedCustomerForm organizationSlug={slug} />
+          <EnrollForm organizationSlug={slug} />
+        </div>
+      ) : null}
 
       {customers.length === 0 ? (
         <EmptyState
           title="Todavía no hay clientes"
-          description="Dalo de alta con nombre y teléfono -- no hace falta que tenga cuenta. Si ya se registró por su cuenta, usá 'Cliente con cuenta existente'."
+          description={
+            canManageCustomers
+              ? "Dalo de alta con nombre y teléfono -- no hace falta que tenga cuenta. Si ya se registró por su cuenta, usá 'Cliente con cuenta existente'."
+              : "Cuando el negocio dé de alta clientes, van a aparecer acá."
+          }
         />
       ) : (
         <DataList>

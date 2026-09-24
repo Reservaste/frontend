@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
 import { getCustomers, getOccurrence, getOccurrenceAttendees } from "@/app/actions/admin";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -15,7 +16,8 @@ export default async function OccurrenceDetailPage({
   params: Promise<{ slug: string; occurrenceId: string }>;
 }) {
   const { slug, occurrenceId } = await params;
-  const { organization } = await requireOrganizationMembership(slug);
+  const { organization, permissions } = await requireOrganizationMembership(slug);
+  const canManageAttendance = hasOrgPermission(permissions, "MANAGE_ATTENDANCE");
 
   const [occurrence, attendees, customers] = await Promise.all([
     getOccurrence(slug, occurrenceId),
@@ -108,9 +110,9 @@ export default async function OccurrenceDetailPage({
             </div>
             <Link
               href={`/org/${slug}/agenda/${occurrenceId}/asistencia`}
-              className={buttonVariants({ size: "touch" })}
+              className={buttonVariants({ size: "touch", variant: canManageAttendance ? "default" : "outline" })}
             >
-              Pasar lista
+              {canManageAttendance ? "Pasar lista" : "Ver asistencia"}
             </Link>
           </div>
         ) : null}
@@ -124,6 +126,7 @@ export default async function OccurrenceDetailPage({
           attendees={attendees}
           customers={customers}
           isCancelled={cancelled}
+          canManageBookings={hasOrgPermission(permissions, "MANAGE_BOOKINGS")}
         />
       </div>
     </div>

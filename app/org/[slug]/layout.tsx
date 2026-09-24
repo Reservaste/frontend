@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { hasOrgPermission } from "@reservaste/domain";
 import { getMyOrganizations, requireOrganizationMembership } from "@/app/actions/organizations";
 import { signOut } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { OrgNav } from "@/components/org-nav";
 
 export default async function OrganizationLayout({ children, params }: LayoutProps<"/org/[slug]">) {
   const { slug } = await params;
-  const [{ organization }, organizations] = await Promise.all([
+  const [{ organization, permissions }, organizations] = await Promise.all([
     requireOrganizationMembership(slug),
     getMyOrganizations(),
   ]);
@@ -64,7 +65,7 @@ export default async function OrganizationLayout({ children, params }: LayoutPro
             </form>
           </div>
         </div>
-        <OrgNav slug={slug} />
+        <OrgNav slug={slug} canViewPayments={hasOrgPermission(permissions, "VIEW_PAYMENTS")} />
       </header>
 
       <main className="flex flex-1 flex-col">{children}</main>

@@ -26,10 +26,13 @@ export function PlanChangeRequests({
   organizationSlug,
   requests,
   timezone,
+  canResolve,
 }: {
   organizationSlug: string;
   requests: PlanChangeRequest[];
   timezone: string;
+  /** ADR-0033 `MANAGE_PAYMENTS`: without it the queue is read-only. */
+  canResolve: boolean;
 }) {
   if (requests.length === 0) return null;
 
@@ -87,6 +90,7 @@ export function PlanChangeRequests({
               </p>
             ) : null}
 
+            {canResolve ? (
             <div className="flex flex-wrap items-center gap-2">
               {/* El camino real: cobrar. Los dos botones de al lado son la
                   salida para cuando la venta no pasó por acá. */}
@@ -121,6 +125,7 @@ export function PlanChangeRequests({
                 </Button>
               </form>
             </div>
+            ) : null}
           </DataListRow>
         ))}
       </DataList>
