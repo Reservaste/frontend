@@ -85,4 +85,15 @@ export const DESK_BOOKING_REASONS: Record<string, string> = {
   OUTSIDE_PLAN_QUOTA: "Pago al día, pero fuera de sus horarios fijos",
   OVER_PLAN_QUOTA: "Excede la frecuencia del plan",
   SERVICE_HAS_NO_PLAN: "El servicio no tiene ningún plan activo",
+
+  // `StandingOccurrenceStatus` (recurring_booking_occurrences()): el estado
+  // fecha por fecha de una serie ya activa, no un código de can_book. Mismo
+  // diccionario porque son la misma pregunta ("¿por qué esta fecha sí/no?")
+  // para dos pantallas distintas -- separarlo en dos tablas es como
+  // empiezan a discrepar.
+  CONFIRMED: "Confirmada",
+  UNPAID: "Espera el pago del período para confirmarse",
+  OVER_QUOTA: "Excede la frecuencia del plan",
+  BEYOND_PERIOD: "Fuera del período pagado, se confirma sola",
+  UNAVAILABLE: "Sin lugar por ahora",
 };
