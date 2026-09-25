@@ -46,10 +46,13 @@ import { CloseIcon } from "@/components/icons";
  * that went wrong shouldn't evaporate while it's being read.
  */
 
+// `text-{tone}-on-subtle`, not `text-{tone}`: see the token's comment in
+// globals.css -- the tone colour itself under-contrasts its own
+// "-subtle" wash (ADR-0039).
 const TONES: Record<string, string> = {
-  success: "border-success/30 bg-success-subtle text-success",
-  error: "border-destructive/30 bg-destructive-subtle text-destructive",
-  warning: "border-warning/40 bg-warning-subtle text-warning-foreground",
+  success: "border-success/30 bg-success-subtle text-success-on-subtle",
+  error: "border-destructive/30 bg-destructive-subtle text-destructive-on-subtle",
+  warning: "border-warning/40 bg-warning-subtle text-warning-on-subtle",
 };
 
 /** Re-exported so callers never import from `@base-ui/react` directly. */

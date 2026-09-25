@@ -53,13 +53,13 @@ export function PlanUsageCard({ usage }: { usage: PlanUsage }) {
       </div>
 
       {usage.subscriptionStatus === "TRIALING" && usage.trialEndsAt ? (
-        <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-foreground">
+        <p className="rounded-lg bg-warning-subtle px-3 py-2 text-sm text-warning-on-subtle">
           Tu prueba termina el {new Date(usage.trialEndsAt).toLocaleDateString("es-UY")}.
         </p>
       ) : null}
 
       {usage.subscriptionStatus === "PAST_DUE" || usage.subscriptionStatus === "SUSPENDED" ? (
-        <p className="rounded-lg bg-destructive-subtle px-3 py-2 text-sm text-destructive">
+        <p className="rounded-lg bg-destructive-subtle px-3 py-2 text-sm text-destructive-on-subtle">
           Mientras la suscripción esté al día vas a poder volver a crear servicios, horarios y clientes.
           Tus reservas y tu página pública siguen funcionando.
         </p>

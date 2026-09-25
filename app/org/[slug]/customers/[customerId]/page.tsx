@@ -84,7 +84,7 @@ export default async function CustomerDetailPage({
       />
 
       <div className="flex items-center gap-3">
-        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-base font-semibold text-primary">
+        <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-base font-semibold text-primary-on-subtle">
           {initials}
         </span>
         <div className="flex flex-col gap-1">
