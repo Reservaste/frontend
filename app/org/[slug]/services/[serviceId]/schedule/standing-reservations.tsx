@@ -5,8 +5,11 @@ import type { OrganizationCustomer } from "@/app/actions/admin";
 import {
   cancelStandingReservation,
   createStandingReservation,
+  listStandingReservationOccurrences,
   previewStandingReservation,
   type StandingActionState,
+  type StandingOccurrence,
+  type StandingOccurrenceStatus,
   type StandingPreviewState,
   type StandingReservation,
 } from "@/app/actions/standing";
@@ -23,6 +26,21 @@ import { DESK_BOOKING_REASONS } from "@/lib/booking-reasons";
 
 const initialPreview: StandingPreviewState = { error: null, customerId: null, dates: [] };
 const initialAction: StandingActionState = { error: null, success: null };
+
+type OccurrenceDetailState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "loaded"; dates: StandingOccurrence[] };
+
+// Mismos tres tonos que ya usan los badges de la fila (danger/warning/
+// neutral) -- un cuarto color para "confirmada" sería el raro, así que
+// comparte el tono neutral con las otras dos categorías que no son un
+// problema.
+function occurrenceStatusClassName(status: StandingOccurrenceStatus): string {
+  if (status === "UNPAID") return "text-xs font-medium text-destructive";
+  if (status === "OVER_QUOTA") return "text-xs font-medium text-warning-foreground";
+  return "text-xs text-muted-foreground";
+}
 
 export function StandingReservations({
   organizationSlug,
@@ -49,6 +67,12 @@ export function StandingReservations({
   canManage: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Fecha por fecha de una serie ya activa (lo que pidió el dueño): a
+  // demanda, por fila, no precargado para toda la lista -- una organización
+  // puede tener varias decenas de horarios fijos activos y la ventana
+  // rodante son 90 días de ocurrencias cada uno.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [occurrenceDetails, setOccurrenceDetails] = useState<Record<string, OccurrenceDetailState>>({});
   // Controlled on purpose: the select lives in the *create* form now, and
   // both the quick path and the optional preview submit from there. An
   // uncontrolled value would be wiped by React's post-action form reset
@@ -84,6 +108,34 @@ export function StandingReservations({
   // B's name is the exact discrepancy the preview exists to avoid.
   const previewMatches = selected !== "" && preview.customerId === selected;
 
+  async function loadOccurrenceDetail(recurringBookingId: string) {
+    setOccurrenceDetails((prev) => ({ ...prev, [recurringBookingId]: { status: "loading" } }));
+    try {
+      const dates = await listStandingReservationOccurrences(organizationSlug, recurringBookingId);
+      setOccurrenceDetails((prev) => ({ ...prev, [recurringBookingId]: { status: "loaded", dates } }));
+    } catch {
+      setOccurrenceDetails((prev) => ({ ...prev, [recurringBookingId]: { status: "error" } }));
+    }
+  }
+
+  function toggleOccurrenceDetail(recurringBookingId: string) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(recurringBookingId)) {
+        next.delete(recurringBookingId);
+      } else {
+        next.add(recurringBookingId);
+        const current = occurrenceDetails[recurringBookingId];
+        // No relee si ya la trajo: colapsar y volver a abrir no dispara un
+        // segundo pedido. Un error sí reintenta.
+        if (!current || current.status === "error") {
+          void loadOccurrenceDetail(recurringBookingId);
+        }
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="flex flex-col gap-3 border-t bg-muted/30 px-4 py-3.5">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -103,87 +155,162 @@ export function StandingReservations({
 
       {active.length > 0 ? (
         <ul className="flex flex-col divide-y overflow-hidden rounded-lg border bg-card">
-          {active.map((reservation) => (
-            <li
-              key={reservation.recurringBookingId}
-              className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-medium">{reservation.customerName}</span>
-                <span className="text-xs text-muted-foreground">
-                  <span className="tnum">{reservation.upcomingConfirmed}</span> fechas confirmadas
-                  {reservation.upcomingNotGenerated > 0 ? (
-                    <>
-                      {" · "}
-                      <span className="tnum">{reservation.upcomingNotGenerated}</span> sin confirmar
-                    </>
-                  ) : null}
-                </span>
-                {reservation.upcomingOverQuota > 0 ? (
-                  <span className="text-xs text-warning-foreground">
-                    <span className="tnum">{reservation.upcomingOverQuota}</span> de esas fechas
-                    exceden la frecuencia que compró. Cobrarle el mes no las destraba: hace falta
-                    un plan con más frecuencia, o quitarle otro horario fijo.
-                  </span>
-                ) : null}
-                {/* Fase 25: la agenda mira 90 días y ningún pago mensual
-                    cubre 90 días, así que estas fechas existen siempre y
-                    hasta ahora quedaban contadas como "sin confirmar", sin
-                    explicación -- que es como se leía el "Falta el pago"
-                    que no se apagaba nunca. No son deuda: todavía no se
-                    facturan. */}
-                {reservation.upcomingBeyondPeriod > 0 ? (
-                  <span className="text-xs text-muted-foreground">
-                    <span className="tnum">{reservation.upcomingBeyondPeriod}</span> caen más
-                    adelante que el período que ya pagó. No hay nada para cobrar todavía: se
-                    confirman solas cuando pague ese período.
-                  </span>
-                ) : null}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {/* A series whose payment lapsed keeps existing but stops
-                    confirming dates -- surfaced here so nobody has to
-                    notice it from the agenda. */}
-                {reservation.upcomingUnpaid > 0 ? (
-                  <StatusBadge tone="danger">Falta el pago</StatusBadge>
-                ) : null}
-                {/* Different problem, different fix (ADR-0024): these
-                    dates are not waiting on money. The business sold more
-                    fixed slots than the plan covers, and charging the
-                    month again would change nothing -- without this the
-                    owner never finds out. */}
-                {reservation.upcomingOverQuota > 0 ? (
-                  <StatusBadge tone="warning">
-                    <span className="tnum">{reservation.upcomingOverQuota}</span> fuera del plan
-                  </StatusBadge>
-                ) : null}
-                {/* Neutral a propósito: no es un problema de nadie ni algo
-                    que haya que resolver hoy, es el horizonte de cobro. Un
-                    tono de alerta acá es exactamente el bug que se
-                    corrigió. */}
-                {reservation.upcomingBeyondPeriod > 0 ? (
-                  <StatusBadge tone="neutral">
-                    <span className="tnum">{reservation.upcomingBeyondPeriod}</span> fuera del
-                    período
-                  </StatusBadge>
-                ) : null}
-                {canManage ? (
-                  <form
-                    action={cancelStandingReservation.bind(
-                      null,
-                      organizationSlug,
-                      serviceId,
-                      reservation.recurringBookingId,
-                    )}
-                  >
-                    <Button type="submit" variant="ghost" size="sm">
-                      Quitar
+          {active.map((reservation) => {
+            const isExpanded = expandedIds.has(reservation.recurringBookingId);
+            const detail = occurrenceDetails[reservation.recurringBookingId];
+            return (
+              <li
+                key={reservation.recurringBookingId}
+                className="flex flex-col gap-2 px-3.5 py-2.5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-sm font-medium">{reservation.customerName}</span>
+                    <span className="text-xs text-muted-foreground">
+                      <span className="tnum">{reservation.upcomingConfirmed}</span> fechas confirmadas
+                      {reservation.upcomingNotGenerated > 0 ? (
+                        <>
+                          {" · "}
+                          <span className="tnum">{reservation.upcomingNotGenerated}</span> sin confirmar
+                        </>
+                      ) : null}
+                    </span>
+                    {/* Fase 38: el badge rojo "Falta el pago" de abajo no
+                        tenía ninguna oración propia acá -- el ojo caía en la
+                        de `upcomingBeyondPeriod` (la única que había) y la
+                        leía como si contradijera al badge, cuando hablan de
+                        fechas distintas. Mismo orden que el bloque de badges:
+                        lo accionable primero. */}
+                    {reservation.upcomingUnpaid > 0 ? (
+                      <span className="text-xs text-destructive">
+                        <span className="tnum">{reservation.upcomingUnpaid}</span>{" "}
+                        {reservation.upcomingUnpaid === 1
+                          ? "fecha está esperando"
+                          : "fechas están esperando"}{" "}
+                        que se ponga al día el pago del período actual para confirmarse.
+                      </span>
+                    ) : null}
+                    {reservation.upcomingOverQuota > 0 ? (
+                      <span className="text-xs text-warning-foreground">
+                        <span className="tnum">{reservation.upcomingOverQuota}</span> de esas fechas
+                        exceden la frecuencia que compró. Cobrarle el mes no las destraba: hace falta
+                        un plan con más frecuencia, o quitarle otro horario fijo.
+                      </span>
+                    ) : null}
+                    {/* Fase 25: la agenda mira 90 días y ningún pago mensual
+                        cubre 90 días, así que estas fechas existen siempre y
+                        hasta ahora quedaban contadas como "sin confirmar", sin
+                        explicación -- que es como se leía el "Falta el pago"
+                        que no se apagaba nunca. No son deuda: todavía no se
+                        facturan. */}
+                    {reservation.upcomingBeyondPeriod > 0 ? (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="tnum">{reservation.upcomingBeyondPeriod}</span> caen más
+                        adelante que el período que ya pagó. No hay nada para cobrar todavía: se
+                        confirman solas cuando pague ese período.
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* A series whose payment lapsed keeps existing but stops
+                        confirming dates -- surfaced here so nobody has to
+                        notice it from the agenda. */}
+                    {reservation.upcomingUnpaid > 0 ? (
+                      <StatusBadge tone="danger">Falta el pago</StatusBadge>
+                    ) : null}
+                    {/* Different problem, different fix (ADR-0024): these
+                        dates are not waiting on money. The business sold more
+                        fixed slots than the plan covers, and charging the
+                        month again would change nothing -- without this the
+                        owner never finds out. */}
+                    {reservation.upcomingOverQuota > 0 ? (
+                      <StatusBadge tone="warning">
+                        <span className="tnum">{reservation.upcomingOverQuota}</span> fuera del plan
+                      </StatusBadge>
+                    ) : null}
+                    {/* Neutral a propósito: no es un problema de nadie ni algo
+                        que haya que resolver hoy, es el horizonte de cobro. Un
+                        tono de alerta acá es exactamente el bug que se
+                        corrigió. */}
+                    {reservation.upcomingBeyondPeriod > 0 ? (
+                      <StatusBadge tone="neutral">
+                        <span className="tnum">{reservation.upcomingBeyondPeriod}</span> fuera del
+                        período
+                      </StatusBadge>
+                    ) : null}
+                    {/* Fecha por fecha, a pedido explícito del dueño: qué
+                        está agendado y qué no, no sólo el conteo. Visible
+                        con o sin `canManage` -- es lectura, igual que los
+                        badges. */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleOccurrenceDetail(reservation.recurringBookingId)}
+                      aria-expanded={isExpanded}
+                    >
+                      {isExpanded ? "Ocultar fechas" : "Ver fechas"}
                     </Button>
-                  </form>
+                    {canManage ? (
+                      <form
+                        action={cancelStandingReservation.bind(
+                          null,
+                          organizationSlug,
+                          serviceId,
+                          reservation.recurringBookingId,
+                        )}
+                      >
+                        <Button type="submit" variant="ghost" size="sm">
+                          Quitar
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
+                </div>
+
+                {isExpanded ? (
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    {!detail || detail.status === "loading" ? (
+                      <p className="text-xs text-muted-foreground">Buscando fechas…</p>
+                    ) : detail.status === "error" ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-xs text-destructive">No se pudieron cargar las fechas.</p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void loadOccurrenceDetail(reservation.recurringBookingId)}
+                        >
+                          Reintentar
+                        </Button>
+                      </div>
+                    ) : detail.dates.length === 0 ? (
+                      <EmptyState
+                        size="sm"
+                        title="No hay próximas fechas publicadas para este horario."
+                      />
+                    ) : (
+                      <ul className="grid gap-1.5 sm:grid-cols-2">
+                        {detail.dates.map((occurrence) => (
+                          <li
+                            key={occurrence.slotOccurrenceId}
+                            className="flex items-center justify-between gap-2 rounded-lg border bg-card px-3 py-1.5 text-sm"
+                          >
+                            <span className="tnum">
+                              {dateFormatter.format(new Date(occurrence.startAt))}
+                            </span>
+                            <span className={occurrenceStatusClassName(occurrence.status)}>
+                              {DESK_BOOKING_REASONS[occurrence.status] ?? occurrence.status}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 ) : null}
-              </div>
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

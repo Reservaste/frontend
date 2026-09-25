@@ -90,6 +90,53 @@ export async function listStandingReservations(
   return (data as StandingReservationRow[]).map(mapStandingReservation);
 }
 
+export type StandingOccurrenceStatus = "CONFIRMED" | "UNPAID" | "OVER_QUOTA" | "BEYOND_PERIOD" | "UNAVAILABLE";
+
+export interface StandingOccurrence {
+  slotOccurrenceId: string;
+  startAt: string;
+  /**
+   * El mismo vocabulario que `StandingCreateSummary`
+   * (confirmed/unpaid/overQuota/beyondPeriod/unavailable), fila por fila
+   * en vez de agregado. Viene ya calculado por
+   * `recurring_booking_occurrences()` -- no se re-deriva acá.
+   */
+  status: StandingOccurrenceStatus;
+}
+
+interface StandingOccurrenceRow {
+  slot_occurrence_id: string;
+  start_at: string;
+  display_status: StandingOccurrenceStatus;
+}
+
+/**
+ * El detalle fecha por fecha de una serie **ya activa**: qué está
+ * confirmado y qué no, y por qué. Distinto de `previewStandingReservation`
+ * (que evalúa una serie prospectiva, todavía no creada -- ver comentario
+ * en la migración de Fase 38): esta lee lo que la serie ya tiene generado,
+ * nunca reevalúa nada.
+ */
+export async function listStandingReservationOccurrences(
+  organizationSlug: string,
+  recurringBookingId: string,
+): Promise<StandingOccurrence[]> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("recurring_booking_occurrences", {
+    p_recurring_booking_id: recurringBookingId,
+  });
+
+  if (error || !data) return [];
+
+  return (data as StandingOccurrenceRow[]).map((row) => ({
+    slotOccurrenceId: row.slot_occurrence_id,
+    startAt: row.start_at,
+    status: row.display_status,
+  }));
+}
+
 export interface StandingPreviewDate {
   slotOccurrenceId: string;
   startAt: string;
