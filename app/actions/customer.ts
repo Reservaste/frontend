@@ -189,11 +189,33 @@ export async function getMyCustomerOrganizations(): Promise<MyCustomerOrganizati
 export interface MyPayment {
   paymentId: string;
   organizationName: string;
-  serviceName: string;
+  /**
+   * ADR-0029: la RPC hace LEFT JOIN contra services (antes INNER --
+   * descartaba en silencio el pago de un plan multi-servicio, cuyo
+   * service_id es NULL) y ya resuelve el fallback en SQL
+   * (coalesce(s.name, sp.name)) -- en la practica nunca llega null porque
+   * service_plan_id es NOT NULL, pero el tipo se deja nullable para no
+   * asumir esa garantia desde el frontend. planName/planKind/weeklyQuota
+   * siguen presentes igual, para armar la descripcion completa del plan.
+   */
+  serviceName: string | null;
   periodStart: string;
   periodEnd: string;
   status: "PAID" | "PENDING" | "OVERDUE" | "VOID";
   amount: number | null;
+  /** Que compro este pago (planSummary() en frontend/lib/plan-labels.ts). */
+  planName: string;
+  planKind: ServicePlanKind;
+  weeklyQuota: number | null;
+  /** Alcance del plan -- relevante sobre todo cuando serviceName es null. */
+  planAppliesToAllServices: boolean;
+  /**
+   * ISO 4217 (organizations.currency, ADR-0024) de la organizacion que
+   * emitio el pago -- un mismo cliente puede tener pagos de varias
+   * organizaciones distintas, cada una con su propia moneda, asi que amount
+   * nunca se formatea sin este dato viajando junto.
+   */
+  currency: string;
 }
 
 export async function getMyPayments(): Promise<MyPayment[]> {
@@ -206,11 +228,16 @@ export async function getMyPayments(): Promise<MyPayment[]> {
     (row: {
       payment_id: string;
       organization_name: string;
-      service_name: string;
+      service_name: string | null;
       period_start: string;
       period_end: string;
       status: MyPayment["status"];
       amount: number | null;
+      plan_name: string;
+      plan_kind: ServicePlanKind;
+      weekly_quota: number | null;
+      plan_applies_to_all_services: boolean;
+      currency: string;
     }) => ({
       paymentId: row.payment_id,
       organizationName: row.organization_name,
@@ -219,6 +246,11 @@ export async function getMyPayments(): Promise<MyPayment[]> {
       periodEnd: row.period_end,
       status: row.status,
       amount: row.amount,
+      planName: row.plan_name,
+      planKind: row.plan_kind,
+      weeklyQuota: row.weekly_quota,
+      planAppliesToAllServices: row.plan_applies_to_all_services,
+      currency: row.currency,
     }),
   );
 }
