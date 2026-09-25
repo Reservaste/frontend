@@ -46,6 +46,10 @@
   --color-warning-subtle: var(--warning-subtle);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-subtle: var(--destructive-subtle);
+  --color-primary-on-subtle: var(--primary-on-subtle);
+  --color-success-on-subtle: var(--success-on-subtle);
+  --color-warning-on-subtle: var(--warning-on-subtle);
+  --color-destructive-on-subtle: var(--destructive-on-subtle);
   --shadow-card: var(--shadow-card);
   --shadow-raised: var(--shadow-raised);
   --shadow-overlay: var(--shadow-overlay);
@@ -108,6 +112,36 @@
   --destructive: oklch(0.56 0.215 24);
   --destructive-foreground: oklch(0.99 0 0);
   --destructive-subtle: oklch(0.95 0.04 24);
+
+  /* Text that sits on a "-subtle" wash (Badge's `subtle` variant, the
+     calendar's TONE_BG) -- a *third* colour, not a reuse of the tone
+     itself or of its `-foreground`. Both of those were tried and both
+     fail some part of the matrix this actually needs to cover:
+       - the tone colour itself (`--success`, `--primary`...) is tuned to
+         read as a saturated accent on `--background`, not as body text on
+         its own pale wash -- axe-core measured `text-success` on
+         `bg-success-subtle` at 3.76:1 here, `text-destructive` on
+         `bg-destructive-subtle` at 4.34:1, both under the 4.5:1 AA
+         minimum (ADR-0039).
+       - `--warning-foreground` (designed for dark text on *solid*
+         `--warning`) happens to also read on the light-mode subtle wash,
+         but the same dark colour on the *dark*-mode subtle wash (also
+         dark, by design, since a dark-mode wash is a dim fill, not a pale
+         one) is dark-on-dark: 1.37:1.
+     Mixing 60% of `--foreground` into the tone colour fixes both at once:
+     it is dark enough (light mode) / light enough (dark mode) regardless
+     of how light or dark the tone colour itself happens to be, while
+     keeping enough of the tone's hue to still read as "that" colour
+     rather than as plain body text. Verified against the actual subtle
+     backgrounds below at >=6.9:1 in both themes, comfortably clear of
+     4.5:1 -- and against synthetic worst-case organization brand colours
+     (near-white, near-black, pale yellow) for `--primary-on-subtle`
+     specifically, at >=4.6:1, since that one is the only tone a business
+     gets to pick (ADR-0020). */
+  --primary-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--primary));
+  --success-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--success));
+  --warning-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--warning));
+  --destructive-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--destructive));
 
   --border: oklch(0.888 0.008 253);
   --input: oklch(0.87 0.009 253);
@@ -196,6 +230,15 @@
   --destructive-foreground: oklch(0.16 0.02 260);
   --destructive-subtle: oklch(0.29 0.07 25);
 
+  /* Same formula as :root, re-declared rather than inherited: it has to
+     resolve `--foreground` and the tone colours as *this* theme's, and a
+     custom property only re-evaluates its var() references for the
+     element whose own rule declares it. */
+  --primary-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--primary));
+  --success-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--success));
+  --warning-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--warning));
+  --destructive-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--destructive));
+
   --border: oklch(1 0 0 / 11%);
   --input: oklch(1 0 0 / 16%);
   --ring: oklch(0.66 0.18 258);
@@ -239,6 +282,19 @@
   /* Mixed against the canvas rather than hardcoded, so this still holds
      if the dark theme is ever switched on. */
   --primary-subtle: color-mix(in oklab, var(--brand) 12%, var(--background));
+  /* Re-declared for the same reason as `.dark` (see :root): this has to
+     mix *this* subtree's `--primary` (the brand, not the product
+     default). `foregroundFor()` in brandTheme() already guarantees the
+     brand reads on a *solid* fill of itself -- it says nothing about the
+     brand read as text on its own pale 12% wash, which is a completely
+     different pair and, for a light or a very dark brand colour, can
+     fail 4.5:1 on its own (a near-white brand is near-white text on a
+     near-white wash). Mixing 60% `--foreground` in guarantees a floor on
+     the text's darkness (light theme) / lightness (dark theme)
+     regardless of what the business picked -- checked against
+     synthetic near-white, near-black and pale-yellow brand colours at
+     >=4.6:1 either way, not just the product's own brand-violet. */
+  --primary-on-subtle: color-mix(in oklab, var(--foreground) 60%, var(--primary));
   --ring: var(--brand);
 }
 

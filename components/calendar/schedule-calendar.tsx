@@ -57,13 +57,16 @@ export interface CalendarEvent {
 
 // Tone-tinted text (not a flat text-foreground on every tone) so a block's
 // colour carries into its title the way Badge's `subtle` variant already
-// does -- the same recipe applied to a bigger surface, not a new one.
+// does -- the same recipe applied to a bigger surface, not a new one,
+// including the `-on-subtle` text colour (see its comment in globals.css)
+// rather than the tone colour itself, which measured under the WCAG AA
+// 4.5:1 minimum here on axe-core's scan of production (ADR-0039).
 const TONE_BG: Record<CalendarEvent["tone"], string> = {
   neutral: "bg-muted text-foreground border-border/80",
-  primary: "bg-primary-subtle text-primary border-primary/25",
-  success: "bg-success-subtle text-success border-success/25",
-  warning: "bg-warning-subtle text-warning-foreground border-warning/35",
-  danger: "bg-destructive-subtle text-destructive border-destructive/25",
+  primary: "bg-primary-subtle text-primary-on-subtle border-primary/25",
+  success: "bg-success-subtle text-success-on-subtle border-success/25",
+  warning: "bg-warning-subtle text-warning-on-subtle border-warning/35",
+  danger: "bg-destructive-subtle text-destructive-on-subtle border-destructive/25",
 };
 
 // Tall enough that a 30-minute slot still has room for a bold hour, a
@@ -381,13 +384,34 @@ function EventBlock({
     hourCycle: "h23",
   }).format(new Date(event.startAt));
 
+  // A dimmed block (full, cancelled, or already over) reads as quiet
+  // through solid, desaturated colour -- never through CSS opacity on the
+  // block itself. Opacity on the container fades the text *and* the
+  // background toward whatever sits behind the block (the page, not the
+  // block's own surface), and at the 60% this used to run, that lands
+  // every dimmed block's text/background pair under the WCAG AA 4.5:1
+  // minimum (axe-core `color-contrast`, ADR-0039). `bg-muted` +
+  // `text-muted-foreground` is already a deliberately quiet pair on its
+  // own -- no fade needed to make it read as lower priority than a
+  // tone-coloured block.
+  const isDimmed = event.muted || event.past;
+
   // ADR-0023: choosing a slot is choosing a time, so the time is the
   // biggest, boldest thing in the block. It stays on --foreground rather
   // than the tone colour so it reads clearly even at the smallest block
   // heights, where the tone-tinted title and meta can afford to be quieter.
+  // A dimmed block drops it to --muted-foreground instead, for the same
+  // reason the container does: quiet, but never below AA contrast.
   const body = (
     <>
-      <span className="tnum text-sm leading-none font-bold text-foreground">{time}</span>
+      <span
+        className={cn(
+          "tnum text-sm leading-none font-bold",
+          isDimmed ? "text-muted-foreground" : "text-foreground",
+        )}
+      >
+        {time}
+      </span>
       {/* The title links separately so staff can jump to the service
           without losing the ability to open the slot itself. */}
       {event.titleHref ? (
@@ -401,16 +425,25 @@ function EventBlock({
       ) : (
         <span className="truncate text-[11px] font-semibold">{event.title}</span>
       )}
-      <span className="tnum truncate text-[11px] font-medium opacity-80">{event.meta}</span>
+      {/* `opacity-80` only applies to an active block, where it fades the
+          meta line toward that block's own solid tone background -- a
+          small, safe dilution. On a dimmed block it inherits
+          `text-muted-foreground` as-is: stacking another opacity on top of
+          an already-quiet colour is exactly the compounding that caused
+          the meta line ("0 de 3 disponibles") to measure 3:1 instead of
+          the required 4.5:1. */}
+      <span className={cn("tnum truncate text-[11px] font-medium", !isDimmed && "opacity-80")}>
+        {event.meta}
+      </span>
     </>
   );
 
   const className = cn(
     "absolute inset-x-1 flex flex-col gap-0.5 overflow-hidden rounded-lg border px-2 py-1.5 text-left shadow-card transition-all",
-    // Past overrides tone entirely -- a completed slot doesn't stay "red"
-    // just because it happened to fill up before it started.
-    event.past ? "border-border/60 bg-muted text-muted-foreground" : TONE_BG[event.tone],
-    (event.muted || event.past) && "opacity-60 shadow-none",
+    // Past and muted both override tone entirely -- a completed or full
+    // slot doesn't stay "red" or brand-coloured just because of the state
+    // it happened to be in; both get the same flat, solid treatment.
+    isDimmed ? "border-border/70 bg-muted text-muted-foreground shadow-none" : TONE_BG[event.tone],
     event.href && "hover:shadow-raised",
   );
 
@@ -496,8 +529,12 @@ function MonthGrid({
                   key={event.id}
                   className={cn(
                     "flex items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
+                    // Solid, not `opacity-75`, for the same reason as
+                    // EventBlock above: an opacity fade on the whole pill
+                    // drags `text-muted-foreground` toward the page behind
+                    // it and drops it under the WCAG AA 4.5:1 minimum.
                     event.past
-                      ? "border-border/60 bg-muted text-muted-foreground opacity-75"
+                      ? "border-border/60 bg-muted text-muted-foreground"
                       : TONE_BG[event.tone],
                   )}
                   style={

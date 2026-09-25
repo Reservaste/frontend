@@ -65,7 +65,7 @@ export default async function MyBookingPage({
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-raised">
         <div className="flex flex-col items-center gap-1 border-b bg-primary-subtle px-6 py-6 text-center">
-          <span className="eyebrow text-primary">{booking.organizationName}</span>
+          <span className="eyebrow text-primary-on-subtle">{booking.organizationName}</span>
           <h1 className="text-xl">{booking.serviceName}</h1>
         </div>
 

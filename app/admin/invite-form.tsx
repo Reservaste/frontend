@@ -68,14 +68,14 @@ export function InviteForm({ plans }: { plans: { code: string; name: string; pri
 
       {state.createdCode ? (
         <div className="flex flex-col gap-2 rounded-lg bg-success-subtle px-4 py-3">
-          <span className="eyebrow text-success">Código generado</span>
+          <span className="eyebrow text-success-on-subtle">Código generado</span>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono text-xl font-semibold tracking-widest text-success">
+            <span className="font-mono text-xl font-semibold tracking-widest text-success-on-subtle">
               {state.createdCode}
             </span>
             <CopyCodeButton code={state.createdCode} />
           </div>
-          <span className="text-xs text-success">Pasáselo al cliente. Sirve una sola vez.</span>
+          <span className="text-xs text-success-on-subtle">Pasáselo al cliente. Sirve una sola vez.</span>
         </div>
       ) : null}
       <FormError>{state.error}</FormError>

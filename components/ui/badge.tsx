@@ -19,12 +19,18 @@ import { cn } from "cn";
 export type BadgeTone = "neutral" | "primary" | "success" | "warning" | "danger";
 export type BadgeVariant = "subtle" | "solid" | "outline";
 
+// `text-{tone}` (or `text-warning-foreground`) reads fine as an accent on
+// `--background`, but measured under 4.5:1 here on axe-core's own scan of
+// production (ADR-0039): the tone colour and its "-subtle" wash are both
+// derived from the same hue, so the two can sit too close in lightness.
+// `text-{tone}-on-subtle` is a dedicated third colour -- see its comment
+// in globals.css -- solid, not a re-use of the badge's other variants.
 const SUBTLE: Record<BadgeTone, string> = {
   neutral: "bg-muted text-muted-foreground",
-  primary: "bg-primary-subtle text-primary",
-  success: "bg-success-subtle text-success",
-  warning: "bg-warning-subtle text-warning-foreground",
-  danger: "bg-destructive-subtle text-destructive",
+  primary: "bg-primary-subtle text-primary-on-subtle",
+  success: "bg-success-subtle text-success-on-subtle",
+  warning: "bg-warning-subtle text-warning-on-subtle",
+  danger: "bg-destructive-subtle text-destructive-on-subtle",
 };
 
 const SOLID: Record<BadgeTone, string> = {

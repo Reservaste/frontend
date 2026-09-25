@@ -69,7 +69,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
                 href={`/org/${slug}/customers/${customer.customerId}`}
                 className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted"
               >
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary">
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary-on-subtle">
                   {initials(customer.fullName)}
                 </span>
                 <span className="min-w-0 flex-1 truncate text-sm font-medium">{customer.fullName}</span>

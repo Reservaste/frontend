@@ -40,6 +40,7 @@ export function EmptyState({
   if (size === "sm") {
     return (
       <div
+        data-slot="empty-state"
         className={cn(
           "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/80 bg-surface-sunken/50 px-4 py-6 text-center",
           className,
@@ -56,6 +57,7 @@ export function EmptyState({
 
   return (
     <div
+      data-slot="empty-state"
       className={cn(
         // A sunken panel, not a faded card: an empty list is a recessed
         // space waiting to be filled, not a card that happens to be

@@ -20,11 +20,14 @@ import { cn } from "cn";
  */
 export type AlertTone = "info" | "success" | "warning" | "danger";
 
+// `text-{tone}-on-subtle`, not `text-{tone}`: the tone colour itself
+// measures under WCAG AA 4.5:1 on its own "-subtle" wash (axe-core,
+// ADR-0039) -- see the token's comment in globals.css.
 const TONES: Record<AlertTone, string> = {
-  info: "bg-primary-subtle text-primary",
-  success: "bg-success-subtle text-success",
-  warning: "bg-warning-subtle text-warning-foreground",
-  danger: "bg-destructive-subtle text-destructive",
+  info: "bg-primary-subtle text-primary-on-subtle",
+  success: "bg-success-subtle text-success-on-subtle",
+  warning: "bg-warning-subtle text-warning-on-subtle",
+  danger: "bg-destructive-subtle text-destructive-on-subtle",
 };
 
 export function Alert({
