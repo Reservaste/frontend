@@ -138,3 +138,45 @@ jobs:
             echo "El contenedor no llego a healthy a tiempo -- revisar logs en el droplet"
             exit 1
           '
+
+  # ADR-0039: a Playwright smoke suite against the real, already-deployed
+  # site -- not a merge gate. `needs: deploy` alone, no `if` guarding it
+  # against `deploy`'s own result: the deploy already happened by the time
+  # this runs (its healthcheck loop above already waited for the container
+  # to come up), so a red smoke-e2e never blocks or undoes anything that
+  # already shipped. It exists to be *visible*, not to gate.
+  #
+  # `frontend/e2e/helpers.ts` documents the organization (`redentor`) this
+  # operates and the "find or create, always clean up" rule every spec
+  # follows -- read it before touching a spec here.
+  smoke-e2e:
+    needs: deploy
+    runs-on: ubuntu-latest
+    # Read-only token: nothing in this job writes to the repo or registry.
+    permissions:
+      contents: read
+    env:
+      PLAYWRIGHT_BASE_URL: "https://161-35-63-60.sslip.io"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # QA credentials scoped to this single step only (docs/security.md,
+      # "Suite E2E contra produccion"): never at job level, where every
+      # `npm ci` install script and `apt` hook above would also see them.
+      - run: npx playwright test --config=e2e/playwright.config.ts
+        env:
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14

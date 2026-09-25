@@ -13,6 +13,15 @@
 # testing
 /coverage
 
+# playwright (frontend/e2e)
+/playwright-report/
+/test-results/
+/blob-report/
+/e2e/.cache/
+# Real Supabase session cookies for the QA owner account (global-setup.ts) --
+# never committed, and deliberately outside playwright-report/.
+/e2e/.auth/
+
 # next.js
 /.next/
 /out/
