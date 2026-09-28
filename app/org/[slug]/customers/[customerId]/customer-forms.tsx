@@ -19,7 +19,7 @@ import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import { inclusiveDays, monthRange, round2 } from "@/lib/billing-period";
 import { planSummary } from "@/lib/plan-labels";
-import { formatPeriodRange, periodNoun, suggestedAmount } from "@/lib/billing-blocks";
+import { formatPeriodRange, overlaps, periodNoun, suggestedAmount } from "@/lib/billing-blocks";
 
 const initialState: ActionState = { error: null, success: null };
 
@@ -173,8 +173,25 @@ export function RegisterPaymentForm({
   // NaN/Infinity.
   const editedPeriodDays = inclusiveDays(periodStart, periodEnd);
   const fullPeriodDays = inclusiveDays(fullPeriodStart, fullPeriodEnd);
+  // Bug de producción (mathias-gym, "Pilates Reformer 2 x S", pago de
+  // octubre 2026 grabado en $2.583,33 en vez de $2.500): esta pantalla
+  // (ficha del cliente) no mira ningún mes en particular, así que
+  // `fullPeriodStart/End` sale de `billing_period_for()` anclado en HOY,
+  // no en el mes que el admin termina tipeando. Si el admin cambia
+  // "Período desde/hasta" a un mes distinto -- registrar en adelanto el
+  // mes que viene, el caso real -- el período editado deja de solaparse
+  // con ese "período completo": ya no representa el mismo mes, son dos
+  // meses distintos, y dividir por los días de uno para multiplicar por
+  // los días del otro no es un prorrateo, es un número sin sentido (acá,
+  // 2500 / 30 días de septiembre × 31 días de octubre). El prorrateo por
+  // días de ADR-0038 sólo tiene sentido para acortar/alargar DENTRO del
+  // mismo período -- de ahí el chequeo de solapamiento: sin solapamiento
+  // no hay nada que prorratear, y se cae al precio de lista (o al
+  // prorrateo del servidor si corresponde) como si no se hubiera tocado
+  // el período.
+  const periodOverlapsFullPeriod = overlaps(periodStart, periodEnd, fullPeriodStart, fullPeriodEnd);
   const proratedByDaysAmount =
-    !longCycle && selectedPlan && fullPeriodDays && editedPeriodDays
+    !longCycle && selectedPlan && fullPeriodDays && editedPeriodDays && periodOverlapsFullPeriod
       ? round2((selectedPlan.price / fullPeriodDays) * editedPeriodDays)
       : null;
   const amountToSuggest = proratedByDaysAmount ?? suggestion.amount;

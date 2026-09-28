@@ -243,6 +243,11 @@ export function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
+/** Mirrors `lib/billing-blocks.ts`'s `overlaps`: whether two ISO date ranges (inclusive) overlap. */
+export function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return aStart <= bEnd && bStart <= aEnd;
+}
+
 export function addDaysISO(iso: string, days: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -314,10 +319,39 @@ export async function findCustomerAndMonthWithNoPayments(
   slug: string,
   customerIds: Map<string, string>,
   monthsAhead = 6,
+  /**
+   * How many months ahead of the current one to start looking -- 0 keeps
+   * the original behaviour. `payments-adr0038.spec.ts`'s "mes distinto"
+   * regression needs a month genuinely far from today (the plan's own
+   * suggested period, on the customer's ficha screen, is anchored to
+   * today -- ADR-0038's 2026-09-28 production bug), not just the nearest
+   * free one, so it starts a couple of months out instead of at 0.
+   */
+  startMonthsAhead = 0,
 ): Promise<{ customerId: string; customerName: string; month: string } | null> {
   const base = currentMonth();
-  for (let m = 0; m < monthsAhead; m++) {
-    const month = monthOffset(base, m);
+  const months: string[] = [];
+  for (let m = startMonthsAhead; m < monthsAhead; m++) months.push(monthOffset(base, m));
+  return findCustomerAndMonthAmong(page, slug, customerIds, months);
+}
+
+/**
+ * Same search as `findCustomerAndMonthWithNoPayments`, but over an
+ * explicit, caller-picked list of months instead of a contiguous range --
+ * `payments-adr0038.spec.ts`'s "mes distinto" regression needs to exclude
+ * specific months (ones whose day count happens to coincide with the
+ * plan's suggested month, which would hide the bug by arithmetic
+ * coincidence rather than by the fix actually working), which a plain
+ * from/to range can't express. `months` is tried in order, first match
+ * wins, same semantics as before.
+ */
+export async function findCustomerAndMonthAmong(
+  page: Page,
+  slug: string,
+  customerIds: Map<string, string>,
+  months: string[],
+): Promise<{ customerId: string; customerName: string; month: string } | null> {
+  for (const month of months) {
     for (const [name, customerId] of customerIds) {
       await page.goto(`/org/${slug}/payments/${customerId}?mes=${month}`);
       // "Servicios del período" is the only `DataList` this page renders.
