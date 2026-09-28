@@ -186,22 +186,19 @@ function bookingsNeededForBand(capacity: number, band: "warning" | "danger"): nu
 }
 
 /**
- * The rendered background colour of the occurrence block whose block links
- * to `href`, on the current week view.
+ * The rendered background colour of the occurrence block that links to
+ * `href`, on the current week view.
  *
- * The block itself is a `<div>` (schedule-calendar.tsx's `EventBlock`,
- * `stretched link` pattern) that carries the tone background/border
- * classes; `href` lives on an invisible `<a>` covering it edge to edge, not
- * on an element with those classes -- an `<a>` can never contain another
- * `<a>` (the title has its own separate link), so the two can't be the
- * same element. `div:has(> a[href=...])` walks straight to the styled
- * parent instead.
+ * The block itself is a single `<a>` (schedule-calendar.tsx's `EventBlock`)
+ * carrying both the tone background/border classes and `href` -- the whole
+ * quadrant, title included, is one link to the occurrence detail, so
+ * `a[href=...]` reaches the styled element directly.
  */
 async function colorOfOccurrence(page: Page, href: string): Promise<string> {
   await page.goto(`/org/${ORG_SLUG}/agenda`);
   const nextButton = page.getByRole("button", { name: "Siguiente" });
   for (let week = 0; week <= MAX_WEEKS_FORWARD; week++) {
-    const block = page.locator(`div:has(> a[href="${href}"])`).first();
+    const block = page.locator(`a[href="${href}"]`).first();
     if ((await block.count()) > 0) {
       return block.evaluate((el) => getComputedStyle(el).backgroundColor);
     }
@@ -224,9 +221,9 @@ async function findNextOccurrencesByTime(page: Page, times: string[]): Promise<M
   const nextButton = page.getByRole("button", { name: "Siguiente" });
 
   for (let week = 0; week <= MAX_WEEKS_FORWARD; week++) {
-    // The styled block is the `<div>` wrapping the (invisible, stretched)
-    // link that carries `href` -- see `colorOfOccurrence`'s comment.
-    const blocks = page.locator(`div:has(> a[href*="/org/${ORG_SLUG}/agenda/"])`);
+    // The styled block is the `<a>` itself -- see `colorOfOccurrence`'s
+    // comment.
+    const blocks = page.locator(`a[href*="/org/${ORG_SLUG}/agenda/"]`);
     const count = await blocks.count();
     for (let i = 0; i < count; i++) {
       const block = blocks.nth(i);
@@ -235,7 +232,7 @@ async function findNextOccurrencesByTime(page: Page, times: string[]): Promise<M
 
       const timeText = (await block.locator("span").first().innerText()).trim();
       if (found.has(timeText) || !times.includes(timeText)) continue;
-      const href = await block.locator(`a[href*="/org/${ORG_SLUG}/agenda/"]`).first().getAttribute("href");
+      const href = await block.getAttribute("href");
       if (href) found.set(timeText, href);
     }
 
@@ -264,9 +261,9 @@ async function scanForAllTones(
   const nextButton = page.getByRole("button", { name: "Siguiente" });
 
   for (let week = 0; week <= MAX_WEEKS_FORWARD; week++) {
-    // The styled block is the `<div>` wrapping the (invisible, stretched)
-    // link that carries `href` -- see `colorOfOccurrence`'s comment.
-    const blocks = page.locator(`div:has(> a[href*="/org/${ORG_SLUG}/agenda/"])`);
+    // The styled block is the `<a>` itself -- see `colorOfOccurrence`'s
+    // comment.
+    const blocks = page.locator(`a[href*="/org/${ORG_SLUG}/agenda/"]`);
     const count = await blocks.count();
     for (let i = 0; i < count; i++) {
       const block = blocks.nth(i);
@@ -278,7 +275,7 @@ async function scanForAllTones(
 
       for (const tone of wanted) {
         if (found.has(tone) || !cls.includes(TONE_CLASS[tone])) continue;
-        const href = await block.locator(`a[href*="/org/${ORG_SLUG}/agenda/"]`).first().getAttribute("href");
+        const href = await block.getAttribute("href");
         if (!href || excludeHrefs?.has(href)) continue;
         const color = await block.evaluate((el) => getComputedStyle(el).backgroundColor);
         found.set(tone, { href, color });
