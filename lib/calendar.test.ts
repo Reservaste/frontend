@@ -7,6 +7,8 @@ import {
   isSameMonth,
   localDayKey,
   minutesIntoDay,
+  parseAnchorKey,
+  parseCalendarView,
   rangeFor,
   shiftAnchor,
   startOfMonth,
@@ -113,6 +115,56 @@ describe("formatRangeLabel", () => {
     expect(formatRangeLabel("day", rangeFor("day", "2026-09-21"))).toContain("21");
     expect(formatRangeLabel("month", rangeFor("month", "2026-09-15"))).toContain("2026");
     expect(formatRangeLabel("week", rangeFor("week", "2026-09-21"))).toContain("–");
+  });
+});
+
+describe("parseCalendarView", () => {
+  it("accepts any value CALENDAR_VIEWS lists", () => {
+    expect(parseCalendarView("day")).toBe("day");
+    expect(parseCalendarView("week")).toBe("week");
+    expect(parseCalendarView("workweek")).toBe("workweek");
+    expect(parseCalendarView("month")).toBe("month");
+  });
+
+  it("falls back to undefined for anything else, never throws", () => {
+    expect(parseCalendarView(undefined)).toBeUndefined();
+    expect(parseCalendarView("")).toBeUndefined();
+    expect(parseCalendarView("semana")).toBeUndefined();
+    expect(parseCalendarView("<script>")).toBeUndefined();
+  });
+});
+
+describe("parseAnchorKey", () => {
+  it("accepts a well-formed day key", () => {
+    expect(parseAnchorKey("2026-09-21")).toBe("2026-09-21");
+  });
+
+  it("falls back to undefined for anything malformed or missing", () => {
+    expect(parseAnchorKey(undefined)).toBeUndefined();
+    expect(parseAnchorKey("")).toBeUndefined();
+    expect(parseAnchorKey("2026-9-21")).toBeUndefined();
+    expect(parseAnchorKey("not-a-date")).toBeUndefined();
+    expect(parseAnchorKey("2026-09-21T00:00:00Z")).toBeUndefined();
+  });
+
+  it("rejects a month or day outside the calendar, not just outside the regex", () => {
+    // A hand-edited URL (or `Date`'s own habit of quietly rolling an
+    // out-of-range part into the next unit) must never reach `rangeFor`
+    // and crash `toISOString()` -- these all have the right *shape* and
+    // must still fall back to the caller's default.
+    expect(parseAnchorKey("2026-13-01")).toBeUndefined();
+    expect(parseAnchorKey("2026-00-15")).toBeUndefined();
+    expect(parseAnchorKey("2026-01-32")).toBeUndefined();
+    expect(parseAnchorKey("2026-01-00")).toBeUndefined();
+  });
+
+  it("rejects a day that doesn't exist in that month, not the day `Date` rolls it into", () => {
+    // 2026 is not a leap year: no Feb 29th, let alone the 30th.
+    expect(parseAnchorKey("2026-02-30")).toBeUndefined();
+    expect(parseAnchorKey("2026-02-29")).toBeUndefined();
+    // 2028 is a leap year: the 29th is real, the 30th still isn't.
+    expect(parseAnchorKey("2028-02-29")).toBe("2028-02-29");
+    expect(parseAnchorKey("2028-02-30")).toBeUndefined();
   });
 });
 

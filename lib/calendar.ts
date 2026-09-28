@@ -14,6 +14,48 @@ export const CALENDAR_VIEWS: { value: CalendarView; label: string }[] = [
   { value: "month", label: "Mes" },
 ];
 
+/**
+ * The query-string vocabulary the admin agenda mirrors its view/anchor
+ * into: `?vista=<day|week|workweek|month>&fecha=<YYYY-MM-DD>`. Values are
+ * the same literal `CalendarView`/day-key strings this module already
+ * speaks internally -- no separate translation table to keep in sync with
+ * `CALENDAR_VIEWS`'s labels. Both parsers return `undefined` (never throw)
+ * for anything missing or malformed, so a stale bookmark, a hand-edited
+ * URL or a stray query param falls back to the caller's own default
+ * instead of breaking the screen.
+ */
+export function parseCalendarView(value: string | undefined): CalendarView | undefined {
+  return CALENDAR_VIEWS.some((v) => v.value === value) ? (value as CalendarView) : undefined;
+}
+
+const DAY_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * A "YYYY-MM-DD" day key from the URL, or `undefined` if it isn't one --
+ * checked not just for shape but for naming a real calendar date. `Date`
+ * itself "corrects" an out-of-range month or day instead of rejecting it
+ * (`new Date("2026-13-01...")` is `Invalid Date`, but `"2026-02-30"`
+ * silently becomes March 2nd), so a shape-only regex would let a
+ * hand-edited URL either crash `rangeFor` downstream (an invalid `Date`'s
+ * `toISOString()` throws) or quietly land the calendar on a date nobody
+ * typed. Rebuilding the date from its parts and requiring the round trip
+ * to land back on the exact year/month/day the string named catches both.
+ */
+export function parseAnchorKey(value: string | undefined): string | undefined {
+  const match = value ? DAY_KEY_RE.exec(value) : null;
+  if (!match) return undefined;
+  const [, yearStr, monthStr, dayStr] = match;
+  const year = Number(yearStr);
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  const rebuilt = new Date(Date.UTC(year, month - 1, day));
+  const roundTrips =
+    rebuilt.getUTCFullYear() === year &&
+    rebuilt.getUTCMonth() === month - 1 &&
+    rebuilt.getUTCDate() === day;
+  return roundTrips ? value : undefined;
+}
+
 export const WEEKDAY_SHORT = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 /**
  * Two letters per day, for chips too small for `WEEKDAY_SHORT`'s three

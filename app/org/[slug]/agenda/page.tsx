@@ -3,6 +3,7 @@ import { getAgenda } from "@/app/actions/admin";
 import { listServices } from "@/app/actions/services";
 import { PageHeader } from "@/components/page-header";
 import { AgendaCalendar } from "@/components/calendar/agenda-calendar";
+import { parseAnchorKey, parseCalendarView } from "@/lib/calendar";
 
 export const metadata = { title: "Agenda" };
 
@@ -13,8 +14,18 @@ export const metadata = { title: "Agenda" };
 const DAYS_BACK = 30;
 const DAYS_FORWARD = 95;
 
-export default async function AgendaPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function AgendaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  // `?vista=` / `?fecha=` mirror the calendar's own view/anchor (see
+  // `AgendaCalendar`), so the browser's back button restores the exact
+  // screen the admin left, not "this week, default view".
+  searchParams: Promise<{ vista?: string; fecha?: string }>;
+}) {
   const { slug } = await params;
+  const { vista, fecha } = await searchParams;
   const { organization } = await requireOrganizationMembership(slug);
 
   const now = new Date();
@@ -38,6 +49,8 @@ export default async function AgendaPage({ params }: { params: Promise<{ slug: s
         occurrences={occurrences}
         services={services.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
         timeZone={organization.timezone}
+        initialView={parseCalendarView(vista)}
+        initialAnchor={parseAnchorKey(fecha)}
       />
     </div>
   );

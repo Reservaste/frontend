@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "cn";
 import type { AgendaOccurrence } from "@/app/actions/admin";
 import { ScheduleCalendar, type CalendarEvent } from "./schedule-calendar";
-import { nowMs, type CalendarView } from "@/lib/calendar";
+import { nowMs, todayKey, type CalendarView } from "@/lib/calendar";
 import { occupancyTone } from "@/components/status";
 
 /**
@@ -29,12 +30,26 @@ export interface CalendarService {
 const FILTER_STORAGE_PREFIX = "reservaste:agenda-services:";
 
 /**
+ * Query params this calendar mirrors its view/anchor into: `?vista=` and
+ * `?fecha=` (parsed by `parseCalendarView`/`parseAnchorKey` in
+ * `lib/calendar.ts`). Both agenda pages read them server-side and pass the
+ * result down as `initialView`/`initialAnchor`.
+ */
+const VIEW_PARAM = "vista";
+const ANCHOR_PARAM = "fecha";
+
+/**
  * The admin calendar: the shared grid plus the two things only staff get
  * -- a per-service filter and a link from the block's title straight to
  * the service (ADR-0023).
  *
  * The filter is presentation only. It never changes a query, so a hidden
  * service cannot be mistaken for a cancelled one.
+ *
+ * View and anchor live here (not inside `ScheduleCalendar`) so they can be
+ * mirrored into the URL: a click on a slot or a service navigates away,
+ * and the browser's back button should restore exactly the week/day the
+ * admin was looking at, not remount to "this week, default view".
  */
 export function AgendaCalendar({
   organizationSlug,
@@ -43,6 +58,7 @@ export function AgendaCalendar({
   timeZone,
   lockedServiceId,
   initialView = "week",
+  initialAnchor,
 }: {
   organizationSlug: string;
   occurrences: AgendaOccurrence[];
@@ -51,7 +67,32 @@ export function AgendaCalendar({
   /** Set on a service's own Agenda tab: no filter, nothing to choose. */
   lockedServiceId?: string;
   initialView?: CalendarView;
+  /** The day/week/month to open on, straight from `?fecha=`. Defaults to today. */
+  initialAnchor?: string;
 }) {
+  const pathname = usePathname();
+  const [state, setState] = useState<{ view: CalendarView; anchor: string }>(() => ({
+    view: initialView,
+    anchor: initialAnchor ?? todayKey(timeZone),
+  }));
+
+  const handleChange = (next: { view: CalendarView; anchor: string }) => {
+    setState(next);
+    const params = new URLSearchParams();
+    params.set(VIEW_PARAM, next.view);
+    params.set(ANCHOR_PARAM, next.anchor);
+    // `history.replaceState`, not Next's `router.replace`: this route is
+    // dynamic (auth cookies), so a router navigation -- even one that only
+    // changes the query string -- refetches the agenda from the server.
+    // That is exactly the round trip the 90-day rolling window above
+    // exists to avoid (every arrow press would wait on the network again).
+    // Writing the URL directly is Next's own documented way to keep it in
+    // sync without triggering that navigation; the server only needs to
+    // read `vista`/`fecha` on a real navigation -- first load, a refresh,
+    // or actually going back -- which already hits it regardless.
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+  };
+
   const [hidden, setHidden] = useState<Set<string>>(() => {
     if (lockedServiceId || typeof window === "undefined") return new Set();
     try {
@@ -113,7 +154,7 @@ export function AgendaCalendar({
         // touched) -- a share of capacity reads the same at any size.
         tone: cancelled ? "neutral" : OCCUPANCY_CALENDAR_TONE[occupancyTone(o.confirmedCount, o.capacity)],
         href: `/org/${organizationSlug}/agenda/${o.id}`,
-        titleHref: `/org/${organizationSlug}/services/${o.serviceId}/schedule`,
+        titleHref: `/org/${organizationSlug}/services/${o.serviceId}/agenda`,
         muted: cancelled,
         past,
       };
@@ -173,7 +214,9 @@ export function AgendaCalendar({
     <ScheduleCalendar
       events={events}
       timeZone={timeZone}
-      initialView={initialView}
+      view={state.view}
+      anchor={state.anchor}
+      onChange={handleChange}
       toolbarExtra={filter}
       emptyLabel={
         hidden.size > 0

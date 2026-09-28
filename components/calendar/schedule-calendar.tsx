@@ -106,6 +106,9 @@ export function ScheduleCalendar({
   toolbarExtra,
   responsiveDefault,
   openOnFirstEvent = false,
+  view: controlledView,
+  anchor: controlledAnchor,
+  onChange,
 }: {
   events: CalendarEvent[];
   timeZone: string;
@@ -117,15 +120,30 @@ export function ScheduleCalendar({
   responsiveDefault?: CalendarView;
   /** Anchor on the first day that has something instead of on today. */
   openOnFirstEvent?: boolean;
+  /**
+   * Controlled mode: pass both `view` and `anchor` (with `onChange`) and
+   * this component stops owning its own view/anchor state, reporting every
+   * change instead -- the caller (today, only `AgendaCalendar`, to mirror
+   * them into the URL so the browser's back button restores the same
+   * screen) becomes the source of truth. Leave both out, the default, and
+   * this behaves exactly as before: an internal `useState` the other two
+   * calendars (`CustomerCalendar`, `PublicCalendar`) never have to know
+   * about.
+   */
+  view?: CalendarView;
+  anchor?: string;
+  onChange?: (next: { view: CalendarView; anchor: string }) => void;
 }) {
+  const controlled = controlledView !== undefined && controlledAnchor !== undefined;
+
   // Null until someone picks one: an unpicked view follows the viewport,
-  // a picked one stays picked.
+  // a picked one stays picked. Unused in controlled mode.
   const [pickedView, setPickedView] = useState<CalendarView | null>(null);
   const isNarrow = useIsNarrow();
-  const view: CalendarView =
+  const uncontrolledView: CalendarView =
     pickedView ?? (responsiveDefault && isNarrow ? responsiveDefault : initialView);
 
-  const [anchor, setAnchor] = useState(() => {
+  const [uncontrolledAnchor, setUncontrolledAnchor] = useState(() => {
     const today = todayKey(timeZone);
     if (!openOnFirstEvent) return today;
     // A business closed on Mondays would otherwise greet every Monday
@@ -136,6 +154,22 @@ export function ScheduleCalendar({
       .sort();
     return upcoming[0] ?? today;
   });
+
+  const view = controlled ? controlledView : uncontrolledView;
+  const anchor = controlled ? controlledAnchor : uncontrolledAnchor;
+
+  // The one place every navigation action goes through, controlled or not
+  // -- so a combined change (month view's "pick a day" also switches to
+  // day view) is always one atomic update, never two calls racing on a
+  // stale closure of the other field.
+  const change = (patch: Partial<{ view: CalendarView; anchor: string }>) => {
+    if (controlled) {
+      onChange?.({ view, anchor, ...patch });
+      return;
+    }
+    if (patch.view !== undefined) setPickedView(patch.view);
+    if (patch.anchor !== undefined) setUncontrolledAnchor(patch.anchor);
+  };
 
   const range = useMemo(() => rangeFor(view, anchor), [view, anchor]);
 
@@ -173,14 +207,14 @@ export function ScheduleCalendar({
             variant="outline"
             size="icon-sm"
             aria-label="Anterior"
-            onClick={() => setAnchor(shiftAnchor(view, anchor, -1))}
+            onClick={() => change({ anchor: shiftAnchor(view, anchor, -1) })}
           >
             <ChevronLeft />
           </Button>
           <Button
             variant={isCurrent ? "secondary" : "outline"}
             size="sm"
-            onClick={() => setAnchor(todayKey(timeZone))}
+            onClick={() => change({ anchor: todayKey(timeZone) })}
           >
             Hoy
           </Button>
@@ -188,7 +222,7 @@ export function ScheduleCalendar({
             variant="outline"
             size="icon-sm"
             aria-label="Siguiente"
-            onClick={() => setAnchor(shiftAnchor(view, anchor, 1))}
+            onClick={() => change({ anchor: shiftAnchor(view, anchor, 1) })}
           >
             <ChevronRight />
           </Button>
@@ -207,7 +241,7 @@ export function ScheduleCalendar({
               <button
                 key={v.value}
                 type="button"
-                onClick={() => setPickedView(v.value)}
+                onClick={() => change({ view: v.value })}
                 aria-pressed={view === v.value}
                 className={cn(
                   "rounded-md px-2.5 py-1.5 text-sm font-medium transition-all",
@@ -227,7 +261,7 @@ export function ScheduleCalendar({
 
       {/* ---------------- Grid ---------------- */}
       {view === "month" ? (
-        <MonthGrid range={range.days} anchor={anchor} byDay={byDay} timeZone={timeZone} onPickDay={(day) => { setAnchor(day); setPickedView("day"); }} />
+        <MonthGrid range={range.days} anchor={anchor} byDay={byDay} timeZone={timeZone} onPickDay={(day) => change({ anchor: day, view: "day" })} />
       ) : (
         <TimeGrid
           days={range.days}
