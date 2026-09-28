@@ -137,6 +137,161 @@ export async function listStandingReservationOccurrences(
   }));
 }
 
+// ============================================================
+// Ficha de cliente (Fase 39): qué tiene agendado y qué cupo semanal le da
+// su plan -- el inverso de listStandingReservations(): todas las
+// RecurringBooking ACTIVE de UN cliente, sin importar a qué ScheduleRule/
+// servicio pertenezca cada una.
+// ============================================================
+
+export interface CustomerStandingReservation {
+  recurringBookingId: string;
+  scheduleRuleId: string;
+  serviceId: string;
+  serviceName: string;
+  /** 0 = domingo, igual que JS Date#getDay(). */
+  weekday: number;
+  /** "HH:MM:SS", hora local de la Organization (ADR-0014). */
+  localStartTime: string;
+  durationMinutes: number;
+  status: "ACTIVE" | "CANCELLED";
+  createdAt: string;
+  upcomingConfirmed: number;
+  upcomingNotGenerated: number;
+  upcomingUnpaid: number;
+  upcomingOverQuota: number;
+  upcomingBeyondPeriod: number;
+}
+
+interface CustomerStandingReservationRow {
+  recurring_booking_id: string;
+  schedule_rule_id: string;
+  service_id: string;
+  service_name: string;
+  weekday: number;
+  local_start_time: string;
+  duration_minutes: number;
+  status: CustomerStandingReservation["status"];
+  created_at: string;
+  upcoming_confirmed: number;
+  upcoming_not_generated: number;
+  upcoming_unpaid: number;
+  upcoming_over_quota: number;
+  upcoming_beyond_period: number;
+}
+
+/**
+ * Todos los horarios fijos ACTIVOS de un cliente, para la ficha
+ * `/org/[slug]/customers/[customerId]`. Llama a
+ * `customer_standing_reservations()` (Fase 39), que comparte con
+ * `schedule_rule_standing_reservations()` el mismo cálculo de los 5
+ * contadores de "próximas fechas" -- no se reimplementa nada acá, sólo se
+ * mapea. Mismo criterio de errores que el resto de este archivo: si la RPC
+ * falla o el caller no es miembro de la organización, `[]`.
+ */
+export async function getCustomerStandingReservations(
+  organizationSlug: string,
+  customerId: string,
+): Promise<CustomerStandingReservation[]> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("customer_standing_reservations", {
+    p_customer_id: customerId,
+  });
+
+  if (error || !data) return [];
+
+  return (data as CustomerStandingReservationRow[]).map((row) => ({
+    recurringBookingId: row.recurring_booking_id,
+    scheduleRuleId: row.schedule_rule_id,
+    serviceId: row.service_id,
+    serviceName: row.service_name,
+    weekday: row.weekday,
+    localStartTime: row.local_start_time,
+    durationMinutes: row.duration_minutes,
+    status: row.status,
+    createdAt: row.created_at,
+    upcomingConfirmed: row.upcoming_confirmed,
+    upcomingNotGenerated: row.upcoming_not_generated,
+    upcomingUnpaid: row.upcoming_unpaid,
+    upcomingOverQuota: row.upcoming_over_quota,
+    upcomingBeyondPeriod: row.upcoming_beyond_period,
+  }));
+}
+
+export interface CustomerServicePlanQuota {
+  serviceId: string;
+  serviceName: string;
+  /**
+   * Null cuando ningún Payment PAID de este cliente cubre hoy este
+   * servicio (plan lapsado o nunca pagado) -- ver `weeklyQuota`.
+   */
+  servicePlanId: string | null;
+  planName: string | null;
+  planKind: "DROP_IN" | "WEEKLY_QUOTA" | "UNLIMITED" | null;
+  /**
+   * Null cuando no hay plan vigente hoy, o el plan vigente es
+   * UNLIMITED/DROP_IN (sin tope de series que mostrar). Sólo viene con
+   * número bajo `WEEKLY_QUOTA`.
+   */
+  weeklyQuota: number | null;
+  quotaScope: "PER_SERVICE" | "SHARED_ACROSS_SERVICES" | null;
+  /**
+   * Cuántos horarios fijos ACTIVE de este cliente están en vigencia hoy
+   * para este servicio (o para el pool compartido del plan, si es
+   * `SHARED_ACROSS_SERVICES`) -- viaja siempre, con o sin plan vigente.
+   * `weeklyQuota - assignedCount` es lo que le falta para completar su
+   * cuota, cuando `weeklyQuota` no es null.
+   */
+  assignedCount: number;
+}
+
+interface CustomerServicePlanQuotaRow {
+  service_id: string;
+  service_name: string;
+  service_plan_id: string | null;
+  plan_name: string | null;
+  plan_kind: CustomerServicePlanQuota["planKind"];
+  weekly_quota: number | null;
+  quota_scope: CustomerServicePlanQuota["quotaScope"];
+  assigned_count: number;
+}
+
+/**
+ * La cuota semanal que el plan vigente HOY le da a este cliente, una fila
+ * por servicio donde tiene horarios fijos ACTIVE (ADR-0024/ADR-0029). Llama
+ * a `customer_service_plan_quotas()` (Fase 39), que resuelve "cuál es el
+ * plan vigente" con la misma `resolve_covering_service_plan()` que usa el
+ * camino de reserva -- nunca una segunda forma de decidirlo. Cuota por
+ * servicio, no una sola cuota global: un cliente puede tener horarios
+ * fijos en varios servicios con planes de cuota distintos.
+ */
+export async function getCustomerServicePlanQuotas(
+  organizationSlug: string,
+  customerId: string,
+): Promise<CustomerServicePlanQuota[]> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("customer_service_plan_quotas", {
+    p_customer_id: customerId,
+  });
+
+  if (error || !data) return [];
+
+  return (data as CustomerServicePlanQuotaRow[]).map((row) => ({
+    serviceId: row.service_id,
+    serviceName: row.service_name,
+    servicePlanId: row.service_plan_id,
+    planName: row.plan_name,
+    planKind: row.plan_kind,
+    weeklyQuota: row.weekly_quota,
+    quotaScope: row.quota_scope,
+    assignedCount: row.assigned_count,
+  }));
+}
+
 export interface StandingPreviewDate {
   slotOccurrenceId: string;
   startAt: string;

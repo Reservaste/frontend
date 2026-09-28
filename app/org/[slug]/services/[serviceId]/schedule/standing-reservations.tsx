@@ -13,7 +13,7 @@ import {
   type StandingPreviewState,
   type StandingReservation,
 } from "@/app/actions/standing";
-import { StatusBadge } from "@/components/status";
+import { StandingPendingBadges, StandingPendingNotes } from "@/components/standing-pending";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { FieldHint, FormError, FormSuccess } from "@/components/ui/form";
@@ -180,64 +180,18 @@ export function StandingReservations({
                         de `upcomingBeyondPeriod` (la única que había) y la
                         leía como si contradijera al badge, cuando hablan de
                         fechas distintas. Mismo orden que el bloque de badges:
-                        lo accionable primero. */}
-                    {reservation.upcomingUnpaid > 0 ? (
-                      <span className="text-xs text-destructive">
-                        <span className="tnum">{reservation.upcomingUnpaid}</span>{" "}
-                        {reservation.upcomingUnpaid === 1
-                          ? "fecha está esperando"
-                          : "fechas están esperando"}{" "}
-                        que se ponga al día el pago del período actual para confirmarse.
-                      </span>
-                    ) : null}
-                    {reservation.upcomingOverQuota > 0 ? (
-                      <span className="text-xs text-warning-foreground">
-                        <span className="tnum">{reservation.upcomingOverQuota}</span> de esas fechas
-                        exceden la frecuencia que compró. Cobrarle el mes no las destraba: hace falta
-                        un plan con más frecuencia, o quitarle otro horario fijo.
-                      </span>
-                    ) : null}
-                    {/* Fase 25: la agenda mira 90 días y ningún pago mensual
-                        cubre 90 días, así que estas fechas existen siempre y
-                        hasta ahora quedaban contadas como "sin confirmar", sin
-                        explicación -- que es como se leía el "Falta el pago"
-                        que no se apagaba nunca. No son deuda: todavía no se
-                        facturan. */}
-                    {reservation.upcomingBeyondPeriod > 0 ? (
-                      <span className="text-xs text-muted-foreground">
-                        <span className="tnum">{reservation.upcomingBeyondPeriod}</span> caen más
-                        adelante que el período que ya pagó. No hay nada para cobrar todavía: se
-                        confirman solas cuando pague ese período.
-                      </span>
-                    ) : null}
+                        lo accionable primero. Extraído a `StandingPendingNotes`
+                        (Fase 39) -- la ficha del cliente cuenta la misma
+                        historia con el mismo texto. */}
+                    <StandingPendingNotes counts={reservation} />
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     {/* A series whose payment lapsed keeps existing but stops
                         confirming dates -- surfaced here so nobody has to
-                        notice it from the agenda. */}
-                    {reservation.upcomingUnpaid > 0 ? (
-                      <StatusBadge tone="danger">Falta el pago</StatusBadge>
-                    ) : null}
-                    {/* Different problem, different fix (ADR-0024): these
-                        dates are not waiting on money. The business sold more
-                        fixed slots than the plan covers, and charging the
-                        month again would change nothing -- without this the
-                        owner never finds out. */}
-                    {reservation.upcomingOverQuota > 0 ? (
-                      <StatusBadge tone="warning">
-                        <span className="tnum">{reservation.upcomingOverQuota}</span> fuera del plan
-                      </StatusBadge>
-                    ) : null}
-                    {/* Neutral a propósito: no es un problema de nadie ni algo
-                        que haya que resolver hoy, es el horizonte de cobro. Un
-                        tono de alerta acá es exactamente el bug que se
-                        corrigió. */}
-                    {reservation.upcomingBeyondPeriod > 0 ? (
-                      <StatusBadge tone="neutral">
-                        <span className="tnum">{reservation.upcomingBeyondPeriod}</span> fuera del
-                        período
-                      </StatusBadge>
-                    ) : null}
+                        notice it from the agenda. Different problem, different
+                        fix per counter (ADR-0024, Fase 25) -- see
+                        `StandingPendingBadges`. */}
+                    <StandingPendingBadges counts={reservation} />
                     {/* Fecha por fecha, a pedido explícito del dueño: qué
                         está agendado y qué no, no sólo el conteo. Visible
                         con o sin `canManage` -- es lectura, igual que los
