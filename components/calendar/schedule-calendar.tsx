@@ -82,8 +82,14 @@ const HOUR_HEIGHT = 64;
  * way keeps the rendered view and the declared view the same thing. The
  * server snapshot says "wide" because a server has no viewport; the
  * client corrects it on hydration.
+ *
+ * Exported so a controlled caller (`CustomerCalendar`, to mirror its own
+ * view/anchor into the URL) can reproduce this component's own
+ * `responsiveDefault` reactivity itself -- going controlled opts out of
+ * the internal `uncontrolledView` computation below entirely, and that
+ * default should not go with it.
  */
-function useIsNarrow(): boolean {
+export function useIsNarrow(): boolean {
   const subscribe = useCallback((onChange: () => void) => {
     const query = window.matchMedia("(max-width: 640px)");
     query.addEventListener("change", onChange);
@@ -123,12 +129,12 @@ export function ScheduleCalendar({
   /**
    * Controlled mode: pass both `view` and `anchor` (with `onChange`) and
    * this component stops owning its own view/anchor state, reporting every
-   * change instead -- the caller (today, only `AgendaCalendar`, to mirror
-   * them into the URL so the browser's back button restores the same
-   * screen) becomes the source of truth. Leave both out, the default, and
-   * this behaves exactly as before: an internal `useState` the other two
-   * calendars (`CustomerCalendar`, `PublicCalendar`) never have to know
-   * about.
+   * change instead -- the caller (`AgendaCalendar` and `CustomerCalendar`,
+   * both to mirror them into the URL so the browser's back button restores
+   * the same screen) becomes the source of truth. Leave both out, the
+   * default, and this behaves exactly as before: an internal `useState`
+   * that `PublicCalendar` (the only caller left uncontrolled) never has to
+   * know about.
    */
   view?: CalendarView;
   anchor?: string;

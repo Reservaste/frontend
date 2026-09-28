@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMyBookings, releaseMyBooking } from "@/app/actions/customer";
 import { BOOKING_REASONS } from "@/lib/booking-reasons";
-import { nowMs } from "@/lib/calendar";
+import { nowMs, parseAnchorKey, parseCalendarView } from "@/lib/calendar";
 import { BackLink } from "@/components/back-link";
 import { StatusBadge } from "@/components/status";
 import { Alert } from "@/components/ui/alert";
@@ -26,19 +26,38 @@ export const metadata = { title: "Mi reserva" };
  * bookings (ADR-0006), so a bookingId belonging to someone else simply
  * isn't in the result and lands on notFound() -- no ownership check
  * invented in the UI.
+ *
+ * `?vista=`/`?fecha=` arrive here from `CustomerCalendar`'s own booking
+ * links, carrying the day/week the person was looking at on `/me` --
+ * `BackLink` below is a `<Link>` to a named destination, not browser
+ * history, so without forwarding them "Mi agenda" would always reopen on
+ * this week instead of where they came from.
  */
 export default async function MyBookingPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ bookingId: string }>;
+  searchParams: Promise<{ vista?: string; fecha?: string }>;
 }) {
   const { bookingId } = await params;
+  const { vista, fecha } = await searchParams;
   const bookings = await getMyBookings(true);
   const booking = bookings.find((candidate) => candidate.bookingId === bookingId);
 
   if (!booking) {
     notFound();
   }
+
+  // Narrowed and validated the same way `/me` itself does: a malformed or
+  // hand-edited `vista`/`fecha` falls back to nothing (CustomerCalendar's
+  // own default) instead of reaching the agenda broken.
+  const calendarState = new URLSearchParams();
+  const backView = parseCalendarView(vista, ["day", "week"]);
+  const backAnchor = parseAnchorKey(fecha);
+  if (backView) calendarState.set("vista", backView);
+  if (backAnchor) calendarState.set("fecha", backAnchor);
+  const backQuery = calendarState.toString();
 
   const start = new Date(booking.startAt);
   const end = new Date(booking.endAt);
@@ -61,7 +80,11 @@ export default async function MyBookingPage({
 
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-4 px-5 py-6">
-      <BackLink href={`/me?org=${encodeURIComponent(booking.organizationSlug)}`}>Mi agenda</BackLink>
+      <BackLink
+        href={`/me?org=${encodeURIComponent(booking.organizationSlug)}${backQuery ? `&${backQuery}` : ""}`}
+      >
+        Mi agenda
+      </BackLink>
 
       <div className="overflow-hidden rounded-2xl border bg-card shadow-raised">
         <div className="flex flex-col items-center gap-1 border-b bg-primary-subtle px-6 py-6 text-center">
@@ -117,7 +140,7 @@ export default async function MyBookingPage({
               </Alert>
               {/* ADR-0025: la RPC decide si corresponde el crédito. Este
                   botón no lo promete, sólo libera. */}
-              <form action={releaseMyBooking.bind(null, booking.bookingId)}>
+              <form action={releaseMyBooking.bind(null, booking.bookingId, backView, backAnchor)}>
                 <Button type="submit" variant="outline" size="touch" className="w-full">
                   Liberar cupo
                 </Button>

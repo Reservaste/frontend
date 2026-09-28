@@ -15,17 +15,28 @@ export const CALENDAR_VIEWS: { value: CalendarView; label: string }[] = [
 ];
 
 /**
- * The query-string vocabulary the admin agenda mirrors its view/anchor
- * into: `?vista=<day|week|workweek|month>&fecha=<YYYY-MM-DD>`. Values are
- * the same literal `CalendarView`/day-key strings this module already
- * speaks internally -- no separate translation table to keep in sync with
- * `CALENDAR_VIEWS`'s labels. Both parsers return `undefined` (never throw)
- * for anything missing or malformed, so a stale bookmark, a hand-edited
- * URL or a stray query param falls back to the caller's own default
- * instead of breaking the screen.
+ * The query-string vocabulary the admin agenda and the customer portal
+ * agenda mirror their view/anchor into: `?vista=<day|week|workweek|month>
+ * &fecha=<YYYY-MM-DD>`. Values are the same literal `CalendarView`/day-key
+ * strings this module already speaks internally -- no separate translation
+ * table to keep in sync with `CALENDAR_VIEWS`'s labels. Both parsers return
+ * `undefined` (never throw) for anything missing or malformed, so a stale
+ * bookmark, a hand-edited URL or a stray query param falls back to the
+ * caller's own default instead of breaking the screen.
+ *
+ * `allowed` narrows which views a given screen accepts -- the customer
+ * portal agenda only ever renders "day"/"week" (no month grid), so a
+ * `?vista=month` that leaked in from a copied admin link, or someone
+ * hand-editing the URL, has to fall back to that screen's own default
+ * rather than being handed a view it never offers a toggle for. Defaults
+ * to every view, which is what the admin agenda (day/week/workweek/month)
+ * needs.
  */
-export function parseCalendarView(value: string | undefined): CalendarView | undefined {
-  return CALENDAR_VIEWS.some((v) => v.value === value) ? (value as CalendarView) : undefined;
+export function parseCalendarView(
+  value: string | undefined,
+  allowed: readonly CalendarView[] = CALENDAR_VIEWS.map((v) => v.value),
+): CalendarView | undefined {
+  return allowed.some((v) => v === value) ? (value as CalendarView) : undefined;
 }
 
 const DAY_KEY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;

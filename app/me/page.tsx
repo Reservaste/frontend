@@ -15,7 +15,7 @@ import { PageHeader } from "@/components/page-header";
 import { AlertCircleIcon, CheckIcon, RotateCcwIcon } from "@/components/icons";
 import { CustomerCalendar, type CustomerAgendaBooking } from "@/components/calendar/customer-calendar";
 import type { PublicSlot } from "@/components/calendar/public-calendar";
-import { nowMs } from "@/lib/calendar";
+import { nowMs, parseAnchorKey, parseCalendarView } from "@/lib/calendar";
 import {
   customerOrganizationOptions,
   pickCustomerOrganization,
@@ -63,6 +63,12 @@ export default async function MyAgendaPage({
     liberado?: string;
     credito_hasta?: string;
     liberar_error?: string;
+    // `?vista=`/`?fecha=` mirror the calendar's own view/anchor (see
+    // `CustomerCalendar`), same as the admin agenda -- so a real navigation
+    // away (opening one of the person's own bookings) and back restores the
+    // day/week they were on instead of resetting to "this week".
+    vista?: string;
+    fecha?: string;
   }>;
 }) {
   const {
@@ -71,7 +77,15 @@ export default async function MyAgendaPage({
     liberado,
     credito_hasta: creditoHasta,
     liberar_error: liberarError,
+    vista,
+    fecha,
   } = await searchParams;
+  // No month view on this calendar (`CustomerCalendar` only offers
+  // "day"/"week"), so a `?vista=month` that leaked in from elsewhere falls
+  // back to the calendar's own default instead of being handed a view it
+  // has no toggle for.
+  const initialView = parseCalendarView(vista, ["day", "week"]);
+  const initialAnchor = parseAnchorKey(fecha);
 
   const [bookings, customerOrganizations, credits] = await Promise.all([
     // Past included on purpose: on a calendar, "pasadas" is not a filter,
@@ -245,6 +259,8 @@ export default async function MyAgendaPage({
               slots={slots}
               timeZone={timeZone}
               canBook={Boolean(publicOrganization)}
+              initialView={initialView}
+              initialAnchor={initialAnchor}
             />
           )}
 

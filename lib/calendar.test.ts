@@ -132,6 +132,12 @@ describe("parseCalendarView", () => {
     expect(parseCalendarView("semana")).toBeUndefined();
     expect(parseCalendarView("<script>")).toBeUndefined();
   });
+
+  it("restricts to the caller's own allow-list, e.g. a customer agenda with no month view", () => {
+    expect(parseCalendarView("day", ["day", "week"])).toBe("day");
+    expect(parseCalendarView("week", ["day", "week"])).toBe("week");
+    expect(parseCalendarView("month", ["day", "week"])).toBeUndefined();
+  });
 });
 
 describe("parseAnchorKey", () => {

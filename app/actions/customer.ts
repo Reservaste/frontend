@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import type { NotGeneratedReason, ServicePlanKind } from "@reservaste/domain";
 import { createClient } from "@/lib/supabase/server";
 import { BOOKING_REASONS } from "@/lib/booking-reasons";
+import { parseAnchorKey, parseCalendarView } from "@/lib/calendar";
 
 /**
  * Whether this person is a customer of any organization. Used to route
@@ -438,8 +439,20 @@ export async function cancelMyBooking(bookingId: string): Promise<void> {
  * condición de emisión. Redirige con el resultado en la URL para que la
  * página pueda avisar "vence el DD/MM" cuando corresponda, en vez de
  * prometer el crédito antes de saber si la anticipación alcanzó.
+ *
+ * `vista`/`fecha` son el mismo par que `/me/reserva/[bookingId]` ya recibe
+ * por su propio `?vista=&fecha=` y usa para su `BackLink` (mismo motivo:
+ * este redirect compone un destino, no es "volver" de historial) -- sin
+ * reenviarlos, liberar un cupo resetearía el día/semana que la persona
+ * estaba mirando en /me, igual síntoma que el del `BackLink` fijo.
+ * Revalidados acá igual que hace `/me` al leerlos de su propia URL: un
+ * valor vacío o inválido simplemente no viaja, no rompe el redirect.
  */
-export async function releaseMyBooking(bookingId: string): Promise<void> {
+export async function releaseMyBooking(
+  bookingId: string,
+  vista?: string,
+  fecha?: string,
+): Promise<void> {
   const supabase = await createClient();
 
   // Resuelta antes de cancelar (y no a partir de la respuesta de
@@ -453,6 +466,13 @@ export async function releaseMyBooking(bookingId: string): Promise<void> {
   const bookings = await getMyBookings(true);
   const orgSlug = bookings.find((booking) => booking.bookingId === bookingId)?.organizationSlug;
   const orgParam = orgSlug ? `&org=${encodeURIComponent(orgSlug)}` : "";
+
+  const calendarParams = new URLSearchParams();
+  const view = parseCalendarView(vista, ["day", "week"]);
+  const anchor = parseAnchorKey(fecha);
+  if (view) calendarParams.set("vista", view);
+  if (anchor) calendarParams.set("fecha", anchor);
+  const calendarParam = calendarParams.size > 0 ? `&${calendarParams.toString()}` : "";
 
   const { data, error } = await supabase.rpc("release_my_booking", { p_booking_id: bookingId });
   revalidatePath("/me");
@@ -471,14 +491,14 @@ export async function releaseMyBooking(bookingId: string): Promise<void> {
   // exacto no viaja: la RPC falla por reserva ajena o ya cancelada, y
   // ninguna de las dos es algo que el cliente pueda accionar desde acá.
   if (error) {
-    redirect(`/me?liberar_error=1${orgParam}`);
+    redirect(`/me?liberar_error=1${orgParam}${calendarParam}`);
   }
 
   const credit = (data as { makeup_credit?: { id: string; expires_on: string } | null } | null)?.makeup_credit;
   redirect(
     credit
-      ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}${orgParam}`
-      : `/me?liberado=1${orgParam}`,
+      ? `/me?liberado=1&credito_hasta=${encodeURIComponent(credit.expires_on)}${orgParam}${calendarParam}`
+      : `/me?liberado=1${orgParam}${calendarParam}`,
   );
 }
 
