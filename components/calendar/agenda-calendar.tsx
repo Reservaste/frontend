@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "cn";
 import type { AgendaOccurrence } from "@/app/actions/admin";
 import { ScheduleCalendar, type CalendarEvent } from "./schedule-calendar";
-import { nowMs, todayKey, type CalendarView } from "@/lib/calendar";
+import { nowMs, parseAnchorKey, parseCalendarView, todayKey, type CalendarView } from "@/lib/calendar";
 import { occupancyTone } from "@/components/status";
 
 /**
@@ -71,14 +71,48 @@ export function AgendaCalendar({
   initialAnchor?: string;
 }) {
   const pathname = usePathname();
-  const [state, setState] = useState<{ view: CalendarView; anchor: string }>(() => ({
-    view: initialView,
-    anchor: initialAnchor ?? todayKey(timeZone),
-  }));
+
+  // `useSearchParams()`, not the server-supplied `initialView`/`initialAnchor`
+  // props, is the reactive source of truth for view/anchor. It used to be
+  // the other way around, seeded once into a `useState` and reconciled
+  // against the props on every render (the "adjust state during render"
+  // pattern, `customer-forms.tsx`) on the theory that `initialView`/
+  // `initialAnchor` change whenever a real navigation re-reads `?vista=`/
+  // `?fecha=` server-side. That theory doesn't hold for the browser's
+  // native back button: confirmed empirically (see the "atrás" bug writeup
+  // this fix closes) that a `popstate` back to this route *does* cause a
+  // fresh mount of this component -- so the reconciliation guard, which
+  // only ever fires on an *existing* instance receiving new props, never
+  // gets a chance to run -- but that fresh mount is built from Next's
+  // client-side Router Cache, seeded with whatever `initialView`/
+  // `initialAnchor` this route last actually rendered *on the server*
+  // (page load or a real Link navigation), not the URL the popstate landed
+  // on. `history.replaceState` below never asks the server to re-render,
+  // by design (see the comment inside `handleChange`), so on the very
+  // first "Siguiente" press that cached payload is already stale, and it
+  // never refreshes until an actual reload.
+  //
+  // `useSearchParams()` sidesteps the cache entirely. Next patches
+  // `window.history.pushState`/`replaceState` and its own `popstate`
+  // listener (`app-router.js`) to dispatch an internal `ACTION_RESTORE`
+  // that updates `usePathname()`/`useSearchParams()` from the *current*
+  // URL on every navigation -- a real Link, this component's own
+  // `replaceState` call, and the browser's native back/forward -- entirely
+  // independent of whether the segment itself was cached and reused. It is
+  // the one thing in this component guaranteed to reflect `?vista=`/
+  // `?fecha=` after a `popstate`, because Next keeps it in sync as part of
+  // making its own `usePathname`/`useSearchParams` hooks work, not as part
+  // of re-rendering this route's Server Component.
+  const searchParams = useSearchParams();
+  const view: CalendarView =
+    parseCalendarView(searchParams.get(VIEW_PARAM) ?? undefined) ?? initialView;
+  const anchor: string =
+    parseAnchorKey(searchParams.get(ANCHOR_PARAM) ?? undefined) ??
+    initialAnchor ??
+    todayKey(timeZone);
 
   const handleChange = (next: { view: CalendarView; anchor: string }) => {
-    setState(next);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     params.set(VIEW_PARAM, next.view);
     params.set(ANCHOR_PARAM, next.anchor);
     // `history.replaceState`, not Next's `router.replace`: this route is
@@ -87,9 +121,11 @@ export function AgendaCalendar({
     // That is exactly the round trip the 90-day rolling window above
     // exists to avoid (every arrow press would wait on the network again).
     // Writing the URL directly is Next's own documented way to keep it in
-    // sync without triggering that navigation; the server only needs to
-    // read `vista`/`fecha` on a real navigation -- first load, a refresh,
-    // or actually going back -- which already hits it regardless.
+    // sync without triggering that navigation -- and, per the comment
+    // above, it's also what keeps `useSearchParams()` (read above) current,
+    // which is the only reason this still works after the browser's back
+    // button. No local `setState` needed here anymore: `useSearchParams()`
+    // updating is what causes this component to re-render with `next`.
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
   };
 
@@ -214,8 +250,8 @@ export function AgendaCalendar({
     <ScheduleCalendar
       events={events}
       timeZone={timeZone}
-      view={state.view}
-      anchor={state.anchor}
+      view={view}
+      anchor={anchor}
       onChange={handleChange}
       toolbarExtra={filter}
       emptyLabel={

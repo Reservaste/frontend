@@ -457,8 +457,7 @@ function EventBlock({
       {event.titleHref ? (
         <Link
           href={event.titleHref}
-          onClick={(e) => e.stopPropagation()}
-          className="truncate text-[11px] font-semibold underline-offset-2 hover:underline"
+          className="relative z-10 truncate text-[11px] font-semibold underline-offset-2 hover:underline"
         >
           {event.title}
         </Link>
@@ -499,10 +498,27 @@ function EventBlock({
     );
   }
 
+  // Both the whole block and the title (when `titleHref` differs) need to
+  // be their own link, but an <a> can never contain another <a> -- that's
+  // invalid HTML and was failing hydration on every block. The fix is the
+  // "stretched link" pattern: the block stays a <div> and gets an
+  // absolutely-positioned <Link> covering it edge to edge (no visible
+  // content of its own), placed as a sibling of `body` rather than a
+  // wrapper around it. `z-[1]` keeps the intent explicit rather than
+  // relying on default stacking order between the stretched link and the
+  // in-flow time/meta text -- verified against a real browser that clicks
+  // land where expected either way, but an explicit value here is cheap
+  // insurance against a future edit to `body` changing that order by
+  // accident. The title's
+  // own Link sits at `z-10` (see its className above) so it still wins the
+  // click over the exact area it covers; everywhere else in the block,
+  // nothing outranks the stretched link, so it gets the click. `aria-label`
+  // gives the invisible link a name since it has no text content of its own.
   return (
-    <Link href={event.href} className={className} style={{ ...style, ...colored }}>
+    <div className={className} style={{ ...style, ...colored }}>
+      <Link href={event.href} aria-label={`${event.title}, ${time}`} className="absolute inset-0 z-[1]" />
       {body}
-    </Link>
+    </div>
   );
 }
 

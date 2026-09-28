@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { cn } from "cn";
 import type { NotGeneratedReason } from "@reservaste/domain";
 import { ScheduleCalendar, useIsNarrow, type CalendarEvent } from "./schedule-calendar";
 import type { PublicSlot } from "./public-calendar";
-import { nowMs, todayKey, type CalendarView } from "@/lib/calendar";
+import { nowMs, parseAnchorKey, parseCalendarView, todayKey, type CalendarView } from "@/lib/calendar";
 import { occurrenceKey } from "@/lib/my-agenda";
 
 /**
@@ -100,13 +100,41 @@ export function CustomerCalendar({
   // controlled below (to mirror the URL) means `ScheduleCalendar`'s own
   // `uncontrolledView` computation, which used to supply this, never runs.
   const isNarrow = useIsNarrow();
-  const [picked, setPicked] = useState<{ view: CalendarView; anchor: string } | null>(null);
-  const view: CalendarView = picked?.view ?? initialView ?? (isNarrow ? "day" : "week");
-  const anchor: string = picked?.anchor ?? initialAnchor ?? todayKey(timeZone);
+
+  // Same defect and same fix as `AgendaCalendar` (see that file for the
+  // full writeup, confirmed empirically): the previous fix here kept the
+  // picked view/anchor in a `useState` (`picked`) and reconciled it against
+  // `initialView`/`initialAnchor` with the "adjust state during render"
+  // pattern, on the theory that a real navigation -- including the
+  // browser's back button -- re-renders this component with fresh props
+  // from the server. It doesn't: a `popstate` back to this route causes a
+  // fresh mount built from Next's client-side Router Cache, seeded with
+  // whatever `initialView`/`initialAnchor` this route last actually
+  // rendered on the server, not the URL the popstate landed on -- so the
+  // reconciliation guard, which only fires for an *existing* instance
+  // receiving new props, never gets a chance to run, and `picked` (or its
+  // freshly-mounted `null`-then-derived-from-stale-props equivalent) is
+  // left showing the day/week from before "back" was pressed.
+  //
+  // `useSearchParams()` is immune to that cache: Next patches
+  // `window.history.pushState`/`replaceState` and its own `popstate`
+  // listener to dispatch an internal `ACTION_RESTORE` that updates
+  // `usePathname()`/`useSearchParams()` from the *current* URL on every
+  // navigation -- a real Link, this component's own `replaceState` call,
+  // and the browser's native back/forward -- independent of whether the
+  // route segment itself was cached and reused.
+  const searchParams = useSearchParams();
+  const view: CalendarView =
+    parseCalendarView(searchParams.get(VIEW_PARAM) ?? undefined, ["day", "week"]) ??
+    initialView ??
+    (isNarrow ? "day" : "week");
+  const anchor: string =
+    parseAnchorKey(searchParams.get(ANCHOR_PARAM) ?? undefined) ??
+    initialAnchor ??
+    todayKey(timeZone);
 
   const handleChange = (next: { view: CalendarView; anchor: string }) => {
-    setPicked(next);
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     // `org` is how `/me` knows which business's agenda this is (ADR-0006:
     // a customer can belong to several) -- lost, the URL would silently
     // fall back to whichever organization `pickCustomerOrganization` picks
