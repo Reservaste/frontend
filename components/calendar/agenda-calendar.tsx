@@ -39,9 +39,10 @@ const VIEW_PARAM = "vista";
 const ANCHOR_PARAM = "fecha";
 
 /**
- * The admin calendar: the shared grid plus the two things only staff get
- * -- a per-service filter and a link from the block's title straight to
- * the service (ADR-0023).
+ * The admin calendar: the shared grid plus a per-service filter -- the
+ * thing only staff get. Every block, title included, links to that one
+ * occurrence's own detail page; there is no separate destination for the
+ * title (the owner was explicit about this).
  *
  * The filter is presentation only. It never changes a query, so a hidden
  * service cannot be mistaken for a cancelled one.
@@ -190,7 +191,6 @@ export function AgendaCalendar({
         // touched) -- a share of capacity reads the same at any size.
         tone: cancelled ? "neutral" : OCCUPANCY_CALENDAR_TONE[occupancyTone(o.confirmedCount, o.capacity)],
         href: `/org/${organizationSlug}/agenda/${o.id}`,
-        titleHref: `/org/${organizationSlug}/services/${o.serviceId}/agenda`,
         muted: cancelled,
         past,
       };

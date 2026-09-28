@@ -40,8 +40,6 @@ export interface CalendarEvent {
   tone: "neutral" | "primary" | "success" | "warning" | "danger";
   /** Where the block itself goes. */
   href: string | null;
-  /** Where the title goes, when it differs from the block (ADR-0023). */
-  titleHref?: string | null;
   muted?: boolean;
   /**
    * The occurrence already ended (`endAt` is in the past) -- rendered in a
@@ -452,18 +450,7 @@ function EventBlock({
       >
         {time}
       </span>
-      {/* The title links separately so staff can jump to the service
-          without losing the ability to open the slot itself. */}
-      {event.titleHref ? (
-        <Link
-          href={event.titleHref}
-          className="relative z-10 truncate text-[11px] font-semibold underline-offset-2 hover:underline"
-        >
-          {event.title}
-        </Link>
-      ) : (
-        <span className="truncate text-[11px] font-semibold">{event.title}</span>
-      )}
+      <span className="truncate text-[11px] font-semibold">{event.title}</span>
       {/* `opacity-80` only applies to an active block, where it fades the
           meta line toward that block's own solid tone background -- a
           small, safe dilution. On a dimmed block it inherits
@@ -498,27 +485,15 @@ function EventBlock({
     );
   }
 
-  // Both the whole block and the title (when `titleHref` differs) need to
-  // be their own link, but an <a> can never contain another <a> -- that's
-  // invalid HTML and was failing hydration on every block. The fix is the
-  // "stretched link" pattern: the block stays a <div> and gets an
-  // absolutely-positioned <Link> covering it edge to edge (no visible
-  // content of its own), placed as a sibling of `body` rather than a
-  // wrapper around it. `z-[1]` keeps the intent explicit rather than
-  // relying on default stacking order between the stretched link and the
-  // in-flow time/meta text -- verified against a real browser that clicks
-  // land where expected either way, but an explicit value here is cheap
-  // insurance against a future edit to `body` changing that order by
-  // accident. The title's
-  // own Link sits at `z-10` (see its className above) so it still wins the
-  // click over the exact area it covers; everywhere else in the block,
-  // nothing outranks the stretched link, so it gets the click. `aria-label`
-  // gives the invisible link a name since it has no text content of its own.
+  // The whole block is a single link to the occurrence's own detail page --
+  // no separate destination for the title (the owner was explicit: every
+  // part of the quadrant, title included, goes to the same place). One
+  // <Link> wrapping `body` rather than a stretched-link pair, since there's
+  // only one destination to reach.
   return (
-    <div className={className} style={{ ...style, ...colored }}>
-      <Link href={event.href} aria-label={`${event.title}, ${time}`} className="absolute inset-0 z-[1]" />
+    <Link href={event.href} className={className} style={{ ...style, ...colored }}>
       {body}
-    </div>
+    </Link>
   );
 }
 
