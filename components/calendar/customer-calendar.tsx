@@ -1,12 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "cn";
 import type { NotGeneratedReason } from "@reservaste/domain";
-import { ScheduleCalendar, type CalendarEvent } from "./schedule-calendar";
+import { ScheduleCalendar, useIsNarrow, type CalendarEvent } from "./schedule-calendar";
 import type { PublicSlot } from "./public-calendar";
-import { nowMs } from "@/lib/calendar";
+import { nowMs, todayKey, type CalendarView } from "@/lib/calendar";
 import { occurrenceKey } from "@/lib/my-agenda";
+
+/**
+ * Query params this calendar mirrors its view/anchor into, same
+ * vocabulary as `AgendaCalendar` (`?vista=`/`?fecha=`, parsed by
+ * `parseCalendarView`/`parseAnchorKey` in `lib/calendar.ts`). `/me/page.tsx`
+ * reads them server-side and passes the result down as
+ * `initialView`/`initialAnchor`.
+ */
+const VIEW_PARAM = "vista";
+const ANCHOR_PARAM = "fecha";
 
 /** One of the customer's own bookings, as `my_bookings()` returns it. */
 export interface CustomerAgendaBooking {
@@ -50,6 +61,14 @@ const NOT_GENERATED_SHORT: Record<string, string> = {
  * The toggle is presentation only: both datasets are already here, so it
  * never fires a request and "mis clases" can never hide a class by
  * failing to load one.
+ *
+ * View and anchor live here (not inside `ScheduleCalendar`), same reason
+ * and same recipe as `AgendaCalendar`: mirrored into `?vista=`/`?fecha=`
+ * via `history.replaceState` (never `router.replace` -- this route is
+ * dynamic, so a router navigation would refetch bookings/availability from
+ * the server on every arrow press) so a real navigation away and back --
+ * opening one of the person's own bookings and tapping "Mi agenda" -- lands
+ * on the same day/week they were looking at, not "this week" again.
  */
 export function CustomerCalendar({
   organizationSlug,
@@ -57,6 +76,8 @@ export function CustomerCalendar({
   slots,
   timeZone,
   canBook,
+  initialView,
+  initialAnchor,
 }: {
   organizationSlug: string;
   bookings: CustomerAgendaBooking[];
@@ -68,12 +89,44 @@ export function CustomerCalendar({
    * grid pretending to be a choice, so it isn't offered.
    */
   canBook: boolean;
+  /** The day/week to open on, straight from `?vista=` (already narrowed to "day"/"week" by the caller). */
+  initialView?: CalendarView;
+  /** The day/week to open on, straight from `?fecha=`. Defaults to today. */
+  initialAnchor?: string;
 }) {
+  const pathname = usePathname();
+  // Same fallback this calendar always had (`responsiveDefault="day"`,
+  // `initialView="week"`) for the case nobody picked a view yet -- going
+  // controlled below (to mirror the URL) means `ScheduleCalendar`'s own
+  // `uncontrolledView` computation, which used to supply this, never runs.
+  const isNarrow = useIsNarrow();
+  const [picked, setPicked] = useState<{ view: CalendarView; anchor: string } | null>(null);
+  const view: CalendarView = picked?.view ?? initialView ?? (isNarrow ? "day" : "week");
+  const anchor: string = picked?.anchor ?? initialAnchor ?? todayKey(timeZone);
+
+  const handleChange = (next: { view: CalendarView; anchor: string }) => {
+    setPicked(next);
+    const params = new URLSearchParams();
+    // `org` is how `/me` knows which business's agenda this is (ADR-0006:
+    // a customer can belong to several) -- lost, the URL would silently
+    // fall back to whichever organization `pickCustomerOrganization` picks
+    // by default on the next real navigation.
+    params.set("org", organizationSlug);
+    params.set(VIEW_PARAM, next.view);
+    params.set(ANCHOR_PARAM, next.anchor);
+    window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+  };
+
   const [scope, setScope] = useState<Scope>("mine");
   const effectiveScope: Scope = canBook ? scope : "mine";
 
   const mine: CalendarEvent[] = useMemo(() => {
     const now = nowMs();
+    // The state to hand back to `/me/reserva/[bookingId]` so its own
+    // "Mi agenda" link can restore it (Causa 2): a `<Link>` to a named
+    // destination, not browser history, so the state has to travel with
+    // it explicitly or it resets on the way back.
+    const stateQuery = `vista=${view}&fecha=${anchor}`;
 
     return bookings.map((booking) => {
       const past = new Date(booking.endAt).getTime() <= now;
@@ -108,12 +161,12 @@ export function CustomerCalendar({
               ? "danger"
               : "warning"
             : "primary",
-        href: `/me/reserva/${booking.bookingId}`,
+        href: `/me/reserva/${booking.bookingId}?${stateQuery}`,
         muted: cancelled,
         past,
       } satisfies CalendarEvent;
     });
-  }, [bookings]);
+  }, [bookings, view, anchor]);
 
   const events: CalendarEvent[] = useMemo(() => {
     if (effectiveScope === "mine") return mine;
@@ -194,8 +247,9 @@ export function CustomerCalendar({
       // No month view here for the same reason the public calendar skips
       // it: someone checking their week is not surveying a quarter.
       views={["day", "week"]}
-      initialView="week"
-      responsiveDefault="day"
+      view={view}
+      anchor={anchor}
+      onChange={handleChange}
       toolbarExtra={toolbarExtra}
       emptyLabel={
         effectiveScope === "mine"
