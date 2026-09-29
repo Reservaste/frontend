@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { createClient } from "@/lib/supabase/server";
 import { ACTIVATION_COOKIE_NAME } from "@/lib/activation-cookie";
 import { TEAM_INVITATION_COOKIE_NAME } from "@/lib/team-invitation-cookie";
 
@@ -27,4 +28,34 @@ export async function readActivationToken(): Promise<string | null> {
 export async function readTeamInvitationToken(): Promise<string | null> {
   const jar = await cookies();
   return jar.get(TEAM_INVITATION_COOKIE_NAME)?.value ?? null;
+}
+
+/**
+ * ADR-0040: mints a short-lived (30 min), one-time nonce that can ride the
+ * one channel that survives a WhatsApp -> Mail/system-browser context
+ * switch -- `emailRedirectTo`/OAuth `next` -- so a *second* browser context
+ * can replant the `activation_token` cookie that this first one couldn't
+ * carry along. Reads the token straight from the argument the caller
+ * already pulled off the cookie (never a client-supplied value) and hands
+ * it to the `issue_activation_continuation` RPC, which is the only place
+ * that ever sees the token again after this.
+ *
+ * Returns `null` on any failure -- invalid/revoked/expired token, or the
+ * RPC's own `TOO_MANY_CONTINUATIONS` guard -- and deliberately does not
+ * distinguish which: this is a resilience mechanism, not a requirement.
+ * The caller falls back to the plain `returnTo` without `?c=`, and
+ * `claim_customer_activation()` / the cookie-miss messaging already on
+ * `/activar/continuar` cover the rest exactly as they do today.
+ */
+export async function issueActivationContinuation(token: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("issue_activation_continuation", {
+    p_token: token,
+  });
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as string;
 }

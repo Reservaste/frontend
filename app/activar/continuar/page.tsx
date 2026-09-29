@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { readActivationToken } from "@/lib/server-cookies";
+import { readActivationToken, issueActivationContinuation } from "@/lib/server-cookies";
 import { createClient } from "@/lib/supabase/server";
 import { safeReturnTo } from "@/lib/return-to";
 import { Brand } from "@/components/brand";
@@ -34,7 +34,20 @@ export default async function ActivationContinuePage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(`/login?returnTo=${encodeURIComponent(safeReturnTo("/activar/continuar"))}`);
+    // ADR-0040: about to send the person through /login (and possibly
+    // /signup, email confirmation, or Google OAuth from there), any of
+    // which can land them in a different browser context that never saw
+    // this cookie. Minting a continuation nonce here lets that other
+    // context replant it via /auth/callback. Best-effort: a `null` (token
+    // invalid/revoked/expired, or too many live nonces already) just means
+    // `returnTo` goes out without `?c=` like it always has -- this never
+    // blocks the redirect.
+    const returnTo = safeReturnTo("/activar/continuar");
+    const nonce = await issueActivationContinuation(token);
+    const destination = nonce
+      ? `${returnTo}${returnTo.includes("?") ? "&" : "?"}c=${nonce}`
+      : returnTo;
+    redirect(`/login?returnTo=${encodeURIComponent(destination)}`);
   }
 
   return (
