@@ -2,8 +2,16 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { safeReturnTo } from "@/lib/return-to";
 import { siteUrl } from "@/lib/site-url";
+import { redeemActivationContinuationIfPresent } from "@/lib/activation-continuation";
 
-/** Handles the redirect back from Supabase Auth (Google OAuth, email confirmation links). */
+/**
+ * Handles the redirect back from Supabase Auth's PKCE code exchange --
+ * Google OAuth, and (until ADR-0041's email template change lands in
+ * production) old-style email confirmation links. New email confirmation
+ * links use `/auth/confirm` (`verifyOtp({ token_hash })`) instead: PKCE
+ * needs the `code_verifier` cookie from the browser that started the flow,
+ * which a link opened from Mail/WhatsApp in a different browser never has.
+ */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   // Not request.url's origin: behind the proxy that is the container's
@@ -18,7 +26,12 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`);
+      const { destination, response } = await redeemActivationContinuationIfPresent(
+        supabase,
+        next,
+        origin,
+      );
+      return response ?? NextResponse.redirect(`${origin}${destination}`);
     }
   }
 
