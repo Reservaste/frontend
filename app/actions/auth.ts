@@ -8,8 +8,6 @@ import { safeReturnTo } from "@/lib/return-to";
 
 export interface AuthActionState {
   error: string | null;
-  /** Not a failure: e.g. the account was created but needs email confirmation. */
-  notice?: string | null;
 }
 
 export async function signUpWithPassword(
@@ -26,42 +24,59 @@ export async function signUpWithPassword(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  // ADR-0043 (corrección post-review de seguridad, punto 5): con
+  // [auth.captcha] habilitado, GoTrue exige captcha_token en /signup --
+  // sin token no vale la pena ni llamar a Supabase, el widget en el
+  // formulario ya debería haber puesto uno acá antes de que el botón de
+  // submit se habilite.
+  const captchaToken = String(formData.get("captchaToken") ?? "");
+  if (!captchaToken) {
+    return { error: "Completá la verificación anti-spam antes de continuar." };
+  }
+
   const returnTo = safeReturnTo(String(formData.get("returnTo") ?? ""));
 
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email: parsed.data.email,
     password: parsed.data.password,
     options: {
       data: { full_name: parsed.data.fullName },
-      // Sin esto el link de confirmación cae en la Site URL del proyecto
-      // (la home) y la intención con la que la persona se registró se
-      // pierde justo ahí. Para la activación de ADR-0026 eso era fatal:
-      // el cliente gestionado se registra *para* activar, confirma por
-      // mail, y volvía a la home -- nunca a /activar/continuar, que es la
-      // única pantalla donde el link de WhatsApp se puede canjear. Misma
-      // forma que el `redirectTo` de Google acá abajo, así que la URL ya
-      // está en el allowlist de Supabase Auth.
-      emailRedirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent(returnTo)}`,
+      captchaToken,
     },
   });
 
   if (error) {
+    // ADR-0043 (corrección post-review de seguridad, punto 5): Supabase
+    // devuelve "User already registered" en inglés para este caso, que
+    // además permite enumerar emails ya registrados con solo probar un
+    // signUp() por cada uno. Mismo criterio que signInWithPassword() más
+    // abajo ("Email o contraseña incorrectos"): un mensaje que ni confirma
+    // ni niega. Se compara el código, no el texto en inglés, porque
+    // supabase-js lo expone en error.code además de en error.message.
+    if (error.code === "user_already_exists" || error.message.toLowerCase().includes("already registered")) {
+      return {
+        error:
+          "No pudimos crear la cuenta con esos datos. Si ya tenés una cuenta con ese email, iniciá sesión en vez de registrarte.",
+      };
+    }
+    // Turnstile tokens expiran en minutos: alguien que tarda en completar
+    // el resto del formulario puede llegar a submit con un token vencido
+    // que el widget todavía no reemplazó. GoTrue rechaza esto como error
+    // de captcha, no como credenciales inválidas.
+    if (error.message.toLowerCase().includes("captcha")) {
+      return {
+        error:
+          "La verificación anti-spam expiró o no pudo validarse. Recargá la página e intentá de nuevo.",
+      };
+    }
     return { error: error.message };
   }
 
-  // With "Confirm email" enabled, signUp creates the user but no session.
-  // Redirecting as if they were signed in would bounce them straight back
-  // to /login with no explanation -- which is exactly how this looked
-  // like a wrong-password problem the first time it happened.
-  if (!data.session) {
-    return {
-      error: null,
-      notice:
-        "Creamos tu cuenta. Revisá tu email para confirmarla antes de ingresar (mirá también el spam).",
-    };
-  }
-
+  // ADR-0043: "Confirm email" is disabled, so signUp() always returns a
+  // session immediately -- no email is sent, so there is nothing to wait
+  // for. Redirect straight through, same as any other successful sign-in.
+  //
   // Someone who signed up mid-booking goes back to finish it (ADR-0015).
   //
   // Sin `returnTo` el default era `/onboarding`, o sea "creá tu negocio":
@@ -89,8 +104,21 @@ export async function signInWithPassword(
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos" };
   }
 
+  // ADR-0043 (corrección post-review de seguridad, punto 5): hallazgo
+  // confirmado en vivo por backend-engineer -- GoTrue exige captcha_token
+  // tanto en /signup como en /token?grant_type=password. Sin esto, con
+  // [auth.captcha] habilitado, todo login por contraseña se rompe, no
+  // sólo el alta de cuentas.
+  const captchaToken = String(formData.get("captchaToken") ?? "");
+  if (!captchaToken) {
+    return { error: "Completá la verificación anti-spam antes de continuar." };
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { error } = await supabase.auth.signInWithPassword({
+    ...parsed.data,
+    options: { captchaToken },
+  });
 
   if (error) {
     // Supabase returns the same shape for several distinct situations;
@@ -98,9 +126,24 @@ export async function signInWithPassword(
     // password that was never the problem.
     const message = error.message.toLowerCase();
     if (message.includes("not confirmed")) {
+      // ADR-0043 (base) deshabilitó "Confirm email" del todo -- desde esa
+      // fecha, signUp() nunca deja una cuenta sin confirmar, así que este
+      // mensaje ya no le puede pasar a nadie que se registre de ahora en
+      // más. Sigue aplicando sólo a cuentas viejas, previas al cambio,
+      // hasta que se complete la auditoría de producción descripta en la
+      // corrección post-review de esa ADR (punto 3) -- por eso el texto ya
+      // no promete un email de confirmación que no se va a mandar.
       return {
         error:
-          "Tu cuenta todavía no está confirmada. Buscá el email de confirmación (revisá el spam) o pedile al negocio que la active.",
+          "Tu cuenta quedó en un estado anterior sin confirmar. No te va a llegar ningún email: escribile al negocio para que la reactive.",
+      };
+    }
+    if (message.includes("captcha")) {
+      // Same expiry window as signUp() above -- a token that went stale
+      // while someone typed their password.
+      return {
+        error:
+          "La verificación anti-spam expiró o no pudo validarse. Recargá la página e intentá de nuevo.",
       };
     }
     if (message.includes("rate limit") || error.status === 429) {
