@@ -69,7 +69,7 @@ export const CaptchaWidget = forwardRef<TurnstileInstance, CaptchaWidgetProps>(
         <Turnstile
           ref={ref}
           siteKey={SITE_KEY}
-          options={{ size: "flexible" }}
+          options={{ size: "flexible", theme: "light" }}
           onSuccess={(token) => {
             setError(null);
             onTokenChange(token);
