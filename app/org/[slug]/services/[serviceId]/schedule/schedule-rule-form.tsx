@@ -37,10 +37,10 @@ const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0];
  * weekday so exceptions and occurrence generation are untouched, and the
  * person filling this in never has to know that.
  *
- * A `Sheet` instead of expanding in place, same gesture as `EnrollForm` /
- * `InviteForm`: a phone gets a real bottom sheet with a thumb-reachable
- * footer instead of the page reflowing under a form that pushes the list
- * of existing horarios down.
+ * A `Sheet` instead of expanding in place, same gesture as
+ * `ManagedCustomerForm` / `TeamInvitationForm`: a phone gets a real bottom
+ * sheet with a thumb-reachable footer instead of the page reflowing under
+ * a form that pushes the list of existing horarios down.
  *
  * The fields are grouped by the question they answer -- "Cuándo" (días +
  * hora) and "Dónde y cuántos" (recurso + duración + capacidad) -- instead

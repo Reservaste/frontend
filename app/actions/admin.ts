@@ -391,9 +391,6 @@ export interface ActionState {
 /** Maps the RPC's raised exceptions to something a person can act on. */
 function describeError(message: string | undefined): string {
   if (!message) return "Algo salió mal";
-  if (message.includes("PROFILE_NOT_FOUND")) {
-    return "No existe una cuenta con ese email. Si todavía no se registró, cerrá esto y usá \"Cliente sin cuenta\" en vez de esperar a que lo haga.";
-  }
   if (message.includes("NOT_AUTHORIZED")) return "No tenés permiso para hacer esto";
   if (message.includes("LAST_OWNER")) return "No podés quitar al último dueño de la organización";
   if (message.includes("CAPACITY_BELOW_ACTIVE_BOOKINGS")) {
@@ -440,74 +437,18 @@ function describeError(message: string | undefined): string {
   return "Algo salió mal";
 }
 
-export async function enrollCustomer(
-  organizationSlug: string,
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const { organization } = await requireOrganizationMembership(organizationSlug);
-  const email = String(formData.get("email") ?? "").trim();
-
-  if (!email) {
-    return { error: "El email es obligatorio", success: null };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("enroll_customer_by_email", {
-    p_organization_id: organization.id,
-    p_email: email,
-  });
-
-  if (error) {
-    return { error: describeError(error.message), success: null };
-  }
-
-  revalidatePath(`/org/${organizationSlug}/customers`);
-  return { error: null, success: `${email} quedó habilitado como cliente` };
-}
-
-export async function inviteMember(
-  organizationSlug: string,
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const { organization } = await requireOrganizationMembership(organizationSlug);
-  const email = String(formData.get("email") ?? "").trim();
-  const role = String(formData.get("role") ?? "STAFF");
-  // ADR-0033: rol configurable del invitado. Vacío = el rol por defecto de
-  // la organización (que es lo que hacía esta invitación antes). Un OWNER
-  // nunca lleva rol: la RPC lo ignora aunque llegue.
-  const roleId = String(formData.get("roleId") ?? "").trim() || null;
-
-  if (!email) {
-    return { error: "El email es obligatorio", success: null };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase.rpc("invite_member_by_email", {
-    p_organization_id: organization.id,
-    p_email: email,
-    p_role: role,
-    p_role_id: role === "OWNER" ? null : roleId,
-  });
-
-  if (error) {
-    // The shared PROFILE_NOT_FOUND text points at "Cliente sin cuenta",
-    // which is the customer flow. For the team the way out is ADR-0034's
-    // invitation link.
-    if (error.message.includes("PROFILE_NOT_FOUND")) {
-      return {
-        error:
-          "No encontramos una cuenta con ese email. Si todavía no se registró, cerrá esto y usá “Invitar al equipo”: le llega un link por WhatsApp.",
-        success: null,
-      };
-    }
-    return { error: describeError(error.message), success: null };
-  }
-
-  revalidatePath(`/org/${organizationSlug}/team`);
-  return { error: null, success: `${email} se sumó como ${role === "OWNER" ? "dueño" : "equipo"}` };
-}
+// ADR-0043 (corrección post-review de seguridad): enrollCustomer() y
+// inviteMember() -- que llamaban a enroll_customer_by_email() /
+// invite_member_by_email() -- se sacaron de acá. Esas RPCs daban
+// membresía/vínculo de cliente a quien tuviera ese email registrado en
+// auth.users, sin ninguna prueba de que fuera la persona real; su
+// `grant execute` fue revocado por backend-engineer. Los reemplazos ya
+// existían y quedan como el único camino: la invitación de equipo por
+// token (`issueTeamInvitation`, ADR-0034, `/equipo/[token]`) y la
+// activación de cliente gestionado por link de WhatsApp
+// (`issueCustomerActivation` más abajo, ADR-0026, `/activar/[token]`) --
+// ninguno de los dos asume "email = identidad verificada": la
+// autorización real es tener el token del link.
 
 // Plain <form action> targets: React requires these to resolve to void.
 // A failure (e.g. LAST_OWNER) leaves the row unchanged and the

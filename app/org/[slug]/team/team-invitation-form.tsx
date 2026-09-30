@@ -24,14 +24,16 @@ import { IssuedInvitation } from "./issued-invitation";
 const initialState: IssueTeamInvitationState = { error: null, success: null, invitation: null };
 
 /**
- * ADR-0034: invite someone who has no account yet -- name + phone + email +
- * role, and a one-time link to send by WhatsApp.
+ * ADR-0034: invite someone to the team -- name + phone + email + role, and
+ * a one-time link to send by WhatsApp. Works whether or not the person has
+ * an account already: entering with the invited email is what the
+ * redemption checks, not whether that email was already registered.
  *
- * Deliberately a separate form from "Ya tiene cuenta" (`InviteForm`), chosen
- * by the owner: a single form that picked the path by itself would turn the
- * panel back into an oracle of "does this email have an account?" (ADR-0034
- * §5.6), and would blur "already inside" with "I sent a link that may not
- * arrive".
+ * The only path left on this screen since ADR-0043's post-review
+ * correction: the old synchronous "Ya tiene cuenta" form
+ * (`invite_member_by_email()`) gave membership to whoever had that email
+ * registered, with no proof it was the real person -- its `grant execute`
+ * was revoked. This is the sole way to add someone now.
  *
  * The email is not optional and the form says why: it is the only thing the
  * redemption can verify.

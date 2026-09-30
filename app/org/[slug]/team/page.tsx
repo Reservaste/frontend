@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { DataList, DataListRow } from "@/components/ui/table";
-import { InviteForm } from "./invite-form";
 import { TeamInvitationForm } from "./team-invitation-form";
 import { InvitationList } from "./invitation-list";
 import { MemberRoleSelect } from "./member-role-select";
@@ -75,7 +74,6 @@ export default async function TeamPage({
         <section className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
             <TeamInvitationForm organizationSlug={slug} roles={activeRoles} disabled={planFull} />
-            <InviteForm organizationSlug={slug} roles={activeRoles} disabled={planFull} />
           </div>
           {seatLimit !== null ? (
             planFull ? (

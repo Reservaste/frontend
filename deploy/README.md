@@ -48,11 +48,26 @@ CI/CD en `docs/decisions.md` del workspace de coordinación.
 
 Secrets que el workflow necesita en `Reservaste/frontend` (Settings →
 Secrets and variables → Actions): `NEXT_PUBLIC_SUPABASE_URL`,
-`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL` (públicos, ya
-cargados), y dos que **nadie en el proceso de desarrollo tuvo en mano
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SITE_URL`,
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (públicos, ya cargados salvo el último —
+ver nota abajo), y dos que **nadie en el proceso de desarrollo tuvo en mano
 nunca, a propósito** — tienen que cargarse directo en la UI de GitHub:
 `DROPLET_SSH_KEY` (la clave privada autorizada como `root` en el
 droplet) y `DROPLET_HOST` (la IP).
+
+**`NEXT_PUBLIC_TURNSTILE_SITE_KEY` (ADR-0043, corrección post-review de
+seguridad, punto 5) — bloqueante mientras no esté cargado.** El widget de
+Cloudflare Turnstile en `/login`/`/signup` (`components/captcha-widget.tsx`)
+deja el botón de submit deshabilitado si esta variable no está presente en
+el build (fail-closed a propósito, nunca se manda el formulario sin
+captcha). Sin este secret cargado, el próximo deploy a `main` rompe login
+y signup para todo el mundo en producción. Antes de cargarlo: crear un par
+Site Key/Secret Key gratis en
+<https://dash.cloudflare.com/?to=/:account/turnstile>, cargar el Secret Key
+en el dashboard de Supabase de producción (Authentication → Attack
+Protection) y la Site Key acá — y sólo habilitar `[auth.captcha]` en el
+proyecto de producción cuando `security-engineer` confirme que todo el
+flujo funciona de punta a punta (ver `docs/decisions.md`, ADR-0043).
 
 **El paquete queda privado, y no hace falta cambiar eso.** El primer
 diseño hacía que el droplet bajara la imagen sola por `docker pull`
@@ -74,6 +89,7 @@ cd frontend
 NEXT_PUBLIC_SUPABASE_URL=... \
 NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
 NEXT_PUBLIC_SITE_URL=https://161-35-63-60.sslip.io \
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=... \
 npx next build
 
 docker build -f Dockerfile.prebuilt -t reservaste-app:latest .

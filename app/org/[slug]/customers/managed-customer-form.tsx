@@ -29,9 +29,8 @@ const initialState: ManagedCustomerState = { error: null, success: null };
  * que cerrar esto, entrar a la ficha del cliente y buscar ahí el envío
  * (que sigue existiendo en `ActivationPanel` para reenviar más adelante).
  *
- * Same `Sheet` pattern as `EnrollForm` right next to this one on the same
- * screen -- two different "tap to add someone" gestures on one page had to
- * look identical or neither would.
+ * Same `Sheet` pattern as the other "tap to add someone" forms in this
+ * panel (`TeamInvitationForm`, `../team/team-invitation-form.tsx`).
  */
 export function ManagedCustomerForm({ organizationSlug }: { organizationSlug: string }) {
   const [open, setOpen] = useState(false);

@@ -14,6 +14,12 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
   NEXT_PUBLIC_SITE_URL: "https://placeholder.example.com"
+  # ADR-0043 (corrección post-review de seguridad, punto 5): la clave de
+  # PRUEBA pública que Cloudflare documenta y publica para automatizar
+  # tests sin navegador real ("always passes", funciona en cualquier
+  # hostname) -- no es un placeholder inventado como las tres de arriba,
+  # es la misma que usa `frontend/.env.example` para desarrollo local.
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY: "1x00000000000000000000AA"
 
 jobs:
   build-and-test:
@@ -52,6 +58,17 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      # ADR-0043 (corrección post-review de seguridad, punto 5). BLOQUEANTE:
+      # este secret todavía no existe en Reservaste/frontend (Settings >
+      # Secrets and variables > Actions) al momento de este cambio -- sin
+      # él, este build horneará un NEXT_PUBLIC_TURNSTILE_SITE_KEY vacío en
+      # el bundle de producción, y CaptchaWidget deja el botón de
+      # Ingresar/Crear cuenta deshabilitado para todo el mundo (fail-closed
+      # a propósito, ver frontend/components/captcha-widget.tsx). No
+      # mergear este cambio a `main` sin cargar el secret primero -- con,
+      # como mínimo, la Site Key de prueba pública de Cloudflare
+      # (`1x00000000000000000000AA`) hasta que exista una real.
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${{ secrets.NEXT_PUBLIC_TURNSTILE_SITE_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

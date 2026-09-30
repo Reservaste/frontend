@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatusBadge } from "@/components/status";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { ChevronRight } from "@/components/icons";
-import { EnrollForm } from "./enroll-form";
 import { ManagedCustomerForm } from "./managed-customer-form";
 
 export const metadata = { title: "Clientes" };
@@ -36,19 +35,20 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
       />
 
       {/*
-        "Cliente sin cuenta" va primero a propósito (ADR-0026): es el
-        camino sin fricción, el que no depende de que la persona se haya
-        registrado antes -- justo lo que el feedback original pedía.
-        "Cliente con cuenta" queda segundo, para cuando ya se registró por
-        su cuenta. Antes el orden era al revés y el botón por email se
-        llamaba "Habilitar cliente" a secas, lo bastante genérico como
-        para leerse como "la forma normal" -- llevaba al dueño derecho al
-        único camino que sí exige registro previo.
+        ADR-0043 (corrección post-review de seguridad): "Cliente con cuenta
+        existente" (alta por email, enroll_customer_by_email()) se sacó de
+        acá -- esa RPC le daba el vínculo de cliente a quien tuviera ese
+        email registrado, sin probar que fuera la persona real; su `grant
+        execute` fue revocado. "Cliente sin cuenta" (ADR-0026) queda como
+        el único camino, y también cubre a alguien que ya tiene cuenta
+        propia: el link de WhatsApp activa igual, la persona entra con su
+        cuenta existente (o se registra si no tiene) y
+        claim_customer_activation() vincula esa sesión al cliente -- nunca
+        compara email, sólo exige tener el token del link.
       */}
       {canManageCustomers ? (
         <div className="flex flex-wrap gap-2">
           <ManagedCustomerForm organizationSlug={slug} />
-          <EnrollForm organizationSlug={slug} />
         </div>
       ) : null}
 
@@ -57,7 +57,7 @@ export default async function CustomersPage({ params }: { params: Promise<{ slug
           title="Todavía no hay clientes"
           description={
             canManageCustomers
-              ? "Dalo de alta con nombre y teléfono -- no hace falta que tenga cuenta. Si ya se registró por su cuenta, usá 'Cliente con cuenta existente'."
+              ? "Dalo de alta con nombre y teléfono -- no hace falta que tenga cuenta. Si ya tiene cuenta propia, igual funciona: al activar el link de WhatsApp entra con esa cuenta."
               : "Cuando el negocio dé de alta clientes, van a aparecer acá."
           }
         />

@@ -30,10 +30,14 @@ export interface ActivationContinuationResult {
  * -- already forwards untouched end to end. Stripped here regardless of
  * outcome: it must never reach the final redirect URL, success or failure.
  *
- * ADR-0041: this logic used to live inline in `/auth/callback/route.ts`
- * (the only auth-completion route until then, reached via PKCE code
- * exchange). It is now shared with `/auth/confirm/route.ts` (reached via
- * `verifyOtp({ token_hash })`) -- both call this only *after* they have
+ * ADR-0041 factored this logic out of `/auth/callback/route.ts` so it could
+ * be shared with `/auth/confirm/route.ts` (the email-confirmation
+ * `verifyOtp({ token_hash })` path). ADR-0043 removed `/auth/confirm`
+ * entirely -- "Confirm email" is disabled, so no email/link exists to
+ * confirm -- leaving `/auth/callback` (Google OAuth) as this function's only
+ * caller. The mechanism itself is unchanged: OAuth still leaves WhatsApp's
+ * embedded WebView for a real browser, the same context switch ADR-0040
+ * introduced the nonce for. This is called only *after* the caller has
  * already established a session in the current browser context, which is
  * the precondition this function assumes.
  *
