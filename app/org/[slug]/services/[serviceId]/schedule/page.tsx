@@ -54,11 +54,14 @@ export default async function ServiceSchedulePage({
 
   // Standing reservations subscribe to a single ScheduleRule, so a
   // Mon/Wed/Fri group has three of them -- which is correct: a standing
-  // Monday is not a standing Wednesday.
+  // Monday is not a standing Wednesday. ADR-0050: a group's `items` has one
+  // entry per real ScheduleRule row (a span group can have several items
+  // sharing the same weekday), so this flattens `items`, not a separate
+  // `ruleIds` array.
   const standingByRule = Object.fromEntries(
     await Promise.all(
       groups
-        .flatMap((group) => group.ruleIds)
+        .flatMap((group) => group.items.map((item) => item.ruleId))
         .map(async (ruleId) => [ruleId, await listStandingReservations(slug, ruleId)] as const),
     ),
   );
@@ -119,9 +122,26 @@ export default async function ServiceSchedulePage({
       ) : (
         <ul className="flex flex-col gap-3">
           {groups.map((group) => {
-            const label = `${WEEK_ORDER.filter((d) => group.weekdays.includes(d))
-              .map((d) => WEEKDAY_SHORT[d])
-              .join(" · ")} ${group.localStartTime.slice(0, 5)}`;
+            // ADR-0050: `items` carries one real (ruleId, weekday,
+            // localStartTime) per row -- a "franja" group (ADR-0045) can
+            // have several items that share a weekday but differ in
+            // localStartTime, so the day badges and the headline time both
+            // derive from `items` instead of a separate weekdays[]/
+            // localStartTime pair that could disagree with it.
+            const weekdaysInGroup = new Set(group.items.map((item) => item.weekday));
+            const distinctTimes = Array.from(
+              new Set(group.items.map((item) => item.localStartTime)),
+            ).sort();
+            const timeLabel =
+              distinctTimes.length === 1
+                ? distinctTimes[0]!.slice(0, 5)
+                : `${distinctTimes[0]!.slice(0, 5)}–${distinctTimes[distinctTimes.length - 1]!.slice(0, 5)}`;
+            // sr-only full description: every real (día, hora) pair, never
+            // collapsed to one shared value -- the exact thing ADR-0050
+            // fixed for the visible rows below.
+            const label = group.items
+              .map((item) => `${WEEKDAY_SHORT[item.weekday]} ${item.localStartTime.slice(0, 5)}`)
+              .join(", ");
 
             return (
               <li key={group.groupId} className="overflow-hidden rounded-xl border bg-card shadow-card">
@@ -136,7 +156,7 @@ export default async function ServiceSchedulePage({
                           key={day}
                           className={cn(
                             "flex h-7 min-w-7 items-center justify-center rounded-md px-1 text-[0.65rem] font-semibold",
-                            group.weekdays.includes(day)
+                            weekdaysInGroup.has(day)
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground/40",
                           )}
@@ -146,11 +166,12 @@ export default async function ServiceSchedulePage({
                       ))}
                     </div>
                     <div className="flex flex-col">
-                      <span className="tnum text-lg leading-tight font-semibold">
-                        {group.localStartTime.slice(0, 5)}
-                      </span>
+                      <span className="tnum text-lg leading-tight font-semibold">{timeLabel}</span>
                       <span className="text-xs text-muted-foreground">
                         {group.resourceName} · {group.durationMinutes} min
+                        {distinctTimes.length > 1
+                          ? ` · ${group.items.length} horarios`
+                          : ""}
                       </span>
                     </div>
                   </div>
@@ -167,15 +188,15 @@ export default async function ServiceSchedulePage({
                   </div>
                 </div>
 
-                {group.ruleIds.map((ruleId, index) => (
+                {group.items.map((item) => (
                   <StandingReservations
-                    key={ruleId}
+                    key={item.ruleId}
                     organizationSlug={slug}
                     serviceId={serviceId}
-                    scheduleRuleId={ruleId}
-                    ruleLabel={`${WEEKDAY_SHORT[group.weekdays[index]!]} ${group.localStartTime.slice(0, 5)}`}
+                    scheduleRuleId={item.ruleId}
+                    ruleLabel={`${WEEKDAY_SHORT[item.weekday]} ${item.localStartTime.slice(0, 5)}`}
                     customers={customers}
-                    reservations={standingByRule[ruleId] ?? []}
+                    reservations={standingByRule[item.ruleId] ?? []}
                     timezone={organization.timezone}
                     canManage={canManageBookings}
                   />
