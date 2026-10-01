@@ -18,6 +18,7 @@ export default async function OccurrenceDetailPage({
   const { slug, occurrenceId } = await params;
   const { organization, permissions } = await requireOrganizationMembership(slug);
   const canManageAttendance = hasOrgPermission(permissions, "MANAGE_ATTENDANCE");
+  const canManagePayments = hasOrgPermission(permissions, "MANAGE_PAYMENTS");
 
   const [occurrence, attendees, customers] = await Promise.all([
     getOccurrence(slug, occurrenceId),
@@ -127,6 +128,10 @@ export default async function OccurrenceDetailPage({
           customers={customers}
           isCancelled={cancelled}
           canManageBookings={hasOrgPermission(permissions, "MANAGE_BOOKINGS")}
+          canManagePayments={canManagePayments}
+          dropInPlanId={occurrence.dropInPlanId}
+          dropInPrice={occurrence.dropInPrice}
+          dropInCurrency={occurrence.dropInCurrency}
         />
       </div>
     </div>

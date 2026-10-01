@@ -6,6 +6,7 @@ import {
   bookCustomerIntoSlot,
   cancelBookingAsStaff,
   cancelOccurrence,
+  chargeDropIn,
   updateOccurrenceCapacity,
   type ActionState,
 } from "@/app/actions/admin";
@@ -14,8 +15,40 @@ import { Input } from "@/components/ui/input";
 import { Field, FormError, FormSuccess } from "@/components/ui/form";
 import { Select } from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
+import { formatMoney } from "@/lib/money";
 
 const initialState: ActionState = { error: null, success: null };
+
+/** ADR-0046: one row's charge-dropin form, with its own error/success state. */
+function ChargeDropInRow({
+  organizationSlug,
+  occurrenceId,
+  customerId,
+  label,
+}: {
+  organizationSlug: string;
+  occurrenceId: string;
+  customerId: string;
+  label: string;
+}) {
+  const [state, action, charging] = useActionState(
+    chargeDropIn.bind(null, organizationSlug, occurrenceId),
+    initialState,
+  );
+
+  return (
+    <form action={action} className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <input type="hidden" name="customerId" value={customerId} />
+        <Button type="submit" variant="outline" size="touch" disabled={charging}>
+          {charging ? "Cobrando…" : label}
+        </Button>
+      </div>
+      <FormError>{state.error}</FormError>
+      <FormSuccess>{state.success}</FormSuccess>
+    </form>
+  );
+}
 
 /**
  * The body of a turno's own detail page (`agenda/[occurrenceId]/page.tsx`,
@@ -33,6 +66,10 @@ export function OccurrenceActions({
   customers,
   isCancelled,
   canManageBookings,
+  canManagePayments,
+  dropInPlanId,
+  dropInPrice,
+  dropInCurrency,
 }: {
   organizationSlug: string;
   occurrenceId: string;
@@ -46,6 +83,12 @@ export function OccurrenceActions({
    * (a role that cannot see who is booked cannot run the turno).
    */
   canManageBookings: boolean;
+  /** ADR-0033 `MANAGE_PAYMENTS`: required to see or use the charge-dropin actions. */
+  canManagePayments: boolean;
+  /** ADR-0046: null when this occurrence's service has no active DROP_IN plan -- hides everything below. */
+  dropInPlanId: string | null;
+  dropInPrice: number | null;
+  dropInCurrency: string | null;
 }) {
   const [bookState, bookAction, booking] = useActionState(
     bookCustomerIntoSlot.bind(null, organizationSlug, occurrenceId),
@@ -55,8 +98,15 @@ export function OccurrenceActions({
     updateOccurrenceCapacity.bind(null, organizationSlug, occurrenceId),
     initialState,
   );
+  const [chargeState, chargeAction, charging] = useActionState(
+    chargeDropIn.bind(null, organizationSlug, occurrenceId),
+    initialState,
+  );
 
   const confirmed = attendees.filter((a) => a.status === "CONFIRMED");
+  const canChargeDropIn = canManagePayments && dropInPlanId !== null;
+  const dropInLabel =
+    dropInPrice !== null && dropInCurrency !== null ? `Cobrar ${formatMoney(dropInPrice, dropInCurrency)}` : "Cobrar";
 
   return (
     <div className="flex flex-col gap-5 border-t bg-muted/40 px-4 py-4">
@@ -69,13 +119,23 @@ export function OccurrenceActions({
             {confirmed.map((attendee) => (
               <li key={attendee.bookingId} className="flex items-center justify-between gap-2 px-3 py-2">
                 <span className="text-sm">{attendee.customerName}</span>
-                {!isCancelled && canManageBookings ? (
-                  <form action={cancelBookingAsStaff.bind(null, organizationSlug, attendee.bookingId)}>
-                    <Button type="submit" variant="ghost" size="touch">
-                      Quitar
-                    </Button>
-                  </form>
-                ) : null}
+                <div className="flex items-center gap-2">
+                  {!isCancelled && canChargeDropIn && attendee.paidPaymentId === null ? (
+                    <ChargeDropInRow
+                      organizationSlug={organizationSlug}
+                      occurrenceId={occurrenceId}
+                      customerId={attendee.customerId}
+                      label={dropInLabel}
+                    />
+                  ) : null}
+                  {!isCancelled && canManageBookings ? (
+                    <form action={cancelBookingAsStaff.bind(null, organizationSlug, attendee.bookingId)}>
+                      <Button type="submit" variant="ghost" size="touch">
+                        Quitar
+                      </Button>
+                    </form>
+                  ) : null}
+                </div>
               </li>
             ))}
           </ul>
@@ -104,6 +164,29 @@ export function OccurrenceActions({
             </form>
             <FormError>{bookState.error}</FormError>
             <FormSuccess>{bookState.success}</FormSuccess>
+          </section>
+          ) : null}
+
+          {canChargeDropIn ? (
+          <section className="flex flex-col gap-2">
+            <h4 className="eyebrow text-muted-foreground">Cobrar turno suelto</h4>
+            <form action={chargeAction} className="flex flex-wrap items-center gap-2">
+              <Select name="customerId" className="min-w-40 flex-1" touch required>
+                <option value="">Elegir cliente…</option>
+                {customers
+                  .filter((c) => c.isActive)
+                  .map((c) => (
+                    <option key={c.customerId} value={c.customerId}>
+                      {c.fullName}
+                    </option>
+                  ))}
+              </Select>
+              <Button type="submit" size="touch" disabled={charging}>
+                {charging ? "Cobrando…" : dropInLabel}
+              </Button>
+            </form>
+            <FormError>{chargeState.error}</FormError>
+            <FormSuccess>{chargeState.success}</FormSuccess>
           </section>
           ) : null}
 

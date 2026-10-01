@@ -29,11 +29,13 @@ export function SettingsForm({
   organizationSlug,
   organization,
   makeup,
+  openBookingEnabled: initialOpenBookingEnabled,
   canEdit,
 }: {
   organizationSlug: string;
   organization: Organization;
   makeup: MakeupCreditSettings;
+  openBookingEnabled: boolean;
   canEdit: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -49,6 +51,10 @@ export function SettingsForm({
   // apagar nunca. El hidden de al lado siempre manda on/off.
   const [makeupEnabled, setMakeupEnabled] = useState(makeup.enabled);
   const [expiry, setExpiry] = useState(makeup.expiry);
+  // ADR-0047: mismo patrón que `makeupEnabled` arriba -- controlado para
+  // poder mandar siempre "on"/"off" por el hidden de al lado, nunca un
+  // checkbox pelado que desaparece del FormData al destildarse.
+  const [openBookingEnabled, setOpenBookingEnabled] = useState(initialOpenBookingEnabled);
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card">
@@ -202,6 +208,38 @@ export function SettingsForm({
               </Field>
             ) : null}
           </div>
+        </div>
+
+        {/* ADR-0047: reserva abierta / self-service, mismo patrón que el
+            bloque de crédito de recupero de arriba -- opt-in, apagado por
+            default, para no cambiarle el comportamiento a nadie que ya
+            daba de alta clientes a mano. */}
+        <div className="flex flex-col gap-3 border-t pt-4">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-semibold">Reserva abierta</h2>
+            <p className="text-xs text-muted-foreground">
+              Deja que cualquier persona con cuenta reserve un turno sin que el mostrador la haya
+              dado de alta antes.
+            </p>
+          </div>
+
+          <input type="hidden" name="openBookingEnabled" value={openBookingEnabled ? "on" : "off"} />
+          <label className="flex w-full items-start gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-muted/50">
+            <input
+              type="checkbox"
+              checked={openBookingEnabled}
+              disabled={!canEdit}
+              onChange={(event) => setOpenBookingEnabled(event.target.checked)}
+              className="focus-ring mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">Permitir que gente nueva reserve sola</span>
+              <span className="text-xs text-muted-foreground">
+                Al confirmar, queda registrada como cliente automáticamente. Tiene un tope de 2
+                reservas propias hasta que la organización la pase a cliente habilitado.
+              </span>
+            </span>
+          </label>
         </div>
 
         <FormError>{state.error}</FormError>
