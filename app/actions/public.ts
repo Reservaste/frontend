@@ -56,17 +56,30 @@ export async function getPublicAvailability(
     return [];
   }
 
-  // ADR-0025: recently_released is new in get_public_availability() and
-  // the @reservaste/domain package this frontend depends on (a separate
-  // repo, fetched by git ref -- see CLAUDE.md) has not been re-published
-  // with it yet. Mapped by hand here instead of through
-  // mapPublicAvailabilitySlot() so the badge works today; once the
-  // backend package is pushed and bumped, this can fold back into the
-  // shared mapper.
-  return data.map((row: Parameters<typeof mapPublicAvailabilitySlot>[0] & { recently_released?: boolean | null }) => ({
-    ...mapPublicAvailabilitySlot(row),
-    recentlyReleased: row.recently_released ?? null,
-  }));
+  // ADR-0025 / ADR-0048: recently_released, resource_id and resource_name
+  // are new in get_public_availability() and the @reservaste/domain package
+  // this frontend depends on (a separate repo, fetched by git ref -- see
+  // CLAUDE.md) has not been re-published with them yet. Mapped by hand here
+  // instead of through mapPublicAvailabilitySlot() so these fields work
+  // today; once the backend package is pushed and bumped, this can fold
+  // back into the shared mapper.
+  return data.map(
+    (
+      row: Parameters<typeof mapPublicAvailabilitySlot>[0] & {
+        recently_released?: boolean | null;
+        resource_id: string;
+        resource_name?: string | null;
+      },
+    ) => ({
+      ...mapPublicAvailabilitySlot(row),
+      recentlyReleased: row.recently_released ?? null,
+      resourceId: row.resource_id,
+      // ADR-0048: null unless the organization opted into
+      // `public_resource_names` -- the RPC already decided this, this is
+      // just the hand mapping, never a disclosure rule of its own.
+      resourceName: row.resource_name ?? null,
+    }),
+  );
 }
 
 /**

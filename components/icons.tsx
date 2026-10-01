@@ -16,6 +16,7 @@ import {
   Repeat,
   RotateCcw,
   Stethoscope,
+  User,
   Users,
   X,
   type LucideIcon,
@@ -88,3 +89,6 @@ export const PaletteIcon = withDefaultSize(Palette);
 export const MailIcon = withDefaultSize(Mail);
 /** Canal de contacto: teléfono. */
 export const PhoneIcon = withDefaultSize(Phone);
+
+/** A single resource/person, as opposed to `UsersIcon` (a group). */
+export const UserIcon = withDefaultSize(User);

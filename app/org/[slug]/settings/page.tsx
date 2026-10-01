@@ -25,7 +25,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   const { data: makeupRow } = await supabase
     .from("organizations")
     .select(
-      "makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days, open_booking_enabled",
+      "makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days, open_booking_enabled, public_resource_names",
     )
     .eq("id", organization.id)
     .maybeSingle();
@@ -44,6 +44,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   // tampoco está en el shape de `mapOrganization()`, default apagado si la
   // fila no se pudo leer.
   const openBookingEnabled = makeupRow?.open_booking_enabled ?? false;
+
+  // ADR-0048: mismo motivo -- `public_resource_names` tampoco está en el
+  // shape de `mapOrganization()`, default apagado si la fila no se pudo
+  // leer.
+  const publicResourceNames = makeupRow?.public_resource_names ?? false;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-5 py-6">
@@ -81,6 +86,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         organization={organization}
         makeup={makeup}
         openBookingEnabled={openBookingEnabled}
+        publicResourceNames={publicResourceNames}
         canEdit={membership.role === "OWNER"}
       />
     </div>

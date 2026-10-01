@@ -70,6 +70,12 @@ export default async function PublicOrganizationPage({
     // ADR-0025: boolean-only, already suppressed by the database in
     // BOOLEAN mode and at capacity 1 -- this page just renders it.
     recentlyReleased: Boolean((slot as { recentlyReleased?: boolean | null }).recentlyReleased),
+    // ADR-0048: resourceId/resourceName aren't in PublicAvailabilitySlot of
+    // @reservaste/domain yet (not re-published) -- same cast pattern as
+    // recentlyReleased above. resourceName is null unless the organization
+    // opted into public_resource_names; the RPC already decided that.
+    resourceId: (slot as unknown as { resourceId: string }).resourceId,
+    resourceName: (slot as { resourceName?: string | null }).resourceName ?? null,
   }));
 
   const supabase = await createClient();

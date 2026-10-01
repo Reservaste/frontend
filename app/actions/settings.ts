@@ -99,6 +99,14 @@ export async function updateOrganizationSettings(
     makeupPatch.open_booking_enabled = formData.get("openBookingEnabled") === "on";
   }
 
+  // ADR-0048: nombres de recurso en el calendario público, mismo patrón
+  // opt-in que los dos bloques anteriores -- parche opcional para no apagar
+  // la configuración de quien ya la tenía prendida si este formulario
+  // todavía no manda el campo.
+  if (formData.has("publicResourceNames")) {
+    makeupPatch.public_resource_names = formData.get("publicResourceNames") === "on";
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("organizations")
