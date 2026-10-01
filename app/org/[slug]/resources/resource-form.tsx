@@ -11,9 +11,6 @@ const initialState: CreateResourceState = { error: null };
 
 export function ResourceForm({ organizationSlug }: { organizationSlug: string }) {
   const [open, setOpen] = useState(false);
-  // Hidden input always carries "on"/"off" so an unchecked box still says
-  // so explicitly -- same pattern as SettingsForm's makeup-credits toggle.
-  const [isExclusive, setIsExclusive] = useState(false);
   const [state, formAction, pending] = useActionState(
     createResource.bind(null, organizationSlug),
     initialState,
@@ -39,24 +36,6 @@ export function ResourceForm({ organizationSlug }: { organizationSlug: string })
           <Input id="description" name="description" type="text" placeholder="Capacidad 20 personas" />
         </Field>
       </div>
-
-      <input type="hidden" name="isExclusive" value={isExclusive ? "on" : "off"} />
-      <label className="flex w-full items-start gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-muted/50">
-        <input
-          type="checkbox"
-          checked={isExclusive}
-          onChange={(event) => setIsExclusive(event.target.checked)}
-          className="focus-ring mt-0.5 size-4 shrink-0 accent-primary"
-        />
-        <span className="flex flex-col gap-0.5">
-          <span className="font-medium">Se ocupa de a uno (no admite turnos superpuestos)</span>
-          <span className="text-xs text-muted-foreground">
-            Para un profesional, una camilla o una cancha 1 a 1: nunca queda reservado dos veces a la
-            misma hora, aunque sea en servicios distintos.
-          </span>
-        </span>
-      </label>
-
       <FormError>{state.error}</FormError>
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
