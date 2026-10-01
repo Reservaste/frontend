@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import {
   CALENDAR_VIEWS,
   WEEKDAY_SHORT,
+  eventBlockLineVisibility,
   formatRangeLabel,
   hourBounds,
   isSameMonth,
@@ -67,9 +68,11 @@ const TONE_BG: Record<CalendarEvent["tone"], string> = {
   danger: "bg-destructive-subtle text-destructive-on-subtle border-destructive/25",
 };
 
-// Tall enough that a 30-minute slot still has room for a bold hour, a
-// title and a meta line without any of the three touching the block's own
-// edge -- the "more air" the flat hairline grid was missing.
+// The "more air" the flat hairline grid was missing -- tall enough that a
+// one-hour block comfortably fits a bold hour, a title and a meta line (see
+// `eventBlockLineVisibility` in lib/calendar.ts: a 30-minute block does
+// not, regardless of HOUR_HEIGHT, which is why EventBlock drops lines
+// progressively instead).
 const HOUR_HEIGHT = 64;
 
 /**
@@ -434,6 +437,14 @@ function EventBlock({
   // tone-coloured block.
   const isDimmed = event.muted || event.past;
 
+  // `style.height` is always a plain number here (TimeGrid computes it from
+  // duration, never a caller-supplied string) -- the `typeof` guard is only
+  // for the type itself (`React.CSSProperties["height"]` also allows a
+  // string), not a real runtime case. An undefined height falls back to
+  // showing everything, same as before this fix existed.
+  const blockHeight = typeof style.height === "number" ? style.height : undefined;
+  const { showTitle, showMeta } = eventBlockLineVisibility(blockHeight);
+
   // ADR-0023: choosing a slot is choosing a time, so the time is the
   // biggest, boldest thing in the block. It stays on --foreground rather
   // than the tone colour so it reads clearly even at the smallest block
@@ -444,23 +455,58 @@ function EventBlock({
     <>
       <span
         className={cn(
-          "tnum text-sm leading-none font-bold",
+          "tnum shrink-0 text-sm leading-none font-bold",
           isDimmed ? "text-muted-foreground" : "text-foreground",
         )}
       >
         {time}
       </span>
-      <span className="truncate text-[11px] font-semibold">{event.title}</span>
+      {/* Below a block height that can't fit a title (see
+          `eventBlockLineVisibility` in lib/calendar.ts), the title is
+          dropped outright rather than rendered illegible. `leading-[14px]`
+          overrides the `line-height: 1.5` this would otherwise inherit from
+          `<html>` (16.5px at this font-size) with an explicit one that
+          matches EVENT_BLOCK_LINE_HEIGHT exactly -- so a shown title's
+          *natural* size already is the legible minimum the threshold
+          assumes, instead of depending on flex-shrink to compress a taller
+          line down to it at render time. (That used to be exactly how a
+          60-minute block "worked": flex-shrink quietly trimming blank
+          leading off a 16.5px line down to ~14px. `shrink-0` turns that
+          same flex-shrink off entirely, which is correct once the line
+          doesn't need shrinking to begin with -- but the two have to agree,
+          or `shrink-0` alone just moves the clipping from "harmless
+          leading" to "real glyph ink", which is the exact regression a
+          review caught in this fix's first version.) `shrink-0` stays as a
+          second, belt-and-suspenders guard: even if a threshold is ever off
+          by a pixel, a rendered line can't shrink below this explicit size,
+          it just clips cleanly against the block's own `overflow-hidden`. */}
+      {showTitle ? (
+        <span className="shrink-0 truncate text-[11px] leading-[14px] font-semibold">
+          {event.title}
+        </span>
+      ) : null}
       {/* `opacity-80` only applies to an active block, where it fades the
           meta line toward that block's own solid tone background -- a
           small, safe dilution. On a dimmed block it inherits
           `text-muted-foreground` as-is: stacking another opacity on top of
           an already-quiet colour is exactly the compounding that caused
           the meta line ("0 de 3 disponibles") to measure 3:1 instead of
-          the required 4.5:1. */}
-      <span className={cn("tnum truncate text-[11px] font-medium", !isDimmed && "opacity-80")}>
-        {event.meta}
-      </span>
+          the required 4.5:1. Meta (the occupancy count) only drops below
+          EVENT_BLOCK_MIN_HEIGHT_FOR_META, well under the title's own
+          threshold -- between a service's name and its
+          "ocupados / capacidad", the capacity is the one the admin agenda
+          can least afford to hide. Same explicit `leading-[14px]` as the
+          title, for the same reason. */}
+      {showMeta ? (
+        <span
+          className={cn(
+            "tnum shrink-0 truncate text-[11px] leading-[14px] font-medium",
+            !isDimmed && "opacity-80",
+          )}
+        >
+          {event.meta}
+        </span>
+      ) : null}
     </>
   );
 

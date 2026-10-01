@@ -261,3 +261,48 @@ export function hourBounds(minutes: number[]): { startHour: number; endHour: num
     endHour: Math.min(24, Math.ceil(max / 60) + 1),
   };
 }
+
+// `ScheduleCalendar`'s EventBlock renders up to three stacked lines (hour,
+// title, meta) inside a box whose height is proportional to the
+// occurrence's duration -- short enough, for a dense schedule of
+// back-to-back 45-minute slots, that not all three fit. These are
+// EventBlock's real geometry in px, read off its actual Tailwind classes
+// (`px-2 py-1.5` + a 1px border, `text-sm leading-none` for the hour, and
+// an explicit `leading-[14px]` on the title/meta so their *natural*
+// rendered size already equals this budget instead of depending on
+// flex-shrink to compress them down to it at render time -- flex-shrink
+// compressing a line is indistinguishable, visually, from clipping into
+// real glyph ink the moment the deficit gets large, which is the bug this
+// whole module exists to prevent; see EventBlock's own comment for the
+// incident that uncovered it).
+export const EVENT_BLOCK_CHROME = 14; // px-2 py-1.5 (12px) + border (2px)
+export const EVENT_BLOCK_LINE_HEIGHT = 14; // every line's height, hour and title/meta alike
+export const EVENT_BLOCK_LINE_GAP = 2; // gap-0.5, between each pair of lines
+
+/** Block height below which the meta line (occupancy count) is dropped. */
+export const EVENT_BLOCK_MIN_HEIGHT_FOR_META =
+  EVENT_BLOCK_CHROME + EVENT_BLOCK_LINE_HEIGHT + EVENT_BLOCK_LINE_GAP + EVENT_BLOCK_LINE_HEIGHT; // 44
+/** Block height below which the title is dropped too (only the hour shows). */
+export const EVENT_BLOCK_MIN_HEIGHT_FOR_TITLE =
+  EVENT_BLOCK_MIN_HEIGHT_FOR_META + EVENT_BLOCK_LINE_GAP + EVENT_BLOCK_LINE_HEIGHT; // 60
+
+/**
+ * Which of EventBlock's title/meta lines fit a given block height without
+ * clipping. A pure function (not inlined in the component) so the two
+ * thresholds above are pinned down by a test instead of only by eyeballing
+ * a screenshot -- the kind of off-by-one between two lines of the same
+ * diff that a render-time inspection alone won't always catch.
+ *
+ * `undefined` (no explicit height passed) shows everything, same as before
+ * this budget existed.
+ */
+export function eventBlockLineVisibility(blockHeight: number | undefined): {
+  showTitle: boolean;
+  showMeta: boolean;
+} {
+  if (blockHeight === undefined) return { showTitle: true, showMeta: true };
+  return {
+    showTitle: blockHeight >= EVENT_BLOCK_MIN_HEIGHT_FOR_TITLE,
+    showMeta: blockHeight >= EVENT_BLOCK_MIN_HEIGHT_FOR_META,
+  };
+}
