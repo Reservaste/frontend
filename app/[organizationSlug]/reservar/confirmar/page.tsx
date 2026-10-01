@@ -93,6 +93,10 @@ export default async function ConfirmarPage({
   // significa "esto lo habilita tu crédito", y eso hay que decirlo antes
   // del botón: hasta acá se gastaba en silencio.
   const { reason: canBook, makeupCreditExpiresOn } = await checkCanBookDetail(slot);
+  // ADR-0047: mismo "podés reservar" que `OK` -- `book_slot()` da de alta
+  // el `Customer` en la misma transacción si esta persona nunca tuvo una
+  // fila en esta organización. El único motivo nuevo con derecho a botón.
+  const canBookNow = canBook === "OK" || canBook === "OK_OPEN_BOOKING";
   // public_slot_detail() carries the slot, not the business's branding --
   // this page still has to look like the page the visitor came from.
   const organization = await getPublicOrganization(organizationSlug);
@@ -148,7 +152,7 @@ export default async function ConfirmarPage({
             </StatusBadge>
           </div>
 
-          {canBook === "OK" ? (
+          {canBookNow ? (
             <div className="flex flex-col gap-3">
               {/* Sólo cuando el crédito es lo que habilita la reserva: un
                   OK común no trae ninguno, así que esto no aparece en el
@@ -157,6 +161,13 @@ export default async function ConfirmarPage({
                 <Alert tone="info" icon={<InfoIcon />} size="sm">
                   Esta reserva usa tu crédito de recupero, que vence el{" "}
                   <span className="tnum font-medium">{creditExpiryLabel(makeupCreditExpiresOn)}</span>.
+                </Alert>
+              ) : null}
+              {/* ADR-0047: sólo para quien todavía no es cliente -- un `OK`
+                  normal es alguien que ya existía y no debe leer esto. */}
+              {canBook === "OK_OPEN_BOOKING" ? (
+                <Alert tone="info" icon={<InfoIcon />} size="sm">
+                  Vas a quedar registrado como cliente de {detail.organizationName} al confirmar.
                 </Alert>
               ) : null}
               <ConfirmForm slotOccurrenceId={slot} />

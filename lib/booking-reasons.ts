@@ -25,6 +25,19 @@ export const BOOKING_REASONS: Record<string, string> = {
     "Tu plan cubre menos horarios fijos por semana que los que tenés agendados. Para sumar este, cambiá de plan o liberá otro horario.",
   SERVICE_HAS_NO_PLAN:
     "Este servicio todavía no tiene precios publicados. Escribile al negocio: no es algo que puedas resolver vos.",
+
+  // ADR-0047: reserva abierta. Las primeras dos son de timing (nadie hizo
+  // nada mal, el tope es de la organización, no de esta persona); la
+  // tercera es accionable (escribirle al negocio); la cuarta tapa a
+  // propósito dos causas internas (tope de plan, suscripción inactiva) que
+  // nunca se le pueden mostrar en crudo a alguien sin cuenta todavía.
+  RATE_LIMITED_HOURLY:
+    "Hay demasiadas altas nuevas en este negocio en este momento. Probá de nuevo en un rato.",
+  RATE_LIMITED_DAILY:
+    "Se alcanzó el máximo de altas nuevas de hoy para este negocio. Probá de nuevo mañana.",
+  SELF_SERVICE_BOOKING_LIMIT_REACHED:
+    "Ya tenés el máximo de reservas propias permitidas sin ser cliente habilitado. Escribile al negocio para que te den de alta y puedas seguir reservando.",
+  ORGANIZATION_NOT_ACCEPTING_NEW_CUSTOMERS: "Este negocio no está aceptando clientes nuevos por ahora.",
 };
 
 /**
@@ -48,12 +61,19 @@ const NEUTRAL_REASONS = new Set([
   "OCCURRENCE_NOT_AVAILABLE",
   "ALREADY_BOOKED",
   "DUPLICATE",
+  // ADR-0047: topes de la organización, no de esta persona -- mismo
+  // bucket que SLOT_FULL, es timing, no algo que arreglar.
+  "RATE_LIMITED_HOURLY",
+  "RATE_LIMITED_DAILY",
 ]);
 
 const OWNER_FAULT_REASONS = new Set([
   "ORGANIZATION_INACTIVE",
   "SERVICE_INACTIVE",
   "SERVICE_HAS_NO_PLAN",
+  // ADR-0047: mensaje deliberadamente genérico que tapa tope de plan o
+  // suscripción inactiva -- mismo bucket que ORGANIZATION_INACTIVE.
+  "ORGANIZATION_NOT_ACCEPTING_NEW_CUSTOMERS",
 ]);
 
 export function bookingReasonTone(code: string): BookingReasonTone {

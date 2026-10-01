@@ -24,7 +24,9 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   const supabase = await createClient();
   const { data: makeupRow } = await supabase
     .from("organizations")
-    .select("makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days")
+    .select(
+      "makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days, open_booking_enabled",
+    )
     .eq("id", organization.id)
     .maybeSingle();
 
@@ -37,6 +39,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
     expiry: (makeupRow?.makeup_credit_expiry as MakeupCreditSettings["expiry"]) ?? "END_OF_MONTH",
     expiryDays: makeupRow?.makeup_credit_expiry_days ?? null,
   };
+
+  // ADR-0047: mismo motivo que el bloque de arriba -- `open_booking_enabled`
+  // tampoco está en el shape de `mapOrganization()`, default apagado si la
+  // fila no se pudo leer.
+  const openBookingEnabled = makeupRow?.open_booking_enabled ?? false;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-5 py-6">
@@ -73,6 +80,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         organizationSlug={slug}
         organization={organization}
         makeup={makeup}
+        openBookingEnabled={openBookingEnabled}
         canEdit={membership.role === "OWNER"}
       />
     </div>

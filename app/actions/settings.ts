@@ -91,6 +91,14 @@ export async function updateOrganizationSettings(
     }
   }
 
+  // ADR-0047: reserva abierta, mismo patrón opt-in que el crédito de
+  // recupero -- parche opcional vía `formData.has(...)` para no apagar la
+  // configuración de quien ya la tenía prendida si este formulario todavía
+  // no manda el campo.
+  if (formData.has("openBookingEnabled")) {
+    makeupPatch.open_booking_enabled = formData.get("openBookingEnabled") === "on";
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("organizations")

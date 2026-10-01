@@ -299,6 +299,11 @@ export async function getSlotDetail(slotOccurrenceId: string): Promise<SlotDetai
 
 export type CanBookResult =
   | "OK"
+  // ADR-0047: mismo "podés reservar" que `OK`, pero para alguien que nunca
+  // tuvo una fila en `customers` -- `book_slot()` la da de alta junto con
+  // la reserva, en la misma transacción. Separado de `OK` porque la UI sí
+  // tiene algo propio para decir acá (va a quedar registrado al confirmar).
+  | "OK_OPEN_BOOKING"
   | "AUTH_REQUIRED"
   | "NOT_A_CUSTOMER"
   | "ORGANIZATION_INACTIVE"
