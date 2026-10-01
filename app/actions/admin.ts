@@ -28,6 +28,10 @@ export interface AgendaOccurrence {
   capacity: number;
   confirmedCount: number;
   status: "ACTIVE" | "BLOCKED" | "CANCELLED";
+  /** ADR-0046: null when this occurrence's service has no active DROP_IN plan. */
+  dropInPlanId: string | null;
+  dropInPrice: number | null;
+  dropInCurrency: string | null;
 }
 
 export async function getAgenda(
@@ -60,6 +64,9 @@ export async function getAgenda(
       capacity: number;
       confirmed_count: number;
       status: AgendaOccurrence["status"];
+      drop_in_plan_id: string | null;
+      drop_in_price: number | null;
+      drop_in_currency: string | null;
     }) => ({
       id: row.id,
       serviceId: row.service_id,
@@ -71,6 +78,9 @@ export async function getAgenda(
       capacity: row.capacity,
       confirmedCount: row.confirmed_count,
       status: row.status,
+      dropInPlanId: row.drop_in_plan_id,
+      dropInPrice: row.drop_in_price !== null ? Number(row.drop_in_price) : null,
+      dropInCurrency: row.drop_in_currency,
     }),
   );
 }
@@ -126,6 +136,16 @@ export interface OccurrenceAttendee {
   attendanceStatus: "PENDING" | "PRESENT" | "ABSENT";
   attendanceMarkedAt: string | null;
   createdAt: string;
+  /**
+   * ADR-0046: true if this customer already has valid coverage (plan,
+   * DROP_IN payment, or makeup credit) for this turno. For a service with
+   * `payment_required=false` this is always true regardless of whether a
+   * drop-in was actually charged -- NOT the signal for "show the charge
+   * button", that's `paidPaymentId`.
+   */
+  isCovered: boolean;
+  /** Non-null exactly when a PAID Payment is already anchored to this customer for this occurrence -- the signal the charge-dropin button's visibility uses. */
+  paidPaymentId: string | null;
 }
 
 export async function getOccurrenceAttendees(
@@ -152,6 +172,8 @@ export async function getOccurrenceAttendees(
       attendance_status: OccurrenceAttendee["attendanceStatus"];
       attendance_marked_at: string | null;
       created_at: string;
+      is_covered: boolean;
+      paid_payment_id: string | null;
     }) => ({
       bookingId: row.booking_id,
       customerId: row.customer_id,
@@ -160,6 +182,8 @@ export async function getOccurrenceAttendees(
       attendanceStatus: row.attendance_status,
       attendanceMarkedAt: row.attendance_marked_at,
       createdAt: row.created_at,
+      isCovered: row.is_covered,
+      paidPaymentId: row.paid_payment_id,
     }),
   );
 }
@@ -520,6 +544,50 @@ export async function bookCustomerIntoSlot(
     error: null,
     success: makeupCreditId ? "Cliente anotado (con su crédito de recupero)" : "Cliente anotado",
   };
+}
+
+/** ADR-0046: cobro de turno suelto (DROP_IN) desde el mostrador -- cobra y, si hace falta, anota. */
+export async function chargeDropIn(
+  organizationSlug: string,
+  occurrenceId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireOrganizationMembership(organizationSlug);
+  const customerId = String(formData.get("customerId") ?? "");
+  if (!customerId) {
+    return { error: "Elegí un cliente", success: null };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("book_slot_paying", {
+    p_slot_occurrence_id: occurrenceId,
+    p_customer_id: customerId,
+  });
+
+  if (error) {
+    if (error.message.includes("BOOKING_RACE_LOST")) {
+      return { error: "Alguien se anotó justo antes en el último lugar. Probá de nuevo.", success: null };
+    }
+    return { error: describeError(error.message), success: null };
+  }
+
+  const status = (data as { status: string }).status;
+  if (status !== "OK") {
+    const reasons: Record<string, string> = {
+      OCCURRENCE_NOT_AVAILABLE: "Ese horario ya no está disponible",
+      CUSTOMER_NOT_IN_ORG: "Esa persona no es cliente de esta organización",
+      ALREADY_COVERED: "Ese cliente ya tiene este turno cubierto -- cobrar de nuevo sería un doble cobro",
+      SLOT_FULL: "El horario está completo",
+      NO_DROP_IN_PLAN: "Este servicio no tiene ningún plan de turno suelto activo",
+      ALREADY_PAID: "Ese turno ya se cobró (alguien más lo acaba de registrar)",
+      INVALID_AMOUNT: "El monto no es válido",
+    };
+    return { error: reasons[status] ?? "No se pudo cobrar el turno", success: null };
+  }
+
+  revalidatePath(`/org/${organizationSlug}/agenda`);
+  return { error: null, success: "Turno cobrado" };
 }
 
 export interface CustomerMakeupCredit {
