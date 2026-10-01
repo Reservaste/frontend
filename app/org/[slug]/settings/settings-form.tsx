@@ -30,12 +30,14 @@ export function SettingsForm({
   organization,
   makeup,
   openBookingEnabled: initialOpenBookingEnabled,
+  publicResourceNames: initialPublicResourceNames,
   canEdit,
 }: {
   organizationSlug: string;
   organization: Organization;
   makeup: MakeupCreditSettings;
   openBookingEnabled: boolean;
+  publicResourceNames: boolean;
   canEdit: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -55,6 +57,8 @@ export function SettingsForm({
   // poder mandar siempre "on"/"off" por el hidden de al lado, nunca un
   // checkbox pelado que desaparece del FormData al destildarse.
   const [openBookingEnabled, setOpenBookingEnabled] = useState(initialOpenBookingEnabled);
+  // ADR-0048: mismo patrón que `openBookingEnabled` arriba.
+  const [publicResourceNames, setPublicResourceNames] = useState(initialPublicResourceNames);
 
   return (
     <form action={formAction} className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-card">
@@ -237,6 +241,38 @@ export function SettingsForm({
               <span className="text-xs text-muted-foreground">
                 Al confirmar, queda registrada como cliente automáticamente. Tiene un tope de 2
                 reservas propias hasta que la organización la pase a cliente habilitado.
+              </span>
+            </span>
+          </label>
+        </div>
+
+        {/* ADR-0048: nombres de recurso en el calendario público, mismo
+            patrón que el bloque de reserva abierta de arriba -- opt-in,
+            apagado por default, porque el nombre de un recurso (si es una
+            persona) nunca salió por `anon` hasta ahora. */}
+        <div className="flex flex-col gap-3 border-t pt-4">
+          <div className="flex flex-col gap-0.5">
+            <h2 className="text-sm font-semibold">Nombres de recursos públicos</h2>
+            <p className="text-xs text-muted-foreground">
+              Mostrar en el calendario público con qué recurso es cada turno (por ejemplo, qué
+              profesional).
+            </p>
+          </div>
+
+          <input type="hidden" name="publicResourceNames" value={publicResourceNames ? "on" : "off"} />
+          <label className="flex w-full items-start gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-muted/50">
+            <input
+              type="checkbox"
+              checked={publicResourceNames}
+              disabled={!canEdit}
+              onChange={(event) => setPublicResourceNames(event.target.checked)}
+              className="focus-ring mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">Mostrar el nombre del recurso a quien reserva</span>
+              <span className="text-xs text-muted-foreground">
+                Si tus recursos son personas (profesionales, barberos), esto les deja elegir con
+                quién. Apagado, el calendario público no menciona ningún nombre.
               </span>
             </span>
           </label>
