@@ -1,19 +1,31 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import type { Resource } from "@reservaste/domain";
-import { archiveResource, updateResource, type CreateResourceState } from "@/app/actions/resources";
+import {
+  archiveResource,
+  updateResource,
+  type CreateResourceState,
+  type ResourceWithExclusive,
+} from "@/app/actions/resources";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Field, FormError } from "@/components/ui/form";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { DataListRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 const initialState: CreateResourceState = { error: null };
 
-export function ResourceRow({ organizationSlug, resource }: { organizationSlug: string; resource: Resource }) {
+export function ResourceRow({
+  organizationSlug,
+  resource,
+}: {
+  organizationSlug: string;
+  resource: ResourceWithExclusive;
+}) {
   const [editing, setEditing] = useState(false);
+  const [isExclusive, setIsExclusive] = useState(resource.isExclusive);
   const [state, formAction, pending] = useActionState(
     updateResource.bind(null, organizationSlug, resource.id),
     initialState,
@@ -46,12 +58,38 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
               />
             </Field>
           </div>
+
+          <input type="hidden" name="isExclusive" value={isExclusive ? "on" : "off"} />
+          <label className="flex w-full items-start gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-muted/50">
+            <input
+              type="checkbox"
+              checked={isExclusive}
+              onChange={(event) => setIsExclusive(event.target.checked)}
+              className="focus-ring mt-0.5 size-4 shrink-0 accent-primary"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-medium">Se ocupa de a uno (no admite turnos superpuestos)</span>
+              <span className="text-xs text-muted-foreground">
+                Para un profesional, una camilla o una cancha 1 a 1: nunca queda reservado dos veces a
+                la misma hora, aunque sea en servicios distintos.
+              </span>
+            </span>
+          </label>
+
           <FormError>{state.error}</FormError>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Guardando…" : "Guardar"}
             </Button>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setIsExclusive(resource.isExclusive);
+                setEditing(false);
+              }}
+            >
               Cancelar
             </Button>
             <span className="flex-1" />
@@ -83,7 +121,14 @@ export function ResourceRow({ organizationSlug, resource }: { organizationSlug: 
   return (
     <DataListRow className="flex items-center gap-2 px-4 py-3.5">
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{resource.name}</span>
+        <span className="flex items-center gap-2 truncate font-medium">
+          {resource.name}
+          {resource.isExclusive ? (
+            <Badge tone="neutral" variant="outline" className="shrink-0">
+              De a uno
+            </Badge>
+          ) : null}
+        </span>
         {resource.description ? (
           <span className="truncate text-sm text-muted-foreground">{resource.description}</span>
         ) : null}
