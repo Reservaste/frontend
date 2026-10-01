@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addDays,
   addMonths,
+  eventBlockLineVisibility,
   formatRangeLabel,
   hourBounds,
   isSameMonth,
@@ -186,5 +187,46 @@ describe("hourBounds", () => {
   it("never runs past the ends of the day", () => {
     expect(hourBounds([0, 23 * 60 + 59]).startHour).toBe(0);
     expect(hourBounds([0, 23 * 60 + 59]).endHour).toBe(24);
+  });
+});
+
+describe("eventBlockLineVisibility", () => {
+  it("shows everything when the caller doesn't pass a height", () => {
+    expect(eventBlockLineVisibility(undefined)).toEqual({ showTitle: true, showMeta: true });
+  });
+
+  it("shows all three lines at and above a 60-minute block (height 60)", () => {
+    // ScheduleCalendar's TimeGrid computes a block's height as
+    // `durationMinutes * (HOUR_HEIGHT / 60) - 4` with HOUR_HEIGHT = 64, so a
+    // 60-minute occurrence (the most common duration in the app) is
+    // exactly 60px -- the boundary this whole budget is built not to
+    // regress on.
+    expect(eventBlockLineVisibility(60)).toEqual({ showTitle: true, showMeta: true });
+    expect(eventBlockLineVisibility(90)).toEqual({ showTitle: true, showMeta: true });
+  });
+
+  it("drops the title but keeps the meta (occupancy count) line for a 45-minute block", () => {
+    // The exact case reported from a barbershop's back-to-back 45-minute
+    // schedule: height 44. Dropping the title outright, rather than
+    // rendering it squished, is the fix; keeping the meta line is the
+    // product requirement (the admin agenda can least afford to hide
+    // "ocupados / capacidad").
+    expect(eventBlockLineVisibility(44)).toEqual({ showTitle: false, showMeta: true });
+    expect(eventBlockLineVisibility(59)).toEqual({ showTitle: false, showMeta: true });
+  });
+
+  it("drops both lines for a 30-minute block, showing only the hour", () => {
+    expect(eventBlockLineVisibility(28)).toEqual({ showTitle: false, showMeta: false });
+  });
+
+  it("never hides the hour, even for a degenerate height below every threshold", () => {
+    expect(eventBlockLineVisibility(10)).toEqual({ showTitle: false, showMeta: false });
+  });
+
+  it("is a strict, non-overlapping staircase: showTitle implies showMeta", () => {
+    for (let height = 0; height <= 120; height += 1) {
+      const { showTitle, showMeta } = eventBlockLineVisibility(height);
+      if (showTitle) expect(showMeta).toBe(true);
+    }
   });
 });
