@@ -107,6 +107,11 @@ export async function updateOrganizationSettings(
     makeupPatch.public_resource_names = formData.get("publicResourceNames") === "on";
   }
 
+  // ADR-0049: `industry` es texto libre, sin CHECK, sólo para uso interno de
+  // la organización -- nunca se usa en ninguna lógica condicional del
+  // producto. String vacío se guarda como `null`, no como cadena vacía.
+  const industry = String(formData.get("industry") ?? "").trim() || null;
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("organizations")
@@ -114,6 +119,7 @@ export async function updateOrganizationSettings(
       name: String(formData.get("name") ?? organization.name),
       timezone: parsedTimezone.data,
       currency: parsedCurrency.data,
+      industry,
       public_availability_display: display,
       low_availability_percentage: percentage,
       low_availability_fixed_cap: fixedCapRaw ? Number(fixedCapRaw) : null,

@@ -31,6 +31,7 @@ export function SettingsForm({
   makeup,
   openBookingEnabled: initialOpenBookingEnabled,
   publicResourceNames: initialPublicResourceNames,
+  industry,
   canEdit,
 }: {
   organizationSlug: string;
@@ -38,6 +39,7 @@ export function SettingsForm({
   makeup: MakeupCreditSettings;
   openBookingEnabled: boolean;
   publicResourceNames: boolean;
+  industry: string | null;
   canEdit: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -88,6 +90,18 @@ export function SettingsForm({
           <FieldHint>
             Código de tres letras (UYU, ARS, USD). Es la moneda en la que se muestran
             los precios de todos tus planes y pagos.
+          </FieldHint>
+        </Field>
+
+        {/* ADR-0049: texto libre a propósito, nunca un `<Select>` con rubros
+            predefinidos -- es sólo descriptivo, no activa ni cambia ningún
+            comportamiento de la plataforma. */}
+        <Field>
+          <Label htmlFor="industry">Rubro</Label>
+          <Input id="industry" name="industry" defaultValue={industry ?? ""} />
+          <FieldHint>
+            Para tu propio uso interno -- nunca cambia cómo funciona la plataforma. Ej: gimnasio,
+            barbería, consultorio, cancha de pádel.
           </FieldHint>
         </Field>
 

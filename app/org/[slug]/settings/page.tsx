@@ -25,7 +25,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   const { data: makeupRow } = await supabase
     .from("organizations")
     .select(
-      "makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days, open_booking_enabled, public_resource_names",
+      "makeup_credits_enabled, release_deadline_hours, makeup_credit_expiry, makeup_credit_expiry_days, open_booking_enabled, public_resource_names, industry",
     )
     .eq("id", organization.id)
     .maybeSingle();
@@ -49,6 +49,11 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
   // shape de `mapOrganization()`, default apagado si la fila no se pudo
   // leer.
   const publicResourceNames = makeupRow?.public_resource_names ?? false;
+
+  // ADR-0049: `industry` tampoco está en el shape de `mapOrganization()` --
+  // es texto libre y sólo descriptivo, nunca se usa para decidir
+  // comportamiento.
+  const industry = makeupRow?.industry ?? null;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-5 py-6">
@@ -87,6 +92,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ slug:
         makeup={makeup}
         openBookingEnabled={openBookingEnabled}
         publicResourceNames={publicResourceNames}
+        industry={industry}
         canEdit={membership.role === "OWNER"}
       />
     </div>
