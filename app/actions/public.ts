@@ -22,7 +22,25 @@ export async function getPublicOrganization(slug: string) {
   return mapPublicOrganization(data);
 }
 
-export async function listPublicServices(organizationId: string) {
+/**
+ * ADR-0051: `services_public` gained `has_dynamic_resource` (true when the
+ * service has at least one `Resource` with `dynamic_availability` on). The
+ * @reservaste/domain package this frontend depends on (separate repo, git
+ * ref -- CLAUDE.md) hasn't been re-published with it yet, so it's hand-added
+ * here on top of `mapPublicService()` -- same pattern as resourceId/
+ * resourceName in `getPublicAvailability()` below.
+ */
+export type PublicServiceSummary = ReturnType<typeof mapPublicService> & {
+  hasDynamicResource: boolean;
+};
+
+function mapPublicServiceSummary(
+  row: Parameters<typeof mapPublicService>[0] & { has_dynamic_resource?: boolean | null },
+): PublicServiceSummary {
+  return { ...mapPublicService(row), hasDynamicResource: row.has_dynamic_resource ?? false };
+}
+
+export async function listPublicServices(organizationId: string): Promise<PublicServiceSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("services_public")
@@ -33,7 +51,32 @@ export async function listPublicServices(organizationId: string) {
     return [];
   }
 
-  return data.map(mapPublicService);
+  return data.map(mapPublicServiceSummary);
+}
+
+/**
+ * One public service by id, for a screen (ADR-0051's `/reservar-dinamico`)
+ * that already knows which service it's about instead of browsing the
+ * whole catalog. Same disclosure as `listPublicServices` (`services_public`,
+ * no RLS bypass) -- just narrowed server-side instead of filtered in JS.
+ */
+export async function getPublicService(
+  organizationId: string,
+  serviceId: string,
+): Promise<PublicServiceSummary | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("services_public")
+    .select("*")
+    .eq("organization_id", organizationId)
+    .eq("id", serviceId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapPublicServiceSummary(data);
 }
 
 export async function getPublicAvailability(

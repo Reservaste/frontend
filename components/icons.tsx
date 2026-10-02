@@ -5,6 +5,7 @@ import {
   Check,
   ChevronLeft as LucideChevronLeft,
   ChevronRight as LucideChevronRight,
+  Clock,
   Copy,
   CreditCard,
   Goal,
@@ -92,3 +93,5 @@ export const PhoneIcon = withDefaultSize(Phone);
 
 /** A single resource/person, as opposed to `UsersIcon` (a group). */
 export const UserIcon = withDefaultSize(User);
+/** A countdown or a time-bounded window (ADR-0051's hold TTL). */
+export const ClockIcon = withDefaultSize(Clock);

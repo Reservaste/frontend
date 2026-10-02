@@ -38,6 +38,14 @@ export const BOOKING_REASONS: Record<string, string> = {
   SELF_SERVICE_BOOKING_LIMIT_REACHED:
     "Ya tenés el máximo de reservas propias permitidas sin ser cliente habilitado. Escribile al negocio para que te den de alta y puedas seguir reservando.",
   ORGANIZATION_NOT_ACCEPTING_NEW_CUSTOMERS: "Este negocio no está aceptando clientes nuevos por ahora.",
+
+  // ADR-0051: disponibilidad dinámica (hold de 5 minutos antes de
+  // confirmar). Las tres son de timing o de un límite propio de la
+  // persona -- ninguna es culpa del negocio.
+  TOO_MANY_ACTIVE_HOLDS:
+    "Ya tenés varios horarios reservados temporalmente -- confirmá o esperá a que venzan antes de elegir otro.",
+  SLOT_NO_LONGER_AVAILABLE: "Ese horario se lo llevó otra persona mientras elegías.",
+  HOLD_NOT_FOUND: "Tu selección venció o ya no es válida -- elegí un horario de nuevo.",
 };
 
 /**
@@ -65,6 +73,10 @@ const NEUTRAL_REASONS = new Set([
   // bucket que SLOT_FULL, es timing, no algo que arreglar.
   "RATE_LIMITED_HOURLY",
   "RATE_LIMITED_DAILY",
+  // ADR-0051: alguien más se quedó con el horario, o la selección propia
+  // venció -- mismo bucket que SLOT_FULL, nadie hizo nada mal.
+  "SLOT_NO_LONGER_AVAILABLE",
+  "HOLD_NOT_FOUND",
 ]);
 
 const OWNER_FAULT_REASONS = new Set([

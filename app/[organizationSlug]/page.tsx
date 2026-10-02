@@ -45,6 +45,12 @@ export default async function PublicOrganizationPage({
   }
 
   const services = await listPublicServices(organization.id);
+  // ADR-0051: un servicio con recurso dinámico nunca tiene `SlotOccurrence`
+  // pre-generada, así que nunca aparece en `get_public_availability()` --
+  // necesita su propia entrada ("Ver horarios de X") en vez del calendario
+  // de grilla de siempre.
+  const dynamicServices = services.filter((service) => service.hasDynamicResource);
+  const regularServices = services.filter((service) => !service.hasDynamicResource);
 
   // Four weeks: enough to browse forward without a round trip per arrow,
   // and well inside the 90-day rolling window (ADR-0009).
@@ -159,11 +165,41 @@ export default async function PublicOrganizationPage({
             description="Este negocio aún no cargó lo que ofrece. Volvé a intentar más tarde."
           />
         ) : (
-          <PublicCalendar
-            organizationSlug={organizationSlug}
-            slots={slots}
-            timeZone={organization.timezone}
-          />
+          <>
+            {dynamicServices.length > 0 ? (
+              <section className="flex flex-col gap-2">
+                <h2 className="text-sm font-semibold text-muted-foreground">
+                  Elegí un servicio para ver sus horarios
+                </h2>
+                <div className="flex flex-col gap-2">
+                  {dynamicServices.map((service) => (
+                    <Link
+                      key={service.id}
+                      href={`/${organizationSlug}/reservar-dinamico/${service.id}`}
+                      className={buttonVariants({
+                        variant: "outline",
+                        size: "touch",
+                        className: "w-full justify-start",
+                      })}
+                    >
+                      Ver horarios de {service.name}
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            {/* Un negocio con todos sus servicios en recurso dinámico no
+                tiene ninguna `SlotOccurrence` pre-generada que mostrar --
+                el calendario de grilla quedaría siempre vacío. */}
+            {regularServices.length > 0 ? (
+              <PublicCalendar
+                organizationSlug={organizationSlug}
+                slots={slots}
+                timeZone={organization.timezone}
+              />
+            ) : null}
+          </>
         )}
       </main>
 
