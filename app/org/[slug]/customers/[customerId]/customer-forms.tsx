@@ -6,7 +6,7 @@ import type { Payment, Service, ServicePlan } from "@reservaste/domain";
 import type { ActionState, CustomerMakeupCredit } from "@/app/actions/admin";
 import type { PaymentPlanOption } from "@/app/actions/service-plans";
 import { grantManualMakeupCredit } from "@/app/actions/admin";
-import { registerPayment, voidPayment } from "@/app/actions/billing";
+import { registerPayment, upgradeCustomerPayment, voidPayment } from "@/app/actions/billing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { DataList, DataListRow } from "@/components/ui/table";
 import { formatMoney } from "@/lib/money";
 import { inclusiveDays, monthRange, round2 } from "@/lib/billing-period";
 import { planSummary } from "@/lib/plan-labels";
+import { canUpgradePayment, defaultEffectiveDate, upgradeCandidates } from "@/lib/plan-upgrade";
 import { formatPeriodRange, overlaps, periodNoun, suggestedAmount } from "@/lib/billing-blocks";
 
 const initialState: ActionState = { error: null, success: null };
@@ -551,6 +552,7 @@ export function PaymentList({
   plans,
   currency,
   canManage,
+  today,
 }: {
   organizationSlug: string;
   customerId: string;
@@ -561,6 +563,8 @@ export function PaymentList({
   currency: string;
   /** ADR-0033 `MANAGE_PAYMENTS`: without it the list is read-only (no "Anular"). */
   canManage: boolean;
+  /** Hoy en la zona horaria de la organización ("YYYY-MM-DD"): fecha efectiva por defecto del upgrade. */
+  today: string;
 }) {
   if (payments.length === 0) {
     return <EmptyState size="sm" title="Sin pagos registrados." />;
@@ -605,6 +609,15 @@ export function PaymentList({
                 ) : null}
               </div>
             </div>
+            {canManage && plan && canUpgradePayment(p, plan) ? (
+              <UpgradePaymentButton
+                organizationSlug={organizationSlug}
+                payment={p}
+                candidates={upgradeCandidates(plan, plans)}
+                today={today}
+                currency={currency}
+              />
+            ) : null}
             {canManage && p.status !== "VOID" ? (
               <form action={voidPayment.bind(null, organizationSlug, customerId, p.id)}>
                 <Button type="submit" variant="ghost" size="xs">
@@ -616,5 +629,125 @@ export function PaymentList({
         );
       })}
     </DataList>
+  );
+}
+
+/**
+ * ADR-0050 (Issue #4): "Hacer upgrade" sobre un pago PAID de período.
+ *
+ * Se ofrecen sólo los planes activos, de turnos fijos/libre, de mayor
+ * frecuencia y misma cobertura (`upgradeCandidates`); la RPC igual lo
+ * revalida. Renderiza el botón y, abierto, el formulario a lo ancho de la
+ * fila (`order-last`, debajo de las acciones). El monto vacío lo calcula el
+ * servidor.
+ */
+function UpgradePaymentButton({
+  organizationSlug,
+  payment,
+  candidates,
+  today,
+  currency,
+}: {
+  organizationSlug: string;
+  payment: Payment;
+  candidates: ServicePlan[];
+  today: string;
+  currency: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [state, formAction, pending] = useActionState(
+    upgradeCustomerPayment.bind(null, organizationSlug, payment.id),
+    initialState,
+  );
+
+  const done = state.success !== null && state.error === null;
+  const effectiveDefault = defaultEffectiveDate(today, payment.periodStart, payment.periodEnd);
+  // Primer día en que puede regir el plan nuevo: el segundo del período.
+  const minDate = defaultEffectiveDate(payment.periodStart, payment.periodStart, payment.periodEnd);
+
+  return (
+    <>
+      <Button type="button" variant="outline" size="xs" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        Hacer upgrade
+      </Button>
+      {open ? (
+        <form
+          action={formAction}
+          className="order-last flex w-full basis-full flex-col gap-3 rounded-lg border bg-muted/30 p-3"
+        >
+          {candidates.length === 0 ? (
+            <Alert tone="info" size="sm" title="No hay un plan de mayor frecuencia al que subir">
+              Para hacer un upgrade tiene que haber un plan activo de más turnos por semana (o libre) que cubra
+              los mismos servicios.
+            </Alert>
+          ) : (
+            <>
+              <p className="text-xs text-muted-foreground">
+                El pago actual se acorta hasta el día anterior a la fecha efectiva y se registra un pago nuevo
+                del plan elegido hasta el {payment.periodEnd}.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field className="sm:col-span-2">
+                  <Label htmlFor={`up-plan-${payment.id}`}>Plan nuevo</Label>
+                  <Select id={`up-plan-${payment.id}`} name="newPlanId" required defaultValue={candidates[0]!.id}>
+                    {candidates.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} · {planSummary(plan.planKind, plan.weeklyQuota)} ·{" "}
+                        {formatMoney(plan.price, currency)}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field>
+                  <Label htmlFor={`up-date-${payment.id}`}>Fecha efectiva</Label>
+                  <Input
+                    id={`up-date-${payment.id}`}
+                    name="effectiveDate"
+                    type="date"
+                    required
+                    min={minDate}
+                    max={payment.periodEnd}
+                    defaultValue={effectiveDefault}
+                  />
+                  <FieldHint>Desde ese día rige el plan nuevo (período {payment.periodStart} → {payment.periodEnd}).</FieldHint>
+                </Field>
+                <Field>
+                  <Label htmlFor={`up-amount-${payment.id}`}>Monto (opcional)</Label>
+                  <Input
+                    id={`up-amount-${payment.id}`}
+                    name="amount"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Se calcula solo"
+                  />
+                  <FieldHint>
+                    Si lo dejás vacío, se calcula proporcional a las sesiones restantes.
+                  </FieldHint>
+                </Field>
+                <Field className="sm:col-span-2">
+                  <Label htmlFor={`up-notes-${payment.id}`}>Nota (opcional)</Label>
+                  <Input id={`up-notes-${payment.id}`} name="notes" maxLength={200} />
+                </Field>
+              </div>
+            </>
+          )}
+
+          <FormError>{state.error}</FormError>
+          <FormSuccess>{state.success}</FormSuccess>
+
+          <div className="flex gap-2">
+            {candidates.length > 0 && !done ? (
+              <Button type="submit" size="sm" disabled={pending}>
+                {pending ? "Haciendo upgrade…" : "Confirmar upgrade"}
+              </Button>
+            ) : null}
+            <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              {done ? "Cerrar" : "Cancelar"}
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </>
   );
 }

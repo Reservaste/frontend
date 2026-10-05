@@ -18,7 +18,7 @@ import { StatusBadge } from "@/components/status";
 import { StandingPendingBadges, StandingPendingNotes } from "@/components/standing-pending";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { EmptyState } from "@/components/ui/empty-state";
-import { WEEKDAY_LONG } from "@/lib/calendar";
+import { WEEKDAY_LONG, todayKey } from "@/lib/calendar";
 import { QUOTA_SCOPE_LABEL } from "@/lib/plan-labels";
 import { groupStandingReservationsByService, quotaBadgeFor } from "@/lib/standing-quota";
 import { MakeupCreditsPanel, PaymentList, RegisterPaymentForm } from "./customer-forms";
@@ -155,6 +155,7 @@ export default async function CustomerDetailPage({
             plans={allPlans}
             currency={organization.currency}
             canManage={canManagePayments}
+            today={todayKey(organization.timezone)}
           />
           {canManagePayments ? (
             <RegisterPaymentForm
