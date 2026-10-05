@@ -220,6 +220,38 @@ export async function getCustomers(organizationSlug: string): Promise<Organizati
   );
 }
 
+export interface CustomerContact {
+  email: string | null;
+  phone: string | null;
+}
+
+/**
+ * ADR-0050: correo y teléfono de un cliente, sólo para el equipo de su
+ * organización. La RPC resuelve la organización desde el cliente y devuelve
+ * 0 filas si el llamador no es miembro del equipo; en ese caso (o ante un
+ * error) se devuelve vacío -- nunca se inventa un dato.
+ */
+export async function getCustomerContact(
+  organizationSlug: string,
+  customerId: string,
+): Promise<CustomerContact> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.rpc("customer_contact", {
+    p_customer_id: customerId,
+  });
+  if (error) {
+    // Sólo el código/mensaje del error, nunca datos de contacto.
+    console.error("customer_contact failed", error.code, error.message);
+    return { email: null, phone: null };
+  }
+  if (!data || data.length === 0) return { email: null, phone: null };
+
+  const row = data[0] as { email: string | null; phone: string | null };
+  return { email: row.email?.trim() || null, phone: row.phone?.trim() || null };
+}
+
 /** ADR-0026: alta de un cliente sin cuenta (nombre + teléfono). */
 /**
  * `whatsappUrl` set means: skip the trip through the customer's own page
