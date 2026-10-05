@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import { hasOrgPermission } from "@reservaste/domain";
 import { requireOrganizationMembership } from "@/app/actions/organizations";
-import { getCustomerActivationStatus, getCustomerMakeupCredits, getCustomers } from "@/app/actions/admin";
+import {
+  getCustomerActivationStatus,
+  getCustomerContact,
+  getCustomerMakeupCredits,
+  getCustomers,
+} from "@/app/actions/admin";
 import { getCustomerPayments } from "@/app/actions/billing";
 import { listServices } from "@/app/actions/services";
 import {
@@ -9,7 +14,6 @@ import {
   listPaymentPlanOptions,
 } from "@/app/actions/service-plans";
 import { getCustomerServicePlanQuotas, getCustomerStandingReservations } from "@/app/actions/standing";
-import { createClient } from "@/lib/supabase/server";
 import { StatusBadge } from "@/components/status";
 import { StandingPendingBadges, StandingPendingNotes } from "@/components/standing-pending";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -34,9 +38,11 @@ export default async function CustomerDetailPage({
   const canManagePayments = hasOrgPermission(permissions, "MANAGE_PAYMENTS");
   const canManageCustomers = hasOrgPermission(permissions, "MANAGE_CUSTOMERS");
 
-  const [customers, services, payments, planOptions, allPlans, makeupCredits, standingReservations, planQuotas] =
+  const [customers, contact, services, payments, planOptions, allPlans, makeupCredits, standingReservations, planQuotas] =
     await Promise.all([
       getCustomers(slug),
+      // ADR-0050: correo y teléfono, sólo en la ficha (no en el listado).
+      getCustomerContact(slug, customerId),
       listServices(slug),
       canViewPayments ? getCustomerPayments(slug, customerId) : Promise.resolve([]),
       // What can be charged today (ADR-0024), and every plan ever offered,
@@ -59,22 +65,16 @@ export default async function CustomerDetailPage({
   }
 
   // ADR-0026: only a managed customer (no profileId) can have an
-  // activation to manage. Phone isn't part of organization_customers()'s
-  // shape, so it's read directly -- customers_select_self_or_staff (Phase
-  // 1) already lets any member of this organization read this row.
+  // activation to manage. The phone comes from customer_contact() (ADR-0050).
   let activationPanel: React.ReactNode = null;
   if (customer.profileId === null && canManageCustomers) {
-    const supabase = await createClient();
-    const [{ data: customerRow }, activationStatus] = await Promise.all([
-      supabase.from("customers").select("phone").eq("id", customerId).maybeSingle(),
-      getCustomerActivationStatus(slug, customerId),
-    ]);
+    const activationStatus = await getCustomerActivationStatus(slug, customerId);
 
     activationPanel = (
       <ActivationPanel
         organizationSlug={slug}
         customerId={customerId}
-        phone={(customerRow?.phone as string | null) ?? null}
+        phone={contact.phone}
         initialStatus={activationStatus}
       />
     );
@@ -109,6 +109,38 @@ export default async function CustomerDetailPage({
           </StatusBadge>
         </div>
       </div>
+
+      <section className="flex flex-col gap-2" aria-labelledby="customer-contact-heading">
+        <h2 id="customer-contact-heading" className="text-sm font-semibold">
+          Contacto
+        </h2>
+        <dl className="flex flex-col gap-1 text-sm">
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Correo:</dt>
+            <dd>
+              {contact.email ? (
+                <a href={`mailto:${contact.email}`} className="underline underline-offset-2">
+                  {contact.email}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Sin correo</span>
+              )}
+            </dd>
+          </div>
+          <div className="flex flex-wrap gap-x-2">
+            <dt className="text-muted-foreground">Teléfono:</dt>
+            <dd>
+              {contact.phone ? (
+                <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} className="underline underline-offset-2">
+                  {contact.phone}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Sin teléfono</span>
+              )}
+            </dd>
+          </div>
+        </dl>
+      </section>
 
       {activationPanel}
 
