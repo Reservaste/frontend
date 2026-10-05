@@ -180,7 +180,7 @@ export async function getMyPlanChangeRequests(): Promise<MyPlanChangeRequest[]> 
 export async function listPlanChangeRequests(
   organizationSlug: string,
   includeResolved = false,
-): Promise<PlanChangeRequest[]> {
+): Promise<{ requests: PlanChangeRequest[]; error: string | null }> {
   const { organization } = await requireOrganizationMembership(organizationSlug);
   const supabase = await createClient();
 
@@ -189,9 +189,14 @@ export async function listPlanChangeRequests(
     p_include_resolved: includeResolved,
   });
 
-  if (error || !data) return [];
+  if (error || !data) {
+    return {
+      requests: [],
+      error: "No pudimos cargar los pedidos de cambio de plan. Probá recargar la página.",
+    };
+  }
 
-  return data.map(
+  const requests: PlanChangeRequest[] = data.map(
     (row: {
       request_id: string;
       customer_id: string;
@@ -228,6 +233,8 @@ export async function listPlanChangeRequests(
       resolvedAt: row.resolved_at,
     }),
   );
+
+  return { requests, error: null };
 }
 
 /**
@@ -252,5 +259,6 @@ export async function resolvePlanChangeRequest(
   });
 
   revalidatePath(`/org/${organizationSlug}/plans`);
+  revalidatePath(`/org/${organizationSlug}/payments`);
   revalidatePath(`/org/${organizationSlug}`, "layout");
 }
