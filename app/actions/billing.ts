@@ -7,6 +7,7 @@ import { requireOrganizationMembership } from "@/app/actions/organizations";
 import type { ActionState } from "@/app/actions/admin";
 import { monthRange } from "@/lib/billing-period";
 import { formatPeriodRange, overlaps } from "@/lib/billing-blocks";
+import { upgradeErrorMessage } from "@/lib/plan-upgrade";
 
 // Payments are plain table writes (RLS gates them to org members) rather
 // than RPCs: unlike booking, there is no concurrency requirement -- this
@@ -189,4 +190,62 @@ export async function voidPayment(
   // Never deleted -- the schema has no DELETE policy for payments.
   await supabase.from("payments").update({ status: "VOID" }).eq("id", paymentId);
   revalidatePath(`/org/${organizationSlug}/customers/${customerId}`);
+}
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * ADR-0050 (Issue #4): upgrade de plan a mitad de período. Una RPC atómica
+ * acorta el pago viejo y cobra el nuevo; acá sólo se validan las entradas y
+ * se traducen los errores. Quién puede (MANAGE_PAYMENTS), a qué plan y en
+ * qué fechas lo decide `admin_upgrade_payment`, no esta capa.
+ */
+export async function upgradeCustomerPayment(
+  organizationSlug: string,
+  paymentId: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireOrganizationMembership(organizationSlug);
+  const supabase = await createClient();
+
+  const newPlanId = String(formData.get("newPlanId") ?? "");
+  const effectiveDate = String(formData.get("effectiveDate") ?? "");
+  const amountRaw = String(formData.get("amount") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!UUID.test(newPlanId)) {
+    return { error: "Elegí el plan al que pasa el cliente", success: null };
+  }
+  if (!ISO_DATE.test(effectiveDate)) {
+    return { error: "Elegí la fecha desde la que rige el plan nuevo", success: null };
+  }
+
+  // Vacío = que calcule el servidor (proporcional a las sesiones restantes).
+  let amount: number | null = null;
+  if (amountRaw) {
+    amount = Number(amountRaw.replace(",", "."));
+    if (!Number.isFinite(amount) || amount < 0) {
+      return { error: "El monto tiene que ser un número mayor o igual a 0", success: null };
+    }
+  }
+
+  const { error } = await supabase.rpc("admin_upgrade_payment", {
+    p_payment_id: paymentId,
+    p_new_plan_id: newPlanId,
+    p_effective_date: effectiveDate,
+    p_amount: amount,
+    p_notes: notes || null,
+  });
+
+  if (error) {
+    return { error: upgradeErrorMessage(error.message), success: null };
+  }
+
+  revalidatePath(`/org/${organizationSlug}`, "layout");
+  return {
+    error: null,
+    success: `Upgrade hecho: el plan nuevo rige desde el ${effectiveDate}`,
+  };
 }
