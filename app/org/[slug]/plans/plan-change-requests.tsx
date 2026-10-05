@@ -3,6 +3,7 @@ import {
   resolvePlanChangeRequest,
   type PlanChangeRequest,
 } from "@/app/actions/plan-changes";
+import { Alert } from "@/components/ui/alert";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { DataList, DataListRow } from "@/components/ui/table";
 import { StatusBadge } from "@/components/status";
@@ -27,13 +28,23 @@ export function PlanChangeRequests({
   requests,
   timezone,
   canResolve,
+  error = null,
 }: {
   organizationSlug: string;
   requests: PlanChangeRequest[];
   timezone: string;
   /** ADR-0033 `MANAGE_PAYMENTS`: without it the queue is read-only. */
   canResolve: boolean;
+  /** La lectura falló: se muestra la alerta en vez de ocultar la cola. */
+  error?: string | null;
 }) {
+  if (error) {
+    return (
+      <Alert tone="danger" title="No pudimos cargar los pedidos de cambio de plan">
+        {error}
+      </Alert>
+    );
+  }
   if (requests.length === 0) return null;
 
   const dateFormatter = new Intl.DateTimeFormat("es-UY", {

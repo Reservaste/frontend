@@ -46,12 +46,12 @@ export default async function PlansPage({
   const canViewPayments = hasOrgPermission(permissions, "VIEW_PAYMENTS");
   const canManagePayments = hasOrgPermission(permissions, "MANAGE_PAYMENTS");
 
-  const [services, result, planChangeRequests] = await Promise.all([
+  const [services, result, planChanges] = await Promise.all([
     listServices(slug),
     listServicePlans(slug),
     // Sólo los pendientes: un pedido cobrado se cierra solo por trigger
     // (ADR-0035), así que esta lista es trabajo real, no historial.
-    canViewPayments ? listPlanChangeRequests(slug) : Promise.resolve([]),
+    canViewPayments ? listPlanChangeRequests(slug) : Promise.resolve({ requests: [], error: null }),
   ]);
 
   // Same rule the service's payment configuration already had: staff run
@@ -79,7 +79,8 @@ export default async function PlansPage({
           espera una respuesta de alguien. */}
       <PlanChangeRequests
         organizationSlug={slug}
-        requests={planChangeRequests}
+        requests={planChanges.requests}
+        error={planChanges.error}
         timezone={organization.timezone}
         canResolve={canManagePayments}
       />
